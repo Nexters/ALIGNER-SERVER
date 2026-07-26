@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 협업 규칙 (브랜치·커밋·PR)
+    url: https://github.com/Nexters/ALIGNER-SERVER/blob/develop/CONTRIBUTING.md
+    about: 브랜치 이름, 커밋 컨벤션, PR 규칙을 확인하세요.
+  - name: 프로젝트 컨텍스트 (도메인 용어·MVP 범위)
+    url: https://github.com/Nexters/ALIGNER-SERVER/blob/develop/AGENTS.md
+    about: 도메인 용어집과 MVP 구현 범위를 확인하세요.

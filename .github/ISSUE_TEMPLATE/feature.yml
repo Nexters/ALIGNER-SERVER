@@ -1,0 +1,43 @@
+name: 기능 개발
+description: 새로운 기능을 개발합니다.
+title: "[FEAT] "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 배경 및 목적
+      description: 왜 필요한 기능인지, 어떤 문제를 해결하는지 적어주세요.
+      placeholder: |
+        예) 온보딩에서 부위를 선택한 뒤 자가 스크리닝 문항을 받아야 원인 판별로 넘어갈 수 있다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: todo
+    attributes:
+      label: 작업 내용
+      description: 체크리스트로 나눠서 적어주세요.
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 완료 조건
+      description: 무엇이 되면 이 이슈를 닫을 수 있나요?
+      placeholder: |
+        예) GET /screenings?bodyPart=NECK 호출 시 해당 부위의 관찰형 문항이 내려온다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: 참고 자료
+      description: 관련 이슈, 기획 문서, 디자인 링크 등이 있다면 남겨주세요.
+    validations:
+      required: false
