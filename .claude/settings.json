@@ -33,8 +33,7 @@
       "Bash(rg:*)",
       "Bash(fd:*)",
       "Bash(ls:*)",
-      "Bash(tree:*)",
-      "Read(//Users/hyuk/Desktop/공부/프로젝트/넥스터즈/ALIGNER-SERVER/**)"
+      "Bash(tree:*)"
     ],
     "deny": [
       "Bash(git reset --hard:*)",
