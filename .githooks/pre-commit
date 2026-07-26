@@ -1,0 +1,99 @@
+#!/bin/sh
+# Aligner pre-commit 훅
+#
+# CONTRIBUTING.md §8 "하지 말 것"을 커밋 시점에 강제한다.
+# 에이전트가 확인 없이 커밋할 수 있게 열어둔 만큼, 되돌리기 비싼 사고는 여기서 막는다.
+#
+# 설치:  git config core.hooksPath .githooks
+# 우회:  SKIP_HOOKS=1 git commit ...   (정말 필요할 때만)
+
+set -e
+
+if [ "${SKIP_HOOKS:-}" = "1" ]; then
+    echo "pre-commit: SKIP_HOOKS=1 — 건너뜁니다."
+    exit 0
+fi
+
+RED=$(printf '\033[31m')
+YELLOW=$(printf '\033[33m')
+RESET=$(printf '\033[0m')
+
+fail() {
+    printf '%s✗ pre-commit 차단%s\n%s\n' "$RED" "$RESET" "$1" >&2
+    exit 1
+}
+
+# ── 1. 보호 브랜치 직접 커밋 차단 ────────────────────────────────
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+case "$branch" in
+    main|develop)
+        fail "현재 브랜치가 '$branch' 입니다. 직접 커밋할 수 없습니다.
+
+  작업 브랜치를 만들고 develop 으로 PR 을 올리세요.
+    git switch -c feature/<이슈번호>-<한글-제목> origin/develop
+
+  CONTRIBUTING.md 8. 하지 말 것"
+        ;;
+esac
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+# ── 2. 커밋하면 안 되는 파일 ─────────────────────────────────────
+blocked=$(printf '%s\n' "$staged" | grep -E '(^|/)\.env($|\.)|\.(key|jks|p12|pem)$|application-local\.yml$|application-secret.*\.yml$' | grep -v '\.env\.example$' || true)
+if [ -n "$blocked" ]; then
+    fail "시크릿 파일이 스테이징됐습니다.
+
+$(printf '%s\n' "$blocked" | sed 's/^/    /')
+
+  git restore --staged <파일> 로 빼세요.
+  이미 푸시했다면 히스토리 정리보다 키 재발급이 먼저입니다.
+
+  CONTRIBUTING.md 8. 하지 말 것"
+fi
+
+# ── 3. 스테이징된 내용의 시크릿 값 ───────────────────────────────
+# 값이 비었거나 ${ENV} 참조·플레이스홀더인 것은 통과시킨다.
+# 파일 목록을 pathspec 으로 넘기지 않는다 — 공백이 든 파일명이 쪼개져 스캔에서 조용히 빠진다.
+# --cached --diff-filter=ACM 만으로 이미 $staged 와 같은 범위다.
+secrets=$(git diff --cached -U0 --diff-filter=ACM \
+    | grep -E '^\+' \
+    | grep -viE '^\+\+\+' \
+    | grep -iE '(password|secret|token|api[_-]?key|client[_-]?secret|private[_-]?key)[[:space:]]*[:=][[:space:]]*["'"'"']?[^"'"'"'[:space:]]{8,}' \
+    | grep -vE '\$\{[A-Z_]+' \
+    | grep -viE '(changeme|your[_-]?|example|placeholder|xxx+|\*\*\*|dummy|<[a-z_]+>)' \
+    || true)
+if [ -n "$secrets" ]; then
+    fail "시크릿으로 보이는 값이 있습니다.
+
+$(printf '%s\n' "$secrets" | head -10 | sed 's/^/    /')
+
+  application.yml 에는 \${DB_PASSWORD} 처럼 참조만 두고 기본값을 박지 않습니다.
+  오탐이면 SKIP_HOOKS=1 git commit ... 으로 넘기세요.
+
+  CONTRIBUTING.md 8. 하지 말 것"
+fi
+
+# ── 4. 충돌 마커 ─────────────────────────────────────────────────
+conflicts=$(git diff --cached --check 2>&1 | grep -i 'conflict' || true)
+if [ -n "$conflicts" ]; then
+    fail "충돌 마커가 남아 있습니다.
+
+$(printf '%s\n' "$conflicts" | sed 's/^/    /')"
+fi
+
+# ── 5. ktlint (Kotlin 변경이 있을 때만) ──────────────────────────
+kotlin=$(printf '%s\n' "$staged" | grep -E '\.(kt|kts)$' || true)
+if [ -n "$kotlin" ] && [ -x ./gradlew ]; then
+    echo "pre-commit: ktlintCheck 실행 중..."
+    if ! ./gradlew ktlintCheck --quiet --console=plain; then
+        fail "ktlint 검사 실패.
+
+  ./gradlew ktlintFormat 으로 고친 뒤 다시 스테이징하세요.
+  포맷은 도구에 위임합니다 (CONTRIBUTING.md 9. 코드 규칙)."
+    fi
+elif [ -n "$kotlin" ]; then
+    printf '%s⚠ gradlew 가 없어 ktlintCheck 를 건너뜁니다.%s\n' "$YELLOW" "$RESET"
+fi
+
+exit 0

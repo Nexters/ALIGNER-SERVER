@@ -1,0 +1,64 @@
+#!/bin/sh
+# Aligner commit-msg 훅
+#
+# CONTRIBUTING.md §2 커밋 컨벤션을 강제한다.
+# 커밋 메시지는 pre-commit 시점에 존재하지 않으므로 여기가 검사 자리다.
+#
+# 설치:  git config core.hooksPath .githooks
+# 우회:  SKIP_HOOKS=1 git commit ...
+
+set -e
+
+if [ "${SKIP_HOOKS:-}" = "1" ]; then
+    exit 0
+fi
+
+RED=$(printf '\033[31m')
+RESET=$(printf '\033[0m')
+
+msg_file="$1"
+subject=$(head -1 "$msg_file")
+
+# merge·revert·fixup 커밋은 형식이 다르다
+case "$subject" in
+    "Merge "*|"Revert "*|"fixup!"*|"squash!"*|"#"*) exit 0 ;;
+esac
+
+fail() {
+    printf '%s✗ commit-msg 차단%s\n%s\n\n제목: %s\n' "$RED" "$RESET" "$1" "$subject" >&2
+    exit 1
+}
+
+# ── 1. <type>: <요약> 형식 ───────────────────────────────────────
+if ! printf '%s' "$subject" | grep -qE '^(feat|fix|refactor|test|docs|chore|ci|style|perf): .+'; then
+    fail "커밋 메시지가 '<type>: <한글 요약>' 형식이 아닙니다.
+
+  type: feat fix refactor test docs chore ci style perf
+  예:   feat: 카카오 소셜 로그인 API 추가
+
+  주의: 브랜치 접두사는 feature/, 커밋 타입은 feat 입니다.
+
+  CONTRIBUTING.md 2. 커밋 컨벤션"
+fi
+
+# ── 2. 마침표로 끝나지 않는다 ────────────────────────────────────
+case "$subject" in
+    *.) fail "제목은 마침표 없이 끝냅니다. (CONTRIBUTING.md 2)" ;;
+esac
+
+# ── 3. 한글 요약 ─────────────────────────────────────────────────
+summary=${subject#*: }
+if ! printf '%s' "$summary" | grep -qE '[가-힣]'; then
+    fail "제목 요약은 한글로 씁니다. 팀 전원이 한국어 사용자입니다.
+
+  예: feat: 카카오 소셜 로그인 API 추가
+
+  CONTRIBUTING.md 9. 코드 규칙"
+fi
+
+# ── 4. 길이 ──────────────────────────────────────────────────────
+if [ "${#subject}" -gt 72 ]; then
+    fail "제목이 ${#subject}자입니다. 72자 이내로 줄이고 상세는 본문에 쓰세요."
+fi
+
+exit 0
