@@ -279,6 +279,7 @@ CI가 없는 동안에는 **PR 체크리스트의 "로컬에서 빌드와 테스
 
 | 알고 싶은 것 | 문서 |
 | --- | --- |
+| 처음 클론했을 때 무엇부터 하는가 | [README.md](./README.md) |
 | 브랜치·커밋·PR·리뷰·저장소 설정 | 이 문서 |
 | 코드를 어느 모듈에 놓는가, 계층 규칙 | [`docs/architecture.md`](./docs/architecture.md) |
 | 도메인 용어, MVP 범위, 기술 스택 | [AGENTS.md](./AGENTS.md) |
