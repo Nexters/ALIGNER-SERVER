@@ -33,7 +33,9 @@ body:
     id: actual
     attributes:
       label: 실제 동작
-      description: 에러 로그나 응답 본문이 있다면 함께 붙여주세요.
+      description: >
+        에러 로그나 응답 본문이 있다면 함께 붙여주세요.
+        토큰·비밀번호·개인정보는 반드시 마스킹하고 올려주세요.
     validations:
       required: true
 

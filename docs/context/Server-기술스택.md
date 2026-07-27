@@ -1,3 +1,17 @@
+> ⚠️ **이 문서는 기술 스택 논의 원본 기록이다. 현재 결정이 아니다.**
+>
+> 아래 항목은 2026-07-25에 **폐기됐다.** 이 문서를 근거로 구현하지 않는다.
+>
+> | 이 문서 | 현재 결정 |
+> | --- | --- |
+> | JPA / QueryDSL | **Spring Data JDBC** (JPA·QueryDSL·Exposed 모두 탈락) |
+> | 모듈별 배포 단위 + gRPC | **Hexagonal Modular Monolith**, 단일 배포 단위 |
+>
+> 정본은 [`AGENTS.md` §4](../../AGENTS.md)와 [`docs/architecture.md`](../architecture.md) §1–3이다.
+> 원본으로서의 가치를 위해 본문은 작성 당시 그대로 둔다.
+
+---
+
 ## 목표
 
 - MVP에 대응하는 올바른 동작을 제공하는 서버를 구축한다.

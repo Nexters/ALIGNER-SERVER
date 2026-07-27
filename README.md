@@ -26,17 +26,19 @@ git config core.hooksPath .githooks
 | `pre-commit` | `main`·`develop` 직접 커밋, 시크릿 파일·값, 충돌 마커, ktlint 실패 |
 | `commit-msg` | `<type>: <한글 요약>` 형식, 마침표, 영문 요약, 72자 초과 |
 
-### 2. 빌드
+### 2. 빌드 — **아직 없습니다**
+
+> ⚠️ 현재 저장소에는 아키텍처 결정과 협업 규칙만 있습니다. `gradlew`가 없으므로
+> 아래 명령은 **아직 실행되지 않습니다.** 빌드 기반(`build-logic`, `support-core`,
+> `support-web`, `application-api`) 구축이 다음 작업입니다.
+
+빌드 기반이 들어오면 다음 명령을 씁니다.
 
 ```bash
 ./gradlew build            # 빌드 + 단위 테스트
 ./gradlew ktlintCheck      # 린트
 ./gradlew integrationTest  # 통합 테스트 (Docker 필요 — TestContainers)
 ```
-
-> ⚠️ **아직 Gradle 프로젝트가 아닙니다.** 현재 저장소에는 아키텍처 결정과 협업 규칙만
-> 있습니다. 빌드 기반(`build-logic`, `support-core`, `support-web`, `application-api`)
-> 구축이 다음 작업입니다.
 
 ---
 
@@ -107,7 +109,8 @@ api ──→ service ──→ infrastructure(port) ←── repository-jdbc
 
 정본은 [CONTRIBUTING.md](./CONTRIBUTING.md)입니다. 요약하면:
 
-- **브랜치** — `main` ← `develop` ← `feature/*`. 이름은 `<타입>/<이슈번호>-<한글-제목>`
+- **브랜치** — `main` ← `develop` ← `feature/*` · `fix/*` · `refactor/*`.
+  이름은 `<타입>/<이슈번호>-<한글-제목>`
 - **커밋** — 한글, `<type>: <요약>`. 브랜치 접두사는 `feature/`, 커밋 타입은 `feat`입니다
 - **PR** — 대상은 항상 `develop`, draft로 열고 작성자가 직접 해제, 병합은 Squash and merge
 - **리뷰** — 하루 안에 응답. `[필수]` / `[제안]` / `[질문]`로 구분.
