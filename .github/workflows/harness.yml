@@ -43,10 +43,10 @@ jobs:
           fi
 
       # 의존성 설치 단계가 없는 것은 의도적이다. 생성기는 표준 라이브러리만 쓴다.
-      - name: 테스트
+      - name: 생성기 단위·왕복 테스트
         run: python3 -m unittest discover -s tests/harness -v
 
-      - name: 생성 후 원본과 일치하는지 검사
+      - name: 실제 사용 경로 생성·검증
         run: |
           python3 scripts/harness/generate.py
           python3 scripts/harness/validate.py

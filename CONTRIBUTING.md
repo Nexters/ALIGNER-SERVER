@@ -226,7 +226,23 @@ Squash 하나만 켜두면 실수로 다른 방식이 선택될 일이 없습니
 
 ## 7. CI
 
-GitHub Actions로 **PR마다 다음을 돌립니다.**
+GitHub Actions는 하네스와 Gradle 검증을 분리해 실행합니다.
+
+### 하네스
+
+`.github/workflows/harness.yml`은 하네스 원본·생성기·테스트가 바뀐 PR에서 다음을 실행합니다.
+
+- Python bytecode와 생성물 추적 금지
+- 생성기 단위·왕복 테스트
+- 깨끗한 checkout과 같은 상태에서 `generate.py` 실행 후 `validate.py` 검증
+
+생성물은 Git에 올리지 않으므로, CI가 생성한 결과를 검증할 뿐 diff나 커밋을 요구하지 않습니다.
+
+### Gradle
+
+`.github/workflows/gradle.yml`은 모든 PR과 `main`·`develop` push에서 Gradle 프로젝트를 검증합니다.
+현재는 `gradlew`와 Kotlin/Gradle 소스가 없는 초기 단계라 명시적으로 건너뜁니다. 이후 소스나
+Gradle 파일을 추가하면서 wrapper를 누락하면 CI가 실패합니다. wrapper가 존재하면 다음을 실행합니다.
 
 | 검사 | 명령 | 실패 시 |
 | --- | --- | --- |
@@ -234,7 +250,7 @@ GitHub Actions로 **PR마다 다음을 돌립니다.**
 | 린트 | `./gradlew ktlintCheck` | 병합 불가 |
 | 통합 테스트 | `./gradlew integrationTest` | 병합 불가 (Docker 필요) |
 
-- 대상 브랜치는 `develop`, `main`입니다.
+- 대상 브랜치는 모든 PR 및 `develop`, `main`입니다.
 - 통합 테스트는 TestContainers를 쓰므로 러너에 Docker가 필요합니다. GitHub 호스티드
   `ubuntu-latest`에는 기본 포함돼 있습니다.
 - Gradle 캐시를 걸어 시간을 줄입니다.

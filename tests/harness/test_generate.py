@@ -1,10 +1,7 @@
-"""생성기 테스트 — 원본 파싱, capability 매핑, 생성물 drift.
-
-가장 중요한 것은 test_생성물이_원본과_일치한다 다. 이게 깨졌다는 건
-누군가 .claude/ 를 직접 고쳤거나 harness/ 를 고치고 다시 생성하지 않았다는 뜻이다.
-"""
+"""생성기 테스트 — 원본 파싱, capability 매핑, 생성·검증 왕복."""
 
 import json
+import shutil
 import sys
 import tempfile
 import tomllib
@@ -110,11 +107,21 @@ class 원본규약(unittest.TestCase):
 
 
 class 생성물(unittest.TestCase):
-    def test_생성물이_원본과_일치한다(self):
-        """drift 검사. 실패하면 generate.py 를 돌리고 결과를 커밋해야 한다."""
-        files, roots = validate.build(warn=lambda message: None)
-        problems = validate.check_generated(files, roots)
-        self.assertEqual([], problems, "\n".join(problems))
+    def test_새_체크아웃에서_생성하고_검증한다(self):
+        """생성물이 추적되지 않는 깨끗한 checkout에서도 generate → validate가 성립한다."""
+        with tempfile.TemporaryDirectory() as directory:
+            clean_root = Path(directory)
+            shutil.copytree(ROOT / "harness", clean_root / "harness")
+
+            with (
+                mock.patch.object(generate, "ROOT", clean_root),
+                mock.patch.object(validate, "ROOT", clean_root),
+            ):
+                files, roots = generate.build(warn=lambda message: None)
+                generate.write(files, roots)
+                problems = validate.check_generated(files, roots)
+
+            self.assertEqual([], problems, "\n".join(problems))
 
     def test_생성물에_직접수정_금지_헤더가_붙는다(self):
         files, _ = validate.build(warn=lambda message: None)
