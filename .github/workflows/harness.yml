@@ -1,8 +1,7 @@
 name: 하네스 검증
 
-# harness/ 원본과 생성물(.claude/·.codex/·.agents/)이 어긋나면 막는다.
-# 생성물을 커밋에 포함하는 구조라, 원본만 고치고 generate.py 를 안 돌린 PR 이
-# 병합되면 하네스마다 다른 규칙을 보게 된다. 그 상태는 눈으로 안 보인다.
+# CI가 harness/ 원본에서 생성물을 새로 만들고 검증한다.
+# 생성물(.claude/·.codex/·.agents/)은 Git에 올리지 않는다.
 
 on:
   pull_request:
@@ -10,9 +9,6 @@ on:
       - 'harness/**'
       - 'scripts/harness/**'
       - 'tests/harness/**'
-      - '.claude/**'
-      - '.codex/**'
-      - '.agents/**'
       - '.github/workflows/harness.yml'
   push:
     branches: [main, develop]
@@ -33,22 +29,24 @@ jobs:
       - name: Python 생성물 추적 금지
         run: |
           if git ls-files -z | python3 -c 'import sys; files = sys.stdin.buffer.read().split(b"\0"); raise SystemExit(any(b"__pycache__" in f.split(b"/") or f.endswith((b".pyc", b".pyo", b".pyd")) for f in files))'; then
-            exit 0
+            :
+          else
+            echo "::error::추적 중인 Python bytecode 또는 __pycache__가 있습니다."
+            exit 1
           fi
-          echo "::error::추적 중인 Python bytecode 또는 __pycache__가 있습니다."
-          exit 1
+
+      - name: 하네스 생성물 추적 금지
+        run: |
+          if git ls-files -- .claude .codex .agents | grep -q .; then
+            echo "::error::생성물(.claude/·.codex/·.agents/)은 Git에 올리지 않습니다."
+            exit 1
+          fi
 
       # 의존성 설치 단계가 없는 것은 의도적이다. 생성기는 표준 라이브러리만 쓴다.
       - name: 테스트
         run: python3 -m unittest discover -s tests/harness -v
 
-      - name: 생성물 drift 검사
-        run: python3 scripts/harness/validate.py
-
-      - name: 다시 생성해도 변화가 없는지 확인
+      - name: 생성 후 원본과 일치하는지 검사
         run: |
           python3 scripts/harness/generate.py
-          if ! git diff --exit-code; then
-            echo "::error::생성물이 원본과 다릅니다. python3 scripts/harness/generate.py 를 돌리고 결과를 커밋하세요."
-            exit 1
-          fi
+          python3 scripts/harness/validate.py

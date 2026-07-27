@@ -282,4 +282,4 @@ CI가 없는 동안에는 **PR 체크리스트의 "로컬에서 빌드와 테스
 | 브랜치·커밋·PR·리뷰·저장소 설정 | 이 문서 |
 | 코드를 어느 모듈에 놓는가, 계층 규칙 | [`docs/architecture.md`](./docs/architecture.md) |
 | 도메인 용어, MVP 범위, 기술 스택 | [AGENTS.md](./AGENTS.md) |
-| 서비스 배경, 사용자 리서치 | `docs/context/기획.md` |
+| 서비스 배경, 사용자 리서치 | `docs/context/user-research-insights.md` |

@@ -25,7 +25,7 @@ P1 목록: 고민 유형 1탭, 사후 사진·영상 분석, 전후 비교 아�
 ## 2. 배경 확인
 
 요청의 근거가 기획에 있는지 확인한다. 자세한 사용자 리서치·IA가 필요하면
-**`context-researcher` 서브에이전트**에 맡긴다 (`docs/context/기획.md`는 길다).
+**`context-researcher` 서브에이전트**에 맡긴다 (`docs/context/user-research-insights.md`는 길다).
 
 핵심 도메인 루프(`AGENTS.md` §2)의 어느 단계에 해당하는지 짚는다.
 특히 **⑦ 미달 포인트 → 보강 동작 자동 편성**은 이 서비스의 리텐션 엔진이므로

@@ -13,26 +13,17 @@ model: balanced
 | 문서 | 내용 |
 | --- | --- |
 | `AGENTS.md` | 프로젝트 개요, 도메인 용어집(§2), MVP 범위(§3), 기술 스택(§4) |
-| `docs/context/기획.md` | **원본이자 가장 상세.** 사용자 리서치 26명, 최종 가설, IA 트리 |
-| `docs/context/Server-기술스택.md` | 서버 스택 논의. **아키텍처 부분은 폐기됨** |
-| `Aligner_중간_최종.pdf` | 중간발표 36p. MVP 범위·배포 구성·화면 디자인 |
+| `docs/context/user-research-insights.md` | **원본이자 가장 상세.** 사용자 리서치 26명, 최종 가설, IA 트리 |
 | `docs/architecture.md` | 아키텍처 확정본 |
 
-PDF는 `Read`의 `pages` 파라미터로 범위를 지정해 읽는다(한 번에 최대 20p).
-36페이지 전체를 무작정 읽지 말고 필요한 구간을 좁혀서 읽는다.
+## 폐기된 선택지를 되살리지 않는다
 
-## 폐기된 내용을 되살리지 않는다
-
-문서에 남아 있지만 **더 이상 유효하지 않은 것들이다.** 발견하면 폐기됐다고 명시한다.
-
-- `docs/context/Server-기술스택.md`의 **"모듈별 배포 단위 + gRPC"** → 폐기.
-  Hexagonal Modular Monolith 단일 배포 단위로 확정 (`docs/architecture.md` §1)
-- **QueryDSL groupId 주의사항** → 무효. JPA·QueryDSL 모두 탈락 (§2)
+- JPA·QueryDSL은 모두 탈락했다. 필요한 판단은 `docs/architecture.md` §2를 따른다.
 
 ## 답할 때
 
 1. **결론 먼저.** 질문에 대한 답을 첫 줄에 쓴다
-2. **출처를 붙인다** — `docs/context/기획.md의 "타깃 유저" 절`, `PDF 12p`처럼
+2. **출처를 붙인다** — `docs/context/user-research-insights.md의 "타깃 유저" 절`, `docs/architecture.md §3`처럼
 3. **MVP 범위 판정을 함께 준다** — P0인지 P1인지, 근거는 `AGENTS.md` §3
 4. **도메인 용어로 옮겨 쓴다** — 기획 용어를 §2 용어집의 영문 이름과 연결해준다
    (예: "느끼는 부위 ≠ 교정 부위" → `BodyPart` 선택과 `Cause` 판별이 다르다는 뜻)

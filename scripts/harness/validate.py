@@ -22,7 +22,7 @@ from adapters.base import load_bundle  # noqa: E402
 from adapters.capabilities import CAPABILITIES  # noqa: E402
 from generate import ADAPTERS, MANIFEST_NAME, ROOT, build  # noqa: E402
 
-FIX_HINT = "고치는 법: python3 scripts/harness/generate.py 를 돌리고 결과를 커밋하세요."
+FIX_HINT = "고치는 법: python3 scripts/harness/generate.py 를 실행한 뒤 다시 검사하세요."
 CODEX_SKILL_BODY_MAX_BYTES = 8 * 1024
 
 

@@ -51,7 +51,13 @@ src/main/resources/application-secret*.yml
 **/src/main/resources/application-secret*.yml
 
 ### 에이전트 로컬 설정 ###
-.claude/settings.local.json
+.claude/
+.codex/
+.agents/
+
+### Python 실행 산출물 ###
+__pycache__/
+*.py[cod]
 
 ### macOS ###
 .DS_Store

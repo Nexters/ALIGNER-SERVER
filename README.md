@@ -99,7 +99,7 @@ api ──→ service ──→ infrastructure(port) ←── repository-jdbc
 | 코드를 어느 모듈에 놓는가, 계층 규칙, Bean 조립 | [`docs/architecture.md`](./docs/architecture.md) |
 | 도메인 용어집, MVP 범위, 기술 스택 버전 | [AGENTS.md](./AGENTS.md) |
 | 브랜치·커밋·PR·리뷰·저장소 설정 | [CONTRIBUTING.md](./CONTRIBUTING.md) |
-| 서비스 배경, 사용자 리서치 26명 인사이트 | `docs/context/기획.md` |
+| 서비스 배경, 사용자 리서치 26명 인사이트 | `docs/context/user-research-insights.md` |
 
 `CLAUDE.md`는 `AGENTS.md`의 심볼릭 링크입니다. 에이전트와 사람이 같은 문서를 읽습니다.
 
@@ -109,13 +109,13 @@ api ──→ service ──→ infrastructure(port) ←── repository-jdbc
 
 Claude Code · Codex · Antigravity에서 같은 워크플로(`/plan` `/design` `/implement`
 `/review` `/commit` `/pr`)를 씁니다. 스킬·에이전트·규칙·가드의 **원본은 `harness/` 한
-곳**이고, `.claude/` · `.codex/` · `.agents/`는 거기서 생성됩니다.
+곳**이고, `.claude/` · `.codex/` · `.agents/`는 거기서 생성되며 Git에는 올리지 않습니다.
 
 **생성물을 직접 고치지 마세요.** 다음 생성 때 날아갑니다.
 
 ```bash
-python3 scripts/harness/generate.py          # harness/ 를 고쳤으면 실행
-python3 scripts/harness/validate.py          # 원본·생성물 drift 검사
+python3 scripts/harness/generate.py          # clone 직후·harness/ 변경 후 실행
+python3 scripts/harness/validate.py          # 생성물 일치 검사
 python3 -m unittest discover -s tests/harness
 ```
 
