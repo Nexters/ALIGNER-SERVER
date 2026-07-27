@@ -105,6 +105,25 @@ api ──→ service ──→ infrastructure(port) ←── repository-jdbc
 
 ---
 
+## 에이전트 하네스
+
+Claude Code · Codex · Antigravity에서 같은 워크플로(`/plan` `/design` `/implement`
+`/review` `/commit` `/pr`)를 씁니다. 스킬·에이전트·규칙·가드의 **원본은 `harness/` 한
+곳**이고, `.claude/` · `.codex/` · `.agents/`는 거기서 생성됩니다.
+
+**생성물을 직접 고치지 마세요.** 다음 생성 때 날아갑니다.
+
+```bash
+python3 scripts/harness/generate.py          # harness/ 를 고쳤으면 실행
+python3 scripts/harness/validate.py          # 원본·생성물 drift 검사
+python3 -m unittest discover -s tests/harness
+```
+
+CI가 같은 검사를 돌립니다(`.github/workflows/harness.yml`). 생성기는 표준 라이브러리만
+쓰므로 별도 설치가 필요 없습니다. 상세는 [AGENTS.md §7](./AGENTS.md)에 있습니다.
+
+---
+
 ## 협업
 
 정본은 [CONTRIBUTING.md](./CONTRIBUTING.md)입니다. 요약하면:

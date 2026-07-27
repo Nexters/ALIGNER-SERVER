@@ -211,12 +211,48 @@ k8s 학습 목표와 충돌하지 않는다. 단일 배포 단위여도 Pod 이�
 - 버전은 §4 표를 따른다. 임의로 올리거나 내리지 말 것.
 - **도메인 분할은 아직 정해지지 않았다.** 아키텍처 골격(§4)만 확정된 상태다.
 
-## 7. 에이전트 하네스 (Claude Code)
+## 7. 에이전트 하네스
 
-이 문서가 **에이전트 컨텍스트 정본**이다. `CLAUDE.md`는 이 파일을 가리키는 심볼릭 링크이므로
-Claude Code도 같은 문서를 읽는다. 도구별 사본을 만들지 않는다.
+이 문서가 **에이전트 컨텍스트 정본**이다. Codex와 Antigravity는 `AGENTS.md`를 그대로 읽고,
+`CLAUDE.md`는 이 파일을 가리키는 심볼릭 링크다. **도구별 사본을 만들지 않는다.**
 
-하네스 실체는 `.claude/`에 있다. **기획 → 설계 → 구현 → 리뷰 → 커밋 → PR** 전 과정을 덮는다.
+하네스는 **기획 → 설계 → 구현 → 리뷰 → 커밋 → PR** 전 과정을 덮는다.
+
+### 원본은 `harness/`, `.claude/`·`.codex/`·`.agents/`는 생성물이다
+
+팀이 Claude Code·Codex·Antigravity를 섞어 쓰기 때문에, 스킬 하나를 고칠 때 세 곳을
+손으로 맞추면 반드시 어긋난다. 그래서 **사람이 고치는 원본은 `harness/` 한 곳**이고
+각 하네스 설정은 거기서 생성한다.
+
+```text
+harness/                    ← 여기만 고친다
+├── skills/                 스킬 본문
+├── agents/                 서브에이전트 프롬프트
+├── rules/                  공유 규칙
+└── hooks/
+    ├── core/               판정 로직 (하네스 무관)
+    ├── policies/           허용·확인·차단 명령 정책
+    └── adapters/           하네스별 hook 입출력 변환
+
+scripts/harness/            생성기
+├── generate.py             원본 → 각 하네스 설정
+├── validate.py             원본·생성물 drift 검사
+└── adapters/               하네스별 생성 규칙
+
+.claude/ .codex/ .agents/   ← 생성물. 직접 고치면 다음 생성 때 날아간다
+```
+
+```bash
+python3 scripts/harness/generate.py    # 원본을 고쳤으면 반드시 실행
+python3 scripts/harness/validate.py    # 어긋났는지 검사 (CI도 같은 명령)
+python3 -m unittest discover -s tests/harness
+```
+
+생성물에는 "직접 고치지 마세요" 헤더가 붙고, CI(`.github/workflows/harness.yml`)가
+drift를 막는다. 생성기는 **표준 라이브러리만 쓴다** — 의존성 설치 단계가 없다.
+
+`.codex/`와 `.agents/`의 설정 형식은 **아직 미검증이다.** 해당 도구를 쓰는 사람이
+확인해야 하고, 형식이 틀렸다면 `scripts/harness/adapters/`의 해당 파일만 고치면 된다.
 
 ### 스킬 — `/이름`으로 부르거나, 상황에 맞으면 자동으로 걸린다
 
@@ -254,7 +290,7 @@ Claude Code도 같은 문서를 읽는다. 도구별 사본을 만들지 않는�
 
 리뷰는 `architecture-reviewer`와 `code-reviewer`를 **병렬로** 돌린다. 보는 것이 다르다.
 
-### 공유 규칙 — `.claude/rules/`
+### 공유 규칙 — `harness/rules/`
 
 | 파일 | 내용 |
 | --- | --- |
@@ -271,15 +307,16 @@ Claude Code도 같은 문서를 읽는다. 도구별 사본을 만들지 않는�
 
 | 층 | 파일 | 막는 것 |
 | --- | --- | --- |
-| 도구 호출 | `.claude/hooks/git-guard.sh` | `main`·`develop` 푸시, `--force`·`--all`·`--mirror` 푸시, 훅 우회(`--no-verify`·`SKIP_HOOKS=1`) |
+| 도구 호출 | `harness/hooks/core/git_guard.py` | `main`·`develop` 푸시, `--force`·`--all`·`--mirror` 푸시, 훅 우회(`--no-verify`·`SKIP_HOOKS=1`) |
 | 커밋 | `.githooks/pre-commit` | 보호 브랜치 커밋, 시크릿 파일·값, 충돌 마커, ktlint 실패 |
 | 커밋 | `.githooks/commit-msg` | `<type>: <한글 요약>` 형식·마침표·영문 요약·72자 초과 |
 
 `.githooks/`는 **클론 후 1회 설정이 필요하다** — `git config core.hooksPath .githooks`.
-`--no-verify`·`SKIP_HOOKS=1`로 우회하지 않는다 — 규칙이자 `git-guard.sh`가 실제로 막는다.
+`--no-verify`·`SKIP_HOOKS=1`로 우회하지 않는다 — 규칙이자 가드가 실제로 막는다.
 훅이 막으면 원인을 고치고, 오탐이면 우회하지 말고 검사 패턴을 고친다.
 
-권한은 `.claude/settings.json`에 있다.
+권한 정책의 원본은 `harness/hooks/policies/permissions.json`이다
+(`.claude/settings.json`은 여기서 생성된다).
 
 - **자동 허용** — 읽기 전용 명령, `git commit`·`git push`·`git rebase`, `gh pr create`
 - **확인 후 실행** — `gh pr ready`, `gh pr merge`, `gh issue create`,
