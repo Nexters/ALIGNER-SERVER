@@ -107,20 +107,106 @@ api ──→ service ──→ infrastructure(port) ←── repository-jdbc
 
 ## 에이전트 하네스
 
-Claude Code · Codex · Antigravity에서 같은 워크플로(`/plan` `/design` `/implement`
-`/review` `/commit` `/pr`)를 씁니다. 스킬·에이전트·규칙·가드의 **원본은 `harness/` 한
-곳**이고, `.claude/` · `.codex/` · `.agents/`는 거기서 생성되며 Git에는 올리지 않습니다.
+Claude Code · Codex · Antigravity에서 같은 프로젝트 판단과 개발 워크플로를 쓰기 위한
+설정입니다. 하네스가 프로젝트 결정을 새로 만들지는 않습니다. 프로젝트 컨텍스트는
+[`AGENTS.md`](./AGENTS.md), 코드 배치 판단은 [`docs/architecture.md`](./docs/architecture.md)가
+정본입니다.
 
-**생성물을 직접 고치지 마세요.** 다음 생성 때 날아갑니다.
+### 어떻게 동작하나
 
-```bash
-python3 scripts/harness/generate.py          # clone 직후·harness/ 변경 후 실행
-python3 scripts/harness/validate.py          # 생성물 일치 검사
-python3 -m unittest discover -s tests/harness
+```text
+프로젝트 판단의 정본                     사람이 직접 수정하는 곳
+┌─────────────────────────┐             ┌──────────────────────────────┐
+│ AGENTS.md               │             │ harness/                     │
+│ docs/architecture.md    │ ──참조──▶   │ skills/  agents/  rules/     │
+└─────────────────────────┘             │ hooks/{core,policies,adapters}│
+                                        └──────────────┬───────────────┘
+                                                       │ generate.py
+                                                       ▼
+                    ┌──────────────────────────────────────────────────┐
+                    │ Git 미추적 생성물 — 직접 수정 금지               │
+                    ├───────────────┬───────────────┬──────────────────┤
+                    │ .claude/      │ .codex/       │ .agents/         │
+                    │ Claude Code   │ Codex         │ Antigravity      │
+                    └───────────────┴───────────────┴──────────────────┘
+                                                       │ validate.py
+                                                       ▼
+                              관리 대상 생성물이 원본과 같은지 검사
 ```
 
-CI가 같은 검사를 돌립니다(`.github/workflows/harness.yml`). 생성기는 표준 라이브러리만
-쓰므로 별도 설치가 필요 없습니다. 상세는 [AGENTS.md §7](./AGENTS.md)에 있습니다.
+`harness/`만 직접 수정합니다. `.claude/` · `.codex/` · `.agents/`는 생성물이라 Git에 올리지
+않으며, 다음 생성에서 덮어써질 수 있습니다. 생성기는 manifest에 등록한 파일만 소유하므로,
+그 밖의 도구별 개인·native 설정은 보존합니다.
+
+### 처음 사용할 때
+
+클론 직후와 `harness/` 변경 후에는 다음을 실행합니다.
+
+```bash
+python3 scripts/harness/generate.py                 # 세 하네스 설정 생성
+python3 scripts/harness/validate.py                 # 관리 대상 생성물 검증
+python3 -m unittest discover -s tests/harness -v    # 생성기·가드 회귀 테스트
+```
+
+생성기는 Python 표준 라이브러리만 사용합니다. 새 checkout을 흉내 낸 임시 경로에서
+`generate → validate`가 성립하는지도 테스트하므로, 로컬에 남아 있던 생성물 때문에 통과하지
+않습니다.
+
+### 사용할 수 있는 워크플로와 가드
+
+```text
+작업 요청
+   │
+   ▼
+ plan ──▶ design ──▶ implement ──▶ review ──▶ commit ──▶ draft PR
+   │         │            │             │          │
+   └─────────┴────────────┴─────────────┴──────────┴── 범위·설계·필수 리뷰·검증 게이트
+
+`flow`는 위 단계를 순서대로 묶는다.
+P1 기능, 미승인 설계, [필수] 리뷰 잔존, rebase 충돌, 시크릿이 있으면 다음 단계로 가지 않는다.
+```
+
+| 단계 | 공통 스킬 | 결과 |
+| --- | --- | --- |
+| 기획 | `plan` | MVP 범위와 대조한 이슈 |
+| 설계 | `design` | 코드 없이 계층·모듈 배치 결정 |
+| 구현 | `implement` | 아키텍처 규칙에 맞는 코드·테스트 |
+| 검토 | `review` | 아키텍처·코드 관점의 셀프 리뷰 |
+| 협업 | `commit`, `pr`, `pr-review`, `pr-feedback` | 한글 커밋, draft PR, 리뷰 처리 |
+| 전체 | `flow` | 기획부터 draft PR까지의 게이트된 순서 |
+
+```text
+AI 도구의 Git 명령 ──▶ harness/hooks/core/git_guard.py
+                         └─ main·develop push / force push / 훅 우회 차단
+
+git commit ───────────▶ .githooks/pre-commit · commit-msg
+                         └─ 시크릿·충돌 마커·커밋 메시지 검사
+
+Pull Request ─────────▶ GitHub branch protection · CI · 사람 리뷰
+                         └─ 최종 병합 경계
+```
+
+Git hook은 별도 설치가 필요하므로 [시작하기](#시작하기)의 `core.hooksPath` 설정도 반드시
+적용해야 합니다. 로컬 가드는 GitHub의 브랜치 보호와 리뷰를 대체하지 않고 보완합니다.
+
+### CI가 보장하는 것
+
+```text
+하네스 변경 ──▶ harness.yml ──▶ 추적 금지 검사 → 단위·왕복 테스트 → generate → validate
+
+모든 PR      ──▶ gradle.yml  ──▶ gradlew 없음 + 소스 없음: 초기 단계로 통과
+                                  gradlew 없음 + Kotlin/Gradle 소스: 실패
+                                  gradlew 있음: ktlintCheck → build → integrationTest
+```
+
+- `harness.yml` — 하네스 관련 변경에서 생성물·bytecode가 Git에 섞이지 않았는지, 생성기 테스트와
+  실제 `generate → validate`가 통과하는지 검사합니다.
+- `gradle.yml` — 모든 PR에서 Gradle wrapper가 존재하면 `ktlintCheck`, `build`, `integrationTest`를
+  실행합니다. 현재는 Gradle 프로젝트 초기화 전이므로 명시적으로 건너뛰며, Kotlin/Gradle 파일만
+  추가하고 wrapper를 빠뜨리면 실패합니다.
+
+도구별 native 설정과 상세 운영 규칙은 [AGENTS.md §7](./AGENTS.md), 협업·브랜치 보호 규칙은
+[CONTRIBUTING.md](./CONTRIBUTING.md)를 따릅니다.
 
 ---
 
