@@ -3,7 +3,7 @@
 import json
 import shlex
 
-from .base import Adapter, json_header, toml_header
+from .base import Adapter, json_header, markdown_header, render_frontmatter, toml_header
 
 
 def _toml_string(value: str) -> str:
@@ -25,6 +25,12 @@ class CodexAdapter(Adapter):
 
     def generate(self, bundle):
         files = {}
+
+        for skill in bundle.skills:
+            meta = {"name": skill.name, "description": skill.description}
+            files[f"{self.output_root}/skills/{skill.name}/SKILL.md"] = (
+                render_frontmatter(meta) + markdown_header(skill.source) + "\n" + skill.body
+            )
 
         for agent in bundle.agents:
             writable = bool({"edit", "write"} & set(agent.capabilities()))

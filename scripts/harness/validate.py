@@ -23,6 +23,7 @@ from adapters.capabilities import CAPABILITIES  # noqa: E402
 from generate import ADAPTERS, MANIFEST_NAME, ROOT, build  # noqa: E402
 
 FIX_HINT = "고치는 법: python3 scripts/harness/generate.py 를 돌리고 결과를 커밋하세요."
+CODEX_SKILL_BODY_MAX_BYTES = 8 * 1024
 
 
 def check_sources(bundle):
@@ -45,6 +46,10 @@ def check_sources(bundle):
                         f"{document.source}: 모르는 capability '{capability}' — "
                         f"가능한 값: {', '.join(CAPABILITIES)}"
                     )
+            if group == "skills" and len(document.body.encode("utf-8")) > CODEX_SKILL_BODY_MAX_BYTES:
+                problems.append(
+                    f"{document.source}: Codex Skill 본문이 8 KiB를 넘습니다"
+                )
     return problems
 
 
