@@ -5,7 +5,9 @@
 # 에이전트가 확인 없이 커밋할 수 있게 열어둔 만큼, 되돌리기 비싼 사고는 여기서 막는다.
 #
 # 설치:  git config core.hooksPath .githooks
-# 우회:  SKIP_HOOKS=1 git commit ...   (정말 필요할 때만)
+#
+# SKIP_HOOKS=1 은 사람이 오탐을 확인한 뒤 쓰는 마지막 수단이다. 에이전트는 쓰지 않는다
+# (AGENTS.md 7. 가드) — .claude/hooks/git-guard.sh 가 도구 호출 시점에 막는다.
 
 set -e
 
@@ -54,13 +56,21 @@ fi
 
 # ── 3. 스테이징된 내용의 시크릿 값 ───────────────────────────────
 # 값이 비었거나 ${ENV} 참조·플레이스홀더인 것은 통과시킨다.
+# ${ENV} 제외는 값 전체가 순수 참조일 때만이다 — ${DB_PASSWORD:실제기본값} 처럼
+# 기본값이 붙은 형태는 진짜 시크릿이므로 검사에 남긴다.
+#
+# 값의 형태를 두 갈래로 나눠 본다. 하나로 뭉치면 `val token = tokens[i]` 같은
+# 평범한 코드까지 걸린다.
+#   ① 설정 파일  — 구분자 앞에 공백이 없다        (password: xxx / jwt.secret=xxx)
+#   ② 코드 리터럴 — 값이 따옴표로 묶여 있다        (val token = "xxxxxxxx")
+#
 # 파일 목록을 pathspec 으로 넘기지 않는다 — 공백이 든 파일명이 쪼개져 스캔에서 조용히 빠진다.
 # --cached --diff-filter=ACM 만으로 이미 $staged 와 같은 범위다.
 secrets=$(git diff --cached -U0 --diff-filter=ACM \
     | grep -E '^\+' \
     | grep -viE '^\+\+\+' \
-    | grep -iE '(password|secret|token|api[_-]?key|client[_-]?secret|private[_-]?key)[[:space:]]*[:=][[:space:]]*["'"'"']?[^"'"'"'[:space:]]{8,}' \
-    | grep -vE '\$\{[A-Z_]+' \
+    | grep -iE '(password|secret|token|api[_-]?key|client[_-]?secret|private[_-]?key)([:=][[:space:]]*["'"'"']?[^"'"'"'[:space:]]{8,}|[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"']{8,})' \
+    | grep -vE '[:=][[:space:]]*["'"'"']?\$\{[A-Za-z_][A-Za-z0-9_]*\}["'"'"']?[[:space:]]*$' \
     | grep -viE '(changeme|your[_-]?|example|placeholder|xxx+|\*\*\*|dummy|<[a-z_]+>)' \
     || true)
 if [ -n "$secrets" ]; then
@@ -69,7 +79,8 @@ if [ -n "$secrets" ]; then
 $(printf '%s\n' "$secrets" | head -10 | sed 's/^/    /')
 
   application.yml 에는 \${DB_PASSWORD} 처럼 참조만 두고 기본값을 박지 않습니다.
-  오탐이면 SKIP_HOOKS=1 git commit ... 으로 넘기세요.
+  \${DB_PASSWORD:실제값} 처럼 기본값을 붙이면 그 값이 그대로 커밋됩니다.
+  오탐이라고 판단되면 우회하지 말고 검사 패턴을 고치세요.
 
   CONTRIBUTING.md 8. 하지 말 것"
 fi

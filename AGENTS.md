@@ -271,12 +271,13 @@ Claude Code도 같은 문서를 읽는다. 도구별 사본을 만들지 않는�
 
 | 층 | 파일 | 막는 것 |
 | --- | --- | --- |
-| 도구 호출 | `.claude/hooks/git-guard.sh` | `main`·`develop` 푸시, `--force` 푸시 (`--force-with-lease`는 허용) |
+| 도구 호출 | `.claude/hooks/git-guard.sh` | `main`·`develop` 푸시, `--force`·`--all`·`--mirror` 푸시, 훅 우회(`--no-verify`·`SKIP_HOOKS=1`) |
 | 커밋 | `.githooks/pre-commit` | 보호 브랜치 커밋, 시크릿 파일·값, 충돌 마커, ktlint 실패 |
 | 커밋 | `.githooks/commit-msg` | `<type>: <한글 요약>` 형식·마침표·영문 요약·72자 초과 |
 
 `.githooks/`는 **클론 후 1회 설정이 필요하다** — `git config core.hooksPath .githooks`.
-`--no-verify`·`SKIP_HOOKS=1`로 우회하지 않는다.
+`--no-verify`·`SKIP_HOOKS=1`로 우회하지 않는다 — 규칙이자 `git-guard.sh`가 실제로 막는다.
+훅이 막으면 원인을 고치고, 오탐이면 우회하지 말고 검사 패턴을 고친다.
 
 권한은 `.claude/settings.json`에 있다.
 
