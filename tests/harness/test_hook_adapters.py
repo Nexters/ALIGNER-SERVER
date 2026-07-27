@@ -35,6 +35,12 @@ class Payload파싱(unittest.TestCase):
             {"tool_name": "shell", "arguments": {"command": "git status"}},
             {"tool": "run_command", "params": {"command": "git status"}},
             {"name": "execute", "input": {"command": "git status"}},
+            {
+                "toolCall": {
+                    "name": "run_command",
+                    "args": {"CommandLine": "git status"},
+                }
+            },
             {"command": "git status"},
         ):
             with self.subTest(payload=payload):
@@ -69,13 +75,16 @@ class 응답형식(unittest.TestCase):
     def test_codex는_json과_종료코드를_함께_낸다(self):
         out, err, code = CodexAdapter().emit(BLOCKED)
         self.assertEqual(2, code)
-        self.assertEqual("block", json.loads(out)["decision"])
+        output = json.loads(out)["hookSpecificOutput"]
+        self.assertEqual("PreToolUse", output["hookEventName"])
+        self.assertEqual("deny", output["permissionDecision"])
+        self.assertEqual("테스트 사유", output["permissionDecisionReason"])
         self.assertIn("테스트 사유", err)
 
     def test_antigravity는_json과_종료코드를_함께_낸다(self):
         out, err, code = AntigravityAdapter().emit(BLOCKED)
         self.assertEqual(2, code)
-        self.assertEqual("deny", json.loads(out)["permission"])
+        self.assertEqual("deny", json.loads(out)["decision"])
         self.assertIn("테스트 사유", err)
 
 
@@ -92,29 +101,54 @@ class 진입점(unittest.TestCase):
         )
 
     def test_세_하네스_모두_보호브랜치_push를_막는다(self):
-        payload = {"tool_name": "Bash", "tool_input": {"command": "git push origin main"}}
-        for harness in ("claude", "codex", "antigravity"):
+        payloads = {
+            "claude": {"tool_name": "Bash", "tool_input": {"command": "git push origin main"}},
+            "codex": {"tool_name": "Bash", "tool_input": {"command": "git push origin main"}},
+            "antigravity": {
+                "toolCall": {
+                    "name": "run_command",
+                    "args": {"CommandLine": "git push origin main"},
+                }
+            },
+        }
+        for harness, payload in payloads.items():
             with self.subTest(harness=harness):
                 self.assertEqual(2, self.run_hook(harness, payload).returncode)
 
     def test_안전한_명령은_통과한다(self):
-        payload = {"tool_name": "Bash", "tool_input": {"command": "git status"}}
-        for harness in ("claude", "codex", "antigravity"):
+        payloads = {
+            "claude": {"tool_name": "Bash", "tool_input": {"command": "git status"}},
+            "codex": {"tool_name": "Bash", "tool_input": {"command": "git status"}},
+            "antigravity": {
+                "toolCall": {
+                    "name": "run_command",
+                    "args": {"CommandLine": "git status"},
+                }
+            },
+        }
+        for harness, payload in payloads.items():
             with self.subTest(harness=harness):
                 self.assertEqual(0, self.run_hook(harness, payload).returncode)
 
-    def test_모르는_하네스는_막지_않고_경고만_한다(self):
+    def test_모르는_하네스는_차단한다(self):
         result = self.run_hook("없는하네스", {"command": "git push origin main"})
-        self.assertEqual(0, result.returncode)
+        self.assertEqual(2, result.returncode)
         self.assertIn("모르는 하네스", result.stderr)
 
-    def test_깨진_payload로_죽지_않는다(self):
+    def test_깨진_payload는_차단한다(self):
         result = subprocess.run(
             [sys.executable, str(ROOT / "harness" / "hooks" / "run.py"), "claude"],
             input="}{ 깨진 json",
             capture_output=True,
             text=True,
             timeout=15,
+        )
+        self.assertEqual(2, result.returncode)
+
+    def test_셸이_아닌_도구는_통과한다(self):
+        result = self.run_hook(
+            "claude",
+            {"tool_name": "Read", "tool_input": {"file_path": "README.md"}},
         )
         self.assertEqual(0, result.returncode)
 

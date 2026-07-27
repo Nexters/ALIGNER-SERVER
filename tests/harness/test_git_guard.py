@@ -17,8 +17,12 @@ sys.path.insert(0, str(ROOT / "harness"))
 from hooks.core import git_guard  # noqa: E402
 
 
-def inspect(command, branch="feature/1-작업"):
-    return git_guard.inspect(command, branch_of=lambda: branch)
+def inspect(command, branch="feature/1-작업", configured_refs=(), push_default=""):
+    return git_guard.inspect(
+        command,
+        branch_of=lambda: branch,
+        push_configuration_of=lambda remote: (configured_refs, push_default),
+    )
 
 
 class 보호브랜치푸시(unittest.TestCase):
@@ -52,6 +56,14 @@ class 보호브랜치푸시(unittest.TestCase):
     def test_작업브랜치에서_브랜치_미지정_push는_통과(self):
         self.assertFalse(inspect("git push", branch="feature/1-작업").blocked)
 
+    def test_matching_refspec과_git설정_대상(self):
+        self.assertTrue(inspect("git push origin :").blocked)
+        self.assertTrue(inspect("git push origin +:").blocked)
+        self.assertTrue(inspect("git push", push_default="matching").blocked)
+        self.assertTrue(
+            inspect("git push origin", configured_refs=("HEAD:refs/heads/main",)).blocked
+        )
+
 
 class 위험한푸시옵션(unittest.TestCase):
     def test_force는_차단(self):
@@ -84,6 +96,11 @@ class 훅우회(unittest.TestCase):
 
     def test_skip_hooks_환경변수는_차단(self):
         self.assertTrue(inspect('SKIP_HOOKS=1 git commit -m "feat: x"').blocked)
+        self.assertTrue(inspect('env SKIP_HOOKS=1 git commit -m "feat: x"').blocked)
+
+    def test_command와_env_wrapper도검사한다(self):
+        self.assertTrue(inspect("command git push origin main").blocked)
+        self.assertTrue(inspect("env X=1 git push origin develop").blocked)
 
     def test_skip_hooks가_0이면_통과(self):
         self.assertFalse(inspect('SKIP_HOOKS=0 git commit -m "feat: x"').blocked)

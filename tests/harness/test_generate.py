@@ -4,15 +4,20 @@
 누군가 .claude/ 를 직접 고쳤거나 harness/ 를 고치고 다시 생성하지 않았다는 뜻이다.
 """
 
+import json
 import sys
+import tempfile
+import tomllib
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "scripts" / "harness"))
 
 from adapters import capabilities  # noqa: E402
 from adapters.base import load_bundle, parse_frontmatter, render_frontmatter  # noqa: E402
+import generate  # noqa: E402
 import validate  # noqa: E402
 
 
@@ -42,6 +47,10 @@ class Frontmatter파싱(unittest.TestCase):
 
     def test_빈_값은_렌더링에서_빠진다(self):
         self.assertNotIn("model", render_frontmatter({"name": "x", "model": ""}))
+
+    def test_목록은_yaml_배열로_렌더링한다(self):
+        rendered = render_frontmatter({"tools": ["view_file", "grep_search"]})
+        self.assertIn("tools:\n  - view_file\n  - grep_search", rendered)
 
 
 class Capability매핑(unittest.TestCase):
@@ -125,6 +134,98 @@ class 생성물(unittest.TestCase):
         warnings = []
         validate.build(warn=warnings.append)
         self.assertEqual([], warnings)
+
+    def test_codex_네이티브_스키마(self):
+        files, _ = validate.build(warn=lambda message: None)
+        agents = {
+            path: tomllib.loads(content)
+            for path, content in files.items()
+            if path.startswith(".codex/agents/")
+        }
+        self.assertTrue(agents)
+        for path, agent in agents.items():
+            with self.subTest(path=path):
+                self.assertTrue(path.endswith(".toml"))
+                self.assertTrue({"name", "description", "developer_instructions"} <= set(agent))
+
+        config = tomllib.loads(files[".codex/config.toml"])
+        self.assertNotIn("profiles", config)
+        self.assertTrue(config["features"]["hooks"])
+
+        hooks = json.loads(files[".codex/hooks.json"])
+        self.assertIsInstance(hooks["description"], str)
+        handler = hooks["hooks"]["PreToolUse"][0]
+        self.assertEqual("Bash", handler["matcher"])
+        self.assertEqual("command", handler["hooks"][0]["type"])
+        self.assertIn("prefix_rule(", files[".codex/rules/aligner.rules"])
+        skills = [path for path in files if path.startswith(".codex/skills/")]
+        self.assertEqual(len(load_bundle(ROOT).skills), len(skills))
+
+    def test_antigravity_네이티브_스키마(self):
+        files, _ = validate.build(warn=lambda message: None)
+        agents = {
+            path: content
+            for path, content in files.items()
+            if path.startswith(".agents/agents/")
+        }
+        self.assertTrue(agents)
+        for path, content in agents.items():
+            with self.subTest(path=path):
+                self.assertIn("tools:\n  - ", content)
+                self.assertRegex(content, r"\nmodel: (inherit|flash|pro)\n")
+                self.assertIn("\nsubagent: true\n", content)
+                self.assertIn("\nmainAgent: false\n", content)
+
+        hooks = json.loads(files[".agents/hooks.json"])
+        handler = hooks["aligner-git-guard"]["PreToolUse"][0]
+        self.assertEqual("run_command", handler["matcher"])
+        self.assertEqual("command", handler["hooks"][0]["type"])
+
+    def test_claude_sandbox는_fail_closed(self):
+        files, _ = validate.build(warn=lambda message: None)
+        settings = json.loads(files[".claude/settings.json"])
+        sandbox = settings["sandbox"]
+        self.assertTrue(sandbox["enabled"])
+        self.assertTrue(sandbox["failIfUnavailable"])
+        self.assertFalse(sandbox["allowUnsandboxedCommands"])
+        self.assertIn("~/.ssh/**", sandbox["filesystem"]["denyRead"])
+
+    def test_생성기는_manifest밖의_파일을_보존한다(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / ".codex"
+            output.mkdir()
+            (output / "custom.toml").write_text("사용자 설정", encoding="utf-8")
+            (output / "old.toml").write_text("이전 생성물", encoding="utf-8")
+            (output / generate.MANIFEST_NAME).write_text(
+                json.dumps({"files": ["old.toml"]}),
+                encoding="utf-8",
+            )
+            files = {
+                ".codex/new.toml": "새 생성물",
+                f".codex/{generate.MANIFEST_NAME}": json.dumps({"files": ["new.toml"]}),
+            }
+
+            with mock.patch.object(generate, "ROOT", root):
+                generate.write(files, [".codex"])
+
+            self.assertEqual("사용자 설정", (output / "custom.toml").read_text(encoding="utf-8"))
+            self.assertFalse((output / "old.toml").exists())
+            self.assertTrue((output / "new.toml").exists())
+
+    def test_생성기는_manifest_경로이탈을_거부한다(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / ".codex"
+            output.mkdir()
+            (output / generate.MANIFEST_NAME).write_text(
+                json.dumps({"files": ["../../보존.txt"]}),
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(generate, "ROOT", root):
+                with self.assertRaisesRegex(ValueError, "안전하지 않은 생성물 경로"):
+                    generate.write({}, [".codex"])
 
 
 if __name__ == "__main__":
