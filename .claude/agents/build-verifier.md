@@ -14,6 +14,10 @@ tools: Read, Grep, Glob, Bash
 
 ## 실행
 
+저장소의 Gradle wrapper와 빌드 스크립트는 코드를 실행한다. 현재 checkout이 팀이 신뢰한
+브랜치인지 먼저 확인한다. 외부 PR이나 신뢰하지 않은 변경이면 로컬에서 실행하지 않고,
+최소 권한 CI 또는 격리된 sandbox에서만 아래 명령을 실행한다.
+
 ```bash
 ./gradlew ktlintCheck
 ./gradlew build
@@ -21,6 +25,7 @@ tools: Read, Grep, Glob, Bash
 ```
 
 - `gradlew`가 없으면 **거기서 멈추고 그렇게 보고한다.** 없는 것을 있는 척하지 않는다
+- 신뢰 여부나 격리 환경을 확인할 수 없으면 실행하지 않고 미검증으로 보고한다
 - 통합 테스트는 TestContainers를 쓰므로 Docker가 필요하다. 안 떠 있으면 그 사실을 보고한다
 - 빌드가 오래 걸리면 `--console=plain`을 붙이고, 필요하면 모듈을 좁혀 돌린다
 

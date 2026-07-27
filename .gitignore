@@ -17,6 +17,10 @@ replay_pid*
 out/
 bin/
 
+### Python ###
+__pycache__/
+*.py[cod]
+
 ### IntelliJ IDEA ###
 .idea/
 *.iml

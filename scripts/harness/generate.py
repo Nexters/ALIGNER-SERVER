@@ -4,14 +4,13 @@
     python3 scripts/harness/generate.py            # 전부
     python3 scripts/harness/generate.py --only claude
 
-생성 대상 디렉터리(.claude/, .codex/, .agents/)는 매번 비우고 다시 쓴다.
-원본에서 파일을 지웠는데 생성물에 남아 있으면 하네스마다 다른 스킬을 보게 된다.
+생성기는 manifest에 등록한 파일만 소유한다. 같은 디렉터리의 사용자 설정은 보존한다.
 """
 
 import argparse
-import shutil
+import json
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -22,9 +21,7 @@ from adapters.codex import CodexAdapter  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 ADAPTERS = (ClaudeAdapter, CodexAdapter, AntigravityAdapter)
-
-# 생성 대상 밖이지만 지우면 안 되는 것 — 개인 설정은 .gitignore 대상이라 보존한다
-PRESERVE = (".claude/settings.local.json",)
+MANIFEST_NAME = ".generated-manifest.json"
 
 
 def build(only=None, warn=print):
@@ -37,20 +34,55 @@ def build(only=None, warn=print):
             continue
         roots.append(adapter.output_root)
         files.update(adapter.generate(bundle))
+    for root in roots:
+        owned = sorted(
+            relative.removeprefix(root + "/")
+            for relative in files
+            if relative.startswith(root + "/")
+        )
+        files[f"{root}/{MANIFEST_NAME}"] = (
+            json.dumps(
+                {
+                    "_generated": "harness/ 원본에서 생성됩니다. 직접 고치지 마세요.",
+                    "files": owned,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
     return files, roots
 
 
 def write(files, roots):
-    preserved = {}
-    for relative in PRESERVE:
-        path = ROOT / relative
-        if path.exists():
-            preserved[relative] = path.read_bytes()
-
     for root in roots:
         target = ROOT / root
-        if target.exists():
-            shutil.rmtree(target)
+        manifest = target / MANIFEST_NAME
+        owned = []
+        if manifest.exists():
+            try:
+                owned = json.loads(manifest.read_text(encoding="utf-8")).get("files", [])
+            except (OSError, ValueError, TypeError):
+                raise ValueError(f"{manifest}: 생성물 manifest를 읽을 수 없습니다")
+        elif target.exists():
+            for path in target.rglob("*"):
+                if not path.is_file():
+                    continue
+                try:
+                    if "직접 고치지 마세요" in path.read_text(encoding="utf-8"):
+                        owned.append(path.relative_to(target).as_posix())
+                except (OSError, UnicodeDecodeError):
+                    continue
+
+        for relative in owned:
+            relative_path = PurePosixPath(relative)
+            if relative_path.is_absolute() or ".." in relative_path.parts:
+                raise ValueError(f"{manifest}: 안전하지 않은 생성물 경로 '{relative}'")
+            path = target / relative
+            if path.is_file():
+                path.unlink()
+        if manifest.is_file():
+            manifest.unlink()
 
     for relative, content in sorted(files.items()):
         path = ROOT / relative
@@ -58,11 +90,6 @@ def write(files, roots):
         path.write_text(content, encoding="utf-8")
         if path.suffix == ".sh":
             path.chmod(0o755)
-
-    for relative, content in preserved.items():
-        path = ROOT / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(content)
 
 
 def main():

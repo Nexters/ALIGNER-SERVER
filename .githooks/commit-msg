@@ -5,13 +5,8 @@
 # 커밋 메시지는 pre-commit 시점에 존재하지 않으므로 여기가 검사 자리다.
 #
 # 설치:  git config core.hooksPath .githooks
-# 우회:  SKIP_HOOKS=1 git commit ...
 
 set -e
-
-if [ "${SKIP_HOOKS:-}" = "1" ]; then
-    exit 0
-fi
 
 RED=$(printf '\033[31m')
 RESET=$(printf '\033[0m')

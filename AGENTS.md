@@ -303,16 +303,17 @@ drift를 막는다. 생성기는 **표준 라이브러리만 쓴다** — 의존
 
 ### 가드
 
-승인을 걷어낸 만큼 되돌리기 비싼 사고는 훅이 막는다. 3중이다.
+승인을 걷어낸 만큼 되돌리기 비싼 사고는 여러 경계에서 막는다. 하네스 hook과
+Git hook은 보조 장치이며, 네이티브 sandbox·명령 정책과 GitHub 브랜치 보호가 주 경계다.
 
 | 층 | 파일 | 막는 것 |
 | --- | --- | --- |
 | 도구 호출 | `harness/hooks/core/git_guard.py` | `main`·`develop` 푸시, `--force`·`--all`·`--mirror` 푸시, 훅 우회(`--no-verify`·`SKIP_HOOKS=1`) |
-| 커밋 | `.githooks/pre-commit` | 보호 브랜치 커밋, 시크릿 파일·값, 충돌 마커, ktlint 실패 |
+| 커밋 | `.githooks/pre-commit` | 보호 브랜치 커밋, 시크릿 파일·값, 충돌 마커 |
 | 커밋 | `.githooks/commit-msg` | `<type>: <한글 요약>` 형식·마침표·영문 요약·72자 초과 |
 
 `.githooks/`는 **클론 후 1회 설정이 필요하다** — `git config core.hooksPath .githooks`.
-`--no-verify`·`SKIP_HOOKS=1`로 우회하지 않는다 — 규칙이자 가드가 실제로 막는다.
+`--no-verify`·`SKIP_HOOKS=1`로 우회하지 않는다.
 훅이 막으면 원인을 고치고, 오탐이면 우회하지 말고 검사 패턴을 고친다.
 
 권한 정책의 원본은 `harness/hooks/policies/permissions.json`이다

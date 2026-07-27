@@ -94,6 +94,21 @@ class ClaudeAdapter(Adapter):
                 "deny": deny,
                 "ask": [f"Bash({pattern})" for pattern in commands["ask"]],
             },
+            "sandbox": {
+                "enabled": True,
+                "failIfUnavailable": True,
+                "allowUnsandboxedCommands": False,
+                "filesystem": {
+                    "denyRead": [
+                        "~/.ssh/**",
+                        "~/.aws/**",
+                        "~/.config/gh/**",
+                        "~/.kube/**",
+                        *bundle.policies["files"]["denyRead"],
+                    ],
+                    "allowRead": ["."],
+                },
+            },
             "hooks": {"PreToolUse": hooks},
         }
         return json.dumps(settings, indent=2, ensure_ascii=False) + "\n"

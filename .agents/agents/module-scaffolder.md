@@ -1,7 +1,15 @@
 ---
 name: module-scaffolder
 description: 새 도메인의 6개 모듈 골격을 docs/architecture.md §10 절차대로 빠짐없이 만든다. build.gradle.kts, settings.gradle.kts include, AutoConfiguration, imports 파일, Liquibase changelog까지 한 번에 처리한다. 새 도메인이나 모듈을 추가할 때 사용한다.
-tools: read_file, search, edit_file, write_file, run_command
+tools:
+  - view_file
+  - grep_search
+  - replace_file_content
+  - run_command
+subagent: true
+mainAgent: false
+model: inherit
+commandExecutionPolicy: sandbox
 ---
 <!--
   이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.

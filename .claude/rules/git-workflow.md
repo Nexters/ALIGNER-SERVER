@@ -78,7 +78,7 @@ git config core.hooksPath .githooks
 
 | 훅 | 검사 |
 | --- | --- |
-| `pre-commit` | 보호 브랜치 커밋, 시크릿 파일·값, 충돌 마커, ktlint |
+| `pre-commit` | 보호 브랜치 커밋, 시크릿 파일·값, 충돌 마커 |
 | `commit-msg` | `<type>: <한글 요약>` 형식, 마침표, 한글 여부, 길이 |
 
 **`--no-verify`·`SKIP_HOOKS=1`로 우회하지 않는다.** 훅이 막으면 원인을 고친다.

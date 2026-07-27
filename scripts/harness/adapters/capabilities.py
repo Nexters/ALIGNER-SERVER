@@ -20,19 +20,11 @@ TOOL_NAMES = {
         "write": ("Write",),
         "shell": ("Bash",),
     },
-    # ⚠️ codex·antigravity 의 도구 이름은 미검증이다. 형식이 확인되면 여기만 고친다.
-    "codex": {
-        "read": ("read_file",),
-        "search": ("grep", "glob"),
-        "edit": ("apply_patch",),
-        "write": ("write_file",),
-        "shell": ("shell",),
-    },
     "antigravity": {
-        "read": ("read_file",),
-        "search": ("search",),
-        "edit": ("edit_file",),
-        "write": ("write_file",),
+        "read": ("view_file",),
+        "search": ("grep_search",),
+        "edit": ("replace_file_content",),
+        "write": ("replace_file_content",),
         "shell": ("run_command",),
     },
 }
@@ -42,8 +34,7 @@ TOOL_NAMES = {
 # 모델이 바뀔 때마다 모든 에이전트 파일을 고쳐야 한다.
 MODEL_TIERS = {
     "claude": {"fast": "haiku", "balanced": "sonnet", "deep": "opus"},
-    "codex": {"fast": "gpt-5-mini", "balanced": "gpt-5", "deep": "gpt-5-codex"},
-    "antigravity": {"fast": "gemini-flash", "balanced": "gemini-pro", "deep": "gemini-pro"},
+    "antigravity": {"fast": "flash", "balanced": "inherit", "deep": "pro"},
 }
 
 

@@ -86,7 +86,14 @@ def parse_frontmatter(text: str):
 
 def render_frontmatter(meta: dict) -> str:
     lines = [FRONTMATTER_FENCE]
-    lines.extend(f"{key}: {value}" for key, value in meta.items() if value)
+    for key, value in meta.items():
+        if not value:
+            continue
+        if isinstance(value, (list, tuple)):
+            lines.append(f"{key}:")
+            lines.extend(f"  - {item}" for item in value)
+        else:
+            lines.append(f"{key}: {value}")
     lines.append(FRONTMATTER_FENCE)
     return "\n".join(lines) + "\n"
 

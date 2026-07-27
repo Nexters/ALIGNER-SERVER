@@ -1,7 +1,14 @@
 ---
 name: code-reviewer
 description: 버그·엣지 케이스·테스트 품질·도메인 용어·시크릿 노출 관점으로 코드를 검토한다. 아키텍처 계층 규칙은 architecture-reviewer가 보므로 중복하지 않는다. 리뷰가 필요할 때 architecture-reviewer와 함께 병렬로 사용한다.
-tools: read_file, search, run_command
+tools:
+  - view_file
+  - grep_search
+  - run_command
+subagent: true
+mainAgent: false
+model: inherit
+commandExecutionPolicy: sandbox
 ---
 <!--
   이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.

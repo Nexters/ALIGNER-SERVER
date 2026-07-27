@@ -1,0 +1,13 @@
+{
+  "_generated": "harness/ 원본에서 생성됩니다. 직접 고치지 마세요.",
+  "files": [
+    "agents/architecture-reviewer.toml",
+    "agents/build-verifier.toml",
+    "agents/code-reviewer.toml",
+    "agents/context-researcher.toml",
+    "agents/module-scaffolder.toml",
+    "config.toml",
+    "hooks.json",
+    "rules/aligner.rules"
+  ]
+}

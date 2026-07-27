@@ -36,6 +36,7 @@ _CLAUSE_SEPARATOR = re.compile(r"&&|\|\||\||;|\n")
 _GLOBAL_WITH_VALUE = frozenset(
     ("-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--super-prefix")
 )
+_ENV_WITH_VALUE = frozenset(("-u", "--unset", "-C", "--chdir", "-S", "--split-string"))
 
 # 뒤에 값이 따라오는 push 옵션 — refspec 으로 오인하면 안 된다
 _PUSH_WITH_VALUE = frozenset(("-o", "--push-option", "--repo", "--receive-pack", "--exec"))
@@ -79,6 +80,35 @@ def _current_branch() -> str:
         return ""
 
 
+def _push_configuration(remote: str | None) -> tuple[tuple[str, ...], str]:
+    """Git 설정 기반 push refspec과 push.default를 읽는다."""
+
+    try:
+        if remote:
+            refs_command = ["git", "config", "--get-all", f"remote.{remote}.push"]
+        else:
+            refs_command = ["git", "config", "--get-regexp", r"^remote\..*\.push$"]
+        refs_result = subprocess.run(
+            refs_command,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        refs = []
+        for line in refs_result.stdout.splitlines():
+            refs.append(line.rsplit(maxsplit=1)[-1])
+
+        mode_result = subprocess.run(
+            ["git", "config", "--get", "push.default"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return tuple(refs), mode_result.stdout.strip()
+    except Exception:
+        return (), "unknown"
+
+
 def _positional(args, with_value):
     """값을 먹는 옵션의 값까지 함께 걷어내고 위치 인자만 남긴다."""
     result, skip = [], False
@@ -110,7 +140,15 @@ def _has_short_flag(args, flag: str) -> bool:
     return False
 
 
-def _check_push(args, clause, branch_of) -> Decision:
+def _dangerous_refspec(ref: str) -> bool:
+    normalized = ref.strip()
+    if normalized in (":", "+:"):
+        return True
+    destination = normalized.split(":")[-1].rsplit("/", 1)[-1]
+    return destination in PROTECTED or "*" in destination
+
+
+def _check_push(args, clause, branch_of, push_configuration_of) -> Decision:
     if any(a in ("--force", "-f") for a in args):
         return Decision(
             True,
@@ -133,20 +171,31 @@ def _check_push(args, clause, branch_of) -> Decision:
     # refspec 의 목적지 브랜치를 본다
     #   main / HEAD:develop / HEAD:refs/heads/develop / :develop (삭제)
     for ref in refs:
-        destination = ref.split(":")[-1].rsplit("/", 1)[-1]
-        if destination in PROTECTED:
+        if _dangerous_refspec(ref):
             return Decision(
                 True,
-                "main·develop 에 직접 푸시할 수 없습니다. "
-                "작업 브랜치를 push 하고 develop 으로 PR 을 올리세요 "
+                "main·develop 보호 브랜치나 다중 브랜치를 갱신하는 refspec은 사용할 수 없습니다. "
+                "작업 브랜치 하나를 명시해 push 하세요 "
                 f"({_DOC_BRANCH}).",
                 clause,
             )
-        if "*" in destination:
+
+    # 명령행 refspec이 없으면 Git 설정(remote.*.push, push.default)을 확인한다.
+    if len(refs) <= 1:
+        remote = refs[0] if refs else None
+        configured_refs, push_default = push_configuration_of(remote)
+        if push_default in ("matching", "unknown"):
             return Decision(
                 True,
-                "와일드카드 refspec 은 보호 브랜치를 함께 갱신할 수 있습니다. "
-                f"올릴 브랜치를 명시하세요 ({_DOC_BRANCH}).",
+                f"push.default={push_default} 설정은 대상 브랜치를 안전하게 확정할 수 없습니다. "
+                f"작업 브랜치 refspec을 명시하세요 ({_DOC_BRANCH}).",
+                clause,
+            )
+        if any(_dangerous_refspec(ref) for ref in configured_refs):
+            return Decision(
+                True,
+                "remote.*.push 설정이 보호 브랜치나 다중 브랜치를 갱신합니다. "
+                f"안전한 작업 브랜치 refspec을 명시하세요 ({_DOC_BRANCH}).",
                 clause,
             )
 
@@ -165,6 +214,40 @@ def _check_push(args, clause, branch_of) -> Decision:
     return ALLOWED
 
 
+def _unwrap_command(tokens) -> tuple[int, dict]:
+    """선행 환경변수와 command/env wrapper 뒤의 실제 명령 위치를 찾는다."""
+
+    index, env = 0, {}
+    while index < len(tokens):
+        matched = _ENV_PREFIX.match(tokens[index])
+        if matched:
+            env[matched.group(1)] = matched.group(2)
+            index += 1
+            continue
+        if tokens[index] == "command":
+            index += 1
+            while index < len(tokens) and tokens[index].startswith("-"):
+                index += 1
+            continue
+        if tokens[index] == "env":
+            index += 1
+            while index < len(tokens):
+                token = tokens[index]
+                matched = _ENV_PREFIX.match(token)
+                if matched:
+                    env[matched.group(1)] = matched.group(2)
+                    index += 1
+                elif token in _ENV_WITH_VALUE:
+                    index += 2
+                elif token.startswith("-"):
+                    index += 1
+                else:
+                    break
+            continue
+        break
+    return index, env
+
+
 def _check_commit(args, clause) -> Decision:
     if "--no-verify" in args or _has_short_flag(args, "n"):
         return Decision(
@@ -176,7 +259,11 @@ def _check_commit(args, clause) -> Decision:
     return ALLOWED
 
 
-def inspect(command: str, branch_of=_current_branch) -> Decision:
+def inspect(
+    command: str,
+    branch_of=_current_branch,
+    push_configuration_of=_push_configuration,
+) -> Decision:
     """셸 명령 한 줄을 검사한다. 차단할 이유가 없으면 ALLOWED 를 돌려준다."""
     if not command:
         return ALLOWED
@@ -191,14 +278,7 @@ def inspect(command: str, branch_of=_current_branch) -> Decision:
         except ValueError:
             tokens = clause.split()
 
-        # FOO=bar git push ... 형태의 환경변수 접두사를 건너뛴다
-        index, env = 0, {}
-        while index < len(tokens):
-            matched = _ENV_PREFIX.match(tokens[index])
-            if not matched:
-                break
-            env[matched.group(1)] = matched.group(2)
-            index += 1
+        index, env = _unwrap_command(tokens)
         if index >= len(tokens) or tokens[index] != "git":
             continue
 
@@ -222,7 +302,7 @@ def inspect(command: str, branch_of=_current_branch) -> Decision:
 
         subcommand, args = tokens[cursor], tokens[cursor + 1 :]
         if subcommand == "push":
-            decision = _check_push(args, clause, branch_of)
+            decision = _check_push(args, clause, branch_of, push_configuration_of)
         elif subcommand == "commit":
             decision = _check_commit(args, clause)
         else:

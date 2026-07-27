@@ -23,7 +23,7 @@ git config core.hooksPath .githooks
 
 | 훅 | 막는 것 |
 | --- | --- |
-| `pre-commit` | `main`·`develop` 직접 커밋, 시크릿 파일·값, 충돌 마커, ktlint 실패 |
+| `pre-commit` | `main`·`develop` 직접 커밋, 시크릿 파일·값, 충돌 마커 |
 | `commit-msg` | `<type>: <한글 요약>` 형식, 마침표, 영문 요약, 72자 초과 |
 
 ### 2. 빌드 — **아직 없습니다**

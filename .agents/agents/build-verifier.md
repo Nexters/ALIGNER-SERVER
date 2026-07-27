@@ -1,7 +1,14 @@
 ---
 name: build-verifier
 description: Gradle 빌드·ktlint·테스트를 실행하고 실패 원인을 이 프로젝트의 아키텍처 맥락으로 분석한다. 구현이나 리뷰 후 검증이 필요할 때, 빌드가 깨졌을 때 사용한다. 원인과 수정 방향만 보고하고 코드는 고치지 않는다.
-tools: read_file, search, run_command
+tools:
+  - view_file
+  - grep_search
+  - run_command
+subagent: true
+mainAgent: false
+model: inherit
+commandExecutionPolicy: sandbox
 ---
 <!--
   이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.
@@ -14,6 +21,10 @@ tools: read_file, search, run_command
 
 ## 실행
 
+저장소의 Gradle wrapper와 빌드 스크립트는 코드를 실행한다. 현재 checkout이 팀이 신뢰한
+브랜치인지 먼저 확인한다. 외부 PR이나 신뢰하지 않은 변경이면 로컬에서 실행하지 않고,
+최소 권한 CI 또는 격리된 sandbox에서만 아래 명령을 실행한다.
+
 ```bash
 ./gradlew ktlintCheck
 ./gradlew build
@@ -21,6 +32,7 @@ tools: read_file, search, run_command
 ```
 
 - `gradlew`가 없으면 **거기서 멈추고 그렇게 보고한다.** 없는 것을 있는 척하지 않는다
+- 신뢰 여부나 격리 환경을 확인할 수 없으면 실행하지 않고 미검증으로 보고한다
 - 통합 테스트는 TestContainers를 쓰므로 Docker가 필요하다. 안 떠 있으면 그 사실을 보고한다
 - 빌드가 오래 걸리면 `--console=plain`을 붙이고, 필요하면 모듈을 좁혀 돌린다
 

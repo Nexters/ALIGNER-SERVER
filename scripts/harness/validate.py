@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from adapters.base import load_bundle  # noqa: E402
 from adapters.capabilities import CAPABILITIES  # noqa: E402
-from generate import ADAPTERS, PRESERVE, ROOT, build  # noqa: E402
+from generate import ADAPTERS, MANIFEST_NAME, ROOT, build  # noqa: E402
 
 FIX_HINT = "고치는 법: python3 scripts/harness/generate.py 를 돌리고 결과를 커밋하세요."
 
@@ -50,7 +50,6 @@ def check_sources(bundle):
 
 def check_generated(files, roots):
     problems = []
-    expected = set(files)
 
     for relative, content in sorted(files.items()):
         path = ROOT / relative
@@ -64,13 +63,9 @@ def check_generated(files, roots):
         target = ROOT / root
         if not target.exists():
             continue
-        for path in sorted(target.rglob("*")):
-            if not path.is_file():
-                continue
-            relative = path.relative_to(ROOT).as_posix()
-            if relative in PRESERVE or relative in expected:
-                continue
-            problems.append(f"{relative}: 원본에 없는 생성물입니다 (원본에서 지워진 파일)")
+        manifest = target / MANIFEST_NAME
+        if not manifest.exists():
+            problems.append(f"{manifest.relative_to(ROOT)}: 생성물 manifest가 없습니다")
 
     return problems
 

@@ -6,9 +6,8 @@
 각 하네스의 생성된 hook 설정이 이 파일을 가리킨다. 판정 로직은
 harness/hooks/core/ 에만 있고, 여기서는 어댑터 선택과 종료 코드 전달만 한다.
 
-가드가 예외로 죽으면 조용히 통과시키지 않고 stderr 에 남긴 뒤 통과시킨다.
-훅 자체의 버그로 모든 명령이 막히면 작업이 불가능해지기 때문이다.
-보호가 필요한 진짜 위반은 .githooks/ 와 저장소 브랜치 보호가 한 번 더 잡는다.
+payload 또는 가드 판정을 신뢰할 수 없으면 명령을 차단한다. 이 hook은 보조
+안전장치이며 최종 경계는 하네스 네이티브 정책과 저장소 브랜치 보호다.
 """
 
 import sys
@@ -36,24 +35,37 @@ def main(argv):
             f"git-guard: 모르는 하네스 '{harness}'. "
             f"가능한 값: {', '.join(sorted(ADAPTERS))}\n"
         )
-        return 0
+        return 2
 
     adapter = adapter_type()
 
     try:
         event = adapter.parse(sys.stdin.read())
-    except Exception as error:  # payload 가 깨졌다고 작업을 막지는 않는다
-        sys.stderr.write(f"git-guard: payload 파싱 실패 ({error}). 검사를 건너뜁니다.\n")
-        return 0
+    except Exception as error:
+        decision = git_guard.Decision(True, f"hook payload 파싱 실패: {error}")
+        out, err, code = adapter.emit(decision)
+        sys.stdout.write(out)
+        sys.stderr.write(err)
+        return code
 
+    if not event.raw:
+        decision = git_guard.Decision(True, "hook payload를 해석하지 못했습니다.")
+        out, err, code = adapter.emit(decision)
+        sys.stdout.write(out)
+        sys.stderr.write(err)
+        return code
     if not event.is_shell:
         return 0
-
+    if not event.command:
+        decision = git_guard.Decision(True, "hook payload에서 실행 명령을 찾지 못했습니다.")
+        out, err, code = adapter.emit(decision)
+        sys.stdout.write(out)
+        sys.stderr.write(err)
+        return code
     try:
         decision = git_guard.inspect(event.command)
     except Exception as error:
-        sys.stderr.write(f"git-guard: 검사 중 오류 ({error}). 검사를 건너뜁니다.\n")
-        return 0
+        decision = git_guard.Decision(True, f"git 안전 검사 중 오류: {error}")
 
     out, err, code = adapter.emit(decision)
     if out:

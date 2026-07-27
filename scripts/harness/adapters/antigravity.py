@@ -1,20 +1,9 @@
-"""Antigravity 생성기 — Agent Skills 공통 경로(.agents/)도 함께 채운다.
-
-⚠️ **형식 미검증.** codex.py 와 같다. Antigravity 를 쓰는 사람이 확인해야 한다.
-
-  .agents/skills/<이름>/SKILL.md   Skill (Agent Skills 공통 규약)
-  .agents/agents/<이름>.md         에이전트 프롬프트
-  .agents/rules/<이름>.md          규칙 본문
-  .agents/hooks.json               hook 연결
-
-`.agents/skills/` 는 Codex 도 함께 읽는 공통 경로로 잡았다. Skill 을 두 벌 만들면
-같은 내용이 서로 어긋나기 시작하는데, 그게 이 구조로 없애려던 문제다.
-"""
+"""Antigravity 네이티브 설정을 생성한다."""
 
 import json
 
 from . import capabilities
-from .base import Adapter, json_header, markdown_header, render_frontmatter
+from .base import Adapter, markdown_header, render_frontmatter
 
 
 class AntigravityAdapter(Adapter):
@@ -45,10 +34,14 @@ class AntigravityAdapter(Adapter):
             meta = {
                 "name": agent.name,
                 "description": agent.description,
-                "tools": ", ".join(tools),
+                "tools": tools,
+                "subagent": "true",
+                "mainAgent": "false",
                 "model": capabilities.model_for(
                     self.name, agent.tier(), lambda m: self.warn(f"{agent.source}: {m}")
-                ),
+                )
+                or "inherit",
+                "commandExecutionPolicy": "sandbox",
             }
             files[f"{self.output_root}/agents/{agent.name}.md"] = (
                 render_frontmatter(meta) + markdown_header(agent.source) + "\n" + agent.body
@@ -63,25 +56,22 @@ class AntigravityAdapter(Adapter):
         return files
 
     def _hooks(self, bundle):
-        commands = bundle.policies["commands"]
         entries = []
         for entry in bundle.policies["hooks"]["preToolUse"]:
             entries.append(
                 {
-                    "event": "preToolUse",
-                    "match": entry["match"],
-                    "command": ["python3", entry["entrypoint"], self.name],
-                    "timeout": entry["timeout"],
+                    "matcher": "run_command",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": (
+                                'python3 "$(git rev-parse --show-toplevel)/'
+                                f'{entry["entrypoint"]}" {self.name}'
+                            ),
+                            "timeout": entry["timeout"],
+                        }
+                    ],
                 }
             )
-        body = {
-            "_generated": json_header("harness/hooks/policies/permissions.json"),
-            "hooks": entries,
-            "permissions": {
-                "allow": commands["allow"],
-                "ask": commands["ask"],
-                "deny": commands["deny"],
-                "denyRead": bundle.policies["files"]["denyRead"],
-            },
-        }
+        body = {"aligner-git-guard": {"PreToolUse": entries}}
         return json.dumps(body, indent=2, ensure_ascii=False) + "\n"

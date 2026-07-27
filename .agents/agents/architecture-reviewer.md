@@ -1,7 +1,14 @@
 ---
 name: architecture-reviewer
 description: Aligner 헥사고날 모듈러 모놀리스의 계층 배치·의존 방향·build.gradle.kts 의존성·Bean 조립·스키마 규칙 위반을 점검한다. 코드나 설계를 검토할 때, 특히 build.gradle.kts가 바뀌었을 때 사용한다.
-tools: read_file, search, run_command
+tools:
+  - view_file
+  - grep_search
+  - run_command
+subagent: true
+mainAgent: false
+model: inherit
+commandExecutionPolicy: sandbox
 ---
 <!--
   이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.

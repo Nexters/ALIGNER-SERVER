@@ -1,8 +1,13 @@
 ---
 name: context-researcher
 description: docs/context 기획 문서, 중간발표 PDF, AGENTS.md에서 요구사항 근거와 도메인 배경을 찾아 요약한다. "이 기능 왜 필요한가", "기획에 뭐라고 돼 있나", 사용자 리서치·IA·MVP 범위 근거가 필요할 때 사용한다. 코드 검색이 아니라 문서 조사용이다.
-tools: read_file, search
-model: gemini-pro
+tools:
+  - view_file
+  - grep_search
+subagent: true
+mainAgent: false
+model: inherit
+commandExecutionPolicy: sandbox
 ---
 <!--
   이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.

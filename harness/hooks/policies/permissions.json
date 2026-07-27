@@ -9,8 +9,8 @@
     "  ask   — 팀에 보이는 outward 동작 (PR 리뷰 요청, 병합, 이슈 생성)",
     "  deny  — 되돌릴 수 없는 것과 시크릿",
     "",
-    "git commit·push 가 allow 인 것은 의도적이다. 승인 대신 훅이 막는다.",
-    "우회(--no-verify·SKIP_HOOKS=1)는 harness/hooks/core/git_guard.py 가 차단한다."
+    "git commit·push 가 allow 인 것은 의도적이다. 네이티브 정책·hook·GitHub 브랜치 보호를 함께 쓴다.",
+    "hook은 보조 안전장치다. 서버측 브랜치 보호와 하네스 sandbox/rules를 대체하지 않는다."
   ],
   "commands": {
     "allow": [

@@ -17,15 +17,26 @@ on:
   push:
     branches: [main, develop]
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
+
+      - name: Python 생성물 추적 금지
+        run: |
+          if git ls-files -z | python3 -c 'import sys; files = sys.stdin.buffer.read().split(b"\0"); raise SystemExit(any(b"__pycache__" in f.split(b"/") or f.endswith((b".pyc", b".pyo", b".pyd")) for f in files))'; then
+            exit 0
+          fi
+          echo "::error::추적 중인 Python bytecode 또는 __pycache__가 있습니다."
+          exit 1
 
       # 의존성 설치 단계가 없는 것은 의도적이다. 생성기는 표준 라이브러리만 쓴다.
       - name: 테스트

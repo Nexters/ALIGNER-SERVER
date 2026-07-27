@@ -90,11 +90,10 @@ git config core.hooksPath .githooks
 
 | 훅 | 막는 것 |
 | --- | --- |
-| `pre-commit` | `main`·`develop` 직접 커밋, 시크릿 파일·값, 충돌 마커, ktlint 실패 |
+| `pre-commit` | `main`·`develop` 직접 커밋, 시크릿 파일·값, 충돌 마커 |
 | `commit-msg` | `<type>: <한글 요약>` 형식 위반, 마침표, 영문 요약, 72자 초과 |
 
-정말 필요할 때는 `SKIP_HOOKS=1 git commit ...`으로 넘길 수 있지만,
-**넘기기 전에 왜 막혔는지 확인하세요.** 대부분은 훅이 맞습니다.
+훅을 우회하지 않습니다. 오탐이면 검사 패턴을 고친 뒤 다시 커밋합니다.
 
 ### 예시
 

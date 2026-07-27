@@ -8,9 +8,8 @@
   3. core 의 판정을 하네스가 이해하는 승인·차단 응답으로 바꾼다
 
 payload 구조는 하네스마다 다르고 버전에 따라 바뀐다. 그래서 키를 하나로 못 박지 않고
-후보 경로를 순서대로 훑는다 — 못 찾으면 "검사할 명령이 없다"로 보고 통과시킨다.
-가드가 조용히 죽는 것보다는 낫지만, 이 경우 보호가 걸리지 않으므로
-새 하네스를 붙일 때는 tests/harness/ 에 payload 샘플을 꼭 추가한다.
+후보 경로를 순서대로 훑는다. 셸 도구인데 명령을 찾지 못하면 진입점에서 차단한다.
+새 하네스를 붙일 때는 tests/harness/ 에 실제 payload 샘플을 꼭 추가한다.
 """
 
 import json
@@ -18,6 +17,7 @@ from dataclasses import dataclass, field
 
 # payload 에서 명령 문자열을 찾을 후보 경로. 앞에 있는 것부터 본다.
 COMMAND_PATHS = (
+    ("toolCall", "args", "CommandLine"),
     ("tool_input", "command"),
     ("toolInput", "command"),
     ("input", "command"),
@@ -32,7 +32,13 @@ SHELL_TOOL_NAMES = frozenset(
     ("bash", "shell", "run_command", "runcommand", "execute", "terminal", "exec")
 )
 
-TOOL_NAME_KEYS = ("tool_name", "toolName", "tool", "name")
+TOOL_NAME_PATHS = (
+    ("toolCall", "name"),
+    ("tool_name",),
+    ("toolName",),
+    ("tool",),
+    ("name",),
+)
 
 
 @dataclass
@@ -77,9 +83,9 @@ def parse_event(stdin_text: str) -> HookEvent:
             break
 
     tool_name = ""
-    for key in TOOL_NAME_KEYS:
-        value = payload.get(key)
-        if isinstance(value, str):
+    for path in TOOL_NAME_PATHS:
+        value = _dig(payload, path)
+        if value:
             tool_name = value
             break
 

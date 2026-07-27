@@ -1,19 +1,18 @@
 {
-  "_generated": [
-    "이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.",
-    "고칠 곳: harness/hooks/policies/permissions.json",
-    "다시 생성: python3 scripts/harness/generate.py"
-  ],
-  "hooks": [
-    {
-      "event": "preToolUse",
-      "match": "shell",
-      "command": [
-        "python3",
-        "harness/hooks/run.py",
-        "codex"
-      ],
-      "timeout": 10
-    }
-  ]
+  "description": "이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요. 고칠 곳: harness/hooks/policies/permissions.json 다시 생성: python3 scripts/harness/generate.py",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env python3 \"$(git rev-parse --show-toplevel)/harness/hooks/run.py\" codex",
+            "timeout": 10,
+            "statusMessage": "Git 안전 정책 확인"
+          }
+        ]
+      }
+    ]
+  }
 }
