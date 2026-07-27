@@ -116,15 +116,15 @@ Claude Code · Codex · Antigravity에서 같은 프로젝트 판단과 개발 �
 
 ```text
 프로젝트 판단의 정본                     사람이 직접 수정하는 곳
-┌─────────────────────────┐             ┌──────────────────────────────┐
-│ AGENTS.md               │             │ harness/                     │
-│ docs/architecture.md    │ ──참조──▶   │ skills/  agents/  rules/     │
-└─────────────────────────┘             │ hooks/{core,policies,adapters}│
-                                        └──────────────┬───────────────┘
+┌─────────────────────────┐             ┌────────────────────────────────┐
+│ AGENTS.md               │             │ harness/                       │
+│ docs/architecture.md    │ ──참조──▶    │ skills/  agents/  rules/       │
+└─────────────────────────┘             │ hooks/{core,policies,adapters} │
+                                        └──────────────┬─────────────────┘
                                                        │ generate.py
                                                        ▼
                     ┌──────────────────────────────────────────────────┐
-                    │ Git 미추적 생성물 — 직접 수정 금지               │
+                    │ Git 미추적 생성물 — 직접 수정 금지                      │
                     ├───────────────┬───────────────┬──────────────────┤
                     │ .claude/      │ .codex/       │ .agents/         │
                     │ Claude Code   │ Codex         │ Antigravity      │
