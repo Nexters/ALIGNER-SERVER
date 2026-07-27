@@ -2,10 +2,15 @@
 name: commit
 description: 변경사항을 Aligner 커밋 컨벤션(한글, type 접두사)에 맞게 커밋한다. "커밋해줘", "커밋 메시지 만들어줘", 작업을 마치고 히스토리에 남길 때 사용한다.
 ---
+<!--
+  이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.
+  고칠 곳: harness/skills/commit/SKILL.md
+  다시 생성: python3 scripts/harness/generate.py
+-->
 
 # 커밋
 
-절차와 컨벤션은 `.claude/rules/git-workflow.md`가 정본이다.
+절차와 컨벤션은 `harness/rules/git-workflow.md`가 정본이다.
 
 ## 1. 브랜치 확인 — 가장 먼저
 

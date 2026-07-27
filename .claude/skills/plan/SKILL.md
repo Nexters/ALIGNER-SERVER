@@ -2,6 +2,11 @@
 name: plan
 description: 요구사항을 Aligner MVP 범위와 대조해 정리하고 GitHub 이슈로 만든다. "이슈 만들어줘", "이거 작업 정리해줘", "이 기능 할 수 있나", 새 기능/버그/작업 요청이 들어와 무엇을 만들지부터 정해야 할 때 사용한다.
 ---
+<!--
+  이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.
+  고칠 곳: harness/skills/plan/SKILL.md
+  다시 생성: python3 scripts/harness/generate.py
+-->
 
 # 기획 — 요구사항을 이슈로
 

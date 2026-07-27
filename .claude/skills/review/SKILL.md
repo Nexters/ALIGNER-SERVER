@@ -2,12 +2,17 @@
 name: review
 description: 커밋 전 로컬 변경사항을 PR 리뷰 관점으로 셀프 리뷰한다. "리뷰해줘", "검토해줘", "이대로 올려도 되나", 구현을 마치고 커밋·PR 전에 점검할 때 사용한다. 이미 올라간 PR을 리뷰할 때는 pr-review를 쓴다.
 ---
+<!--
+  이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.
+  고칠 곳: harness/skills/review/SKILL.md
+  다시 생성: python3 scripts/harness/generate.py
+-->
 
 # 셀프 리뷰 — 커밋 전 점검
 
 **아직 커밋·PR 전인 로컬 변경**을 본다. 이미 올라간 남의 PR은 `/pr-review`다.
 
-기준은 `.claude/rules/review.md`, 아키텍처 체크는 `.claude/rules/architecture.md`.
+기준은 `harness/rules/review.md`, 아키텍처 체크는 `harness/rules/architecture.md`.
 
 ## 1. 범위 파악
 
@@ -51,7 +56,7 @@ git diff origin/develop...HEAD --stat   # 브랜치 전체를 볼 때
 
 ## 5. 결과 보고
 
-`.claude/rules/review.md`의 형식을 따른다.
+`harness/rules/review.md`의 형식을 따른다.
 
 1. 한 줄 총평 — 커밋 가능한가, `[필수]` 몇 건인가
 2. `[필수]` → `[제안]` → `[질문]` 순, 각 항목에 `파일:라인`과 문서 절 번호 근거

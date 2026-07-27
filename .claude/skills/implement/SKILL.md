@@ -2,6 +2,11 @@
 name: implement
 description: Aligner 서버 코드를 아키텍처 규칙에 맞게 구현한다. "구현해줘", "만들어줘", "코드 짜줘", 설계가 끝나 실제 Kotlin 코드·모듈·테스트를 작성할 때 사용한다.
 ---
+<!--
+  이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.
+  고칠 곳: harness/skills/implement/SKILL.md
+  다시 생성: python3 scripts/harness/generate.py
+-->
 
 # 구현
 
@@ -16,12 +21,12 @@ git branch --show-current
 
 - 사용자의 기존 변경사항을 먼저 파악한다. 남의 작업을 덮어쓰지 않는다.
 - 브랜치가 `main`·`develop`이면 **작업 브랜치를 만들어야 한다.**
-  절차는 `.claude/rules/git-workflow.md`. 이슈 번호가 필요하다.
+  절차는 `harness/rules/git-workflow.md`. 이슈 번호가 필요하다.
 
 ## 2. 읽기
 
 - `docs/architecture.md` — 코드 위치 판단의 정본
-- `.claude/rules/architecture.md` — 위반 체크리스트
+- `harness/rules/architecture.md` — 위반 체크리스트
 - 기존 코드가 있으면 **가장 가까운 도메인의 같은 계층 파일**을 읽고 그 관례를 따른다.
   주석 밀도, 네이밍, 패키지 구조를 새로 발명하지 않는다.
 

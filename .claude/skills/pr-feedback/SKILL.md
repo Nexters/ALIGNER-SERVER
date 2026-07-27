@@ -2,6 +2,11 @@
 name: pr-feedback
 description: 내 PR에 달린 리뷰 코멘트를 확인해 반영하고 답글을 남긴다. "리뷰 반영해줘", "PR 코멘트 확인해줘", "받은 리뷰 처리", 올린 PR에 피드백이 달렸을 때 사용한다.
 ---
+<!--
+  이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.
+  고칠 곳: harness/skills/pr-feedback/SKILL.md
+  다시 생성: python3 scripts/harness/generate.py
+-->
 
 # 리뷰 반영 — 받은 코멘트를 처리한다
 
@@ -55,7 +60,7 @@ gh api repos/{owner}/{repo}/pulls/<번호>/reviews \
 
 ## 4. 반영
 
-- 수정은 `.claude/rules/architecture.md` 체크리스트를 다시 통과해야 한다.
+- 수정은 `harness/rules/architecture.md` 체크리스트를 다시 통과해야 한다.
   리뷰 반영이 새 위반을 만드는 일이 흔하다.
 - 수정 범위를 **코멘트가 지적한 곳으로 제한한다.** 김에 다른 걸 고치지 않는다.
 - 검증을 다시 돌린다.

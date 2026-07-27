@@ -2,6 +2,11 @@
 name: flow
 description: 기획부터 PR까지 전체 파이프라인을 순서대로 진행한다. "처음부터 끝까지 해줘", "이 기능 PR까지 올려줘", "알아서 진행해줘", 하나의 작업을 이슈 생성부터 PR 등록까지 한 번에 끌고 가야 할 때 사용한다.
 ---
+<!--
+  이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.
+  고칠 곳: harness/skills/flow/SKILL.md
+  다시 생성: python3 scripts/harness/generate.py
+-->
 
 # 파이프라인 — 기획부터 PR까지
 
@@ -19,7 +24,7 @@ description: 기획부터 PR까지 전체 파이프라인을 순서대로 진행
 
 **⑤·⑥은 사전 승인을 받지 않는다.** 커밋 메시지와 PR 본문은 만든 뒤 보고에 담는다.
 안전장치는 승인이 아니라 훅과 게이트다 — `.githooks/`의 pre-commit·commit-msg,
-`.claude/hooks/git-guard.sh`, 그리고 ④의 `[필수]` 0건 게이트.
+`harness/hooks/core/git_guard.py`, 그리고 ④의 `[필수]` 0건 게이트.
 
 **PR은 항상 draft로 열린다.** `gh pr ready`를 실행하지 않는다 —
 리뷰를 받을 준비가 됐다는 판단은 사람이 한다.

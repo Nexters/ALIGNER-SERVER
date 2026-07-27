@@ -2,6 +2,11 @@
 name: pr
 description: 작업 브랜치를 푸시하고 develop 대상 Pull Request를 템플릿에 맞게 만든다. "PR 올려줘", "PR 만들어줘", "풀리퀘 작성", 커밋이 끝나 리뷰를 요청할 때 사용한다.
 ---
+<!--
+  이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.
+  고칠 곳: harness/skills/pr/SKILL.md
+  다시 생성: python3 scripts/harness/generate.py
+-->
 
 # PR 작성
 
@@ -23,7 +28,7 @@ git diff origin/develop...HEAD --stat
 
 - 브랜치가 `main`·`develop`이면 **중단한다.** PR을 올릴 브랜치가 아니다.
 - 커밋이 없으면 중단하고 알린다.
-- 커밋 메시지들이 `.claude/rules/git-workflow.md` 컨벤션에 맞는지 훑는다.
+- 커밋 메시지들이 `harness/rules/git-workflow.md` 컨벤션에 맞는지 훑는다.
 
 ## 2. develop 최신화
 

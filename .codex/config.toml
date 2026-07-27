@@ -1,0 +1,71 @@
+# 이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.
+# 고칠 곳: harness/hooks/policies/permissions.json
+# 다시 생성: python3 scripts/harness/generate.py
+
+
+[profiles.aligner]
+model = "gpt-5-codex"
+approval_policy = "on-request"
+
+# 자동 허용 — 읽기 전용이거나 되돌리기 싼 명령
+auto_approve = [
+  "git status:*",
+  "git diff:*",
+  "git log:*",
+  "git show:*",
+  "git branch:*",
+  "git fetch:*",
+  "git switch:*",
+  "git add:*",
+  "git rev-parse:*",
+  "git commit:*",
+  "git push:*",
+  "git rebase:*",
+  "gh pr create:*",
+  "gh issue list:*",
+  "gh issue view:*",
+  "gh pr list:*",
+  "gh pr view:*",
+  "gh pr diff:*",
+  "gh pr status:*",
+  "gh repo view:*",
+  "gh auth status:*",
+  "./gradlew ktlintCheck:*",
+  "./gradlew ktlintFormat:*",
+  "./gradlew build:*",
+  "./gradlew test:*",
+  "./gradlew integrationTest:*",
+  "./gradlew projects:*",
+  "./gradlew dependencies:*",
+  "python3 scripts/harness/generate.py:*",
+  "python3 scripts/harness/validate.py:*",
+  "rg:*",
+  "fd:*",
+  "ls:*",
+  "tree:*",
+]
+
+# 사용자 확인 — 팀에 보이는 outward 동작
+require_approval = [
+  "gh pr ready:*",
+  "gh pr merge:*",
+  "gh issue create:*",
+  "gh pr review:*",
+  "gh pr comment:*",
+  "gh pr edit:*",
+  "gh api:*",
+  "git rebase --abort:*",
+]
+
+# 차단 — 되돌릴 수 없는 것과 시크릿
+deny = [
+  "git reset --hard:*",
+  "git clean -fd:*",
+  "read:./.env",
+  "read:./.env.*",
+  "read:**/application-local.yml",
+  "read:**/application-secret*.yml",
+  "read:**/*.key",
+  "read:**/*.jks",
+  "read:**/*.p12",
+]

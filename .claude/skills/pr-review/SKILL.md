@@ -2,6 +2,11 @@
 name: pr-review
 description: GitHub에 올라온 Pull Request를 팀 리뷰 기준으로 검토하고 코멘트를 남긴다. "PR 리뷰해줘", "이 PR 봐줘", "N번 PR 검토", 동료가 올린 PR에 리뷰를 달아야 할 때 사용한다. 아직 안 올린 로컬 변경은 review를 쓴다.
 ---
+<!--
+  이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.
+  고칠 곳: harness/skills/pr-review/SKILL.md
+  다시 생성: python3 scripts/harness/generate.py
+-->
 
 # PR 리뷰 — 올라온 PR을 검토하고 코멘트를 남긴다
 
@@ -14,7 +19,7 @@ gh pr list --state open
 `gh`가 없으면 `brew install gh && gh auth login`을 안내하고 멈춘다.
 
 서버는 2인이라 **모든 PR이 서로에게 간다.** 리뷰가 밀리면 작업이 멈추므로
-"무엇을 보는가"를 정해두고 그것만 본다 — 기준은 `.claude/rules/review.md`.
+"무엇을 보는가"를 정해두고 그것만 본다 — 기준은 `harness/rules/review.md`.
 
 ## 1. PR 파악
 
@@ -53,7 +58,7 @@ gh pr checkout <번호>
 
 ## 4. 판정
 
-`.claude/rules/review.md`의 우선순위대로 본다.
+`harness/rules/review.md`의 우선순위대로 본다.
 
 1. `build.gradle.kts` 의존성 — **도구가 못 막는 유일한 아키텍처 위반 지점**
 2. 코드가 놓인 계층

@@ -1,5 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_generated": [
+    "이 파일은 harness/hooks/policies/permissions.json 에서 생성됩니다.",
+    "직접 고치지 마세요. 다시 생성: python3 scripts/harness/generate.py"
+  ],
   "permissions": {
     "allow": [
       "Bash(git status:*)",
@@ -30,6 +34,8 @@
       "Bash(./gradlew integrationTest:*)",
       "Bash(./gradlew projects:*)",
       "Bash(./gradlew dependencies:*)",
+      "Bash(python3 scripts/harness/generate.py:*)",
+      "Bash(python3 scripts/harness/validate.py:*)",
       "Bash(rg:*)",
       "Bash(fd:*)",
       "Bash(ls:*)",

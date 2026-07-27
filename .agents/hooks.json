@@ -1,0 +1,80 @@
+{
+  "_generated": [
+    "이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.",
+    "고칠 곳: harness/hooks/policies/permissions.json",
+    "다시 생성: python3 scripts/harness/generate.py"
+  ],
+  "hooks": [
+    {
+      "event": "preToolUse",
+      "match": "shell",
+      "command": [
+        "python3",
+        "harness/hooks/run.py",
+        "antigravity"
+      ],
+      "timeout": 10
+    }
+  ],
+  "permissions": {
+    "allow": [
+      "git status:*",
+      "git diff:*",
+      "git log:*",
+      "git show:*",
+      "git branch:*",
+      "git fetch:*",
+      "git switch:*",
+      "git add:*",
+      "git rev-parse:*",
+      "git commit:*",
+      "git push:*",
+      "git rebase:*",
+      "gh pr create:*",
+      "gh issue list:*",
+      "gh issue view:*",
+      "gh pr list:*",
+      "gh pr view:*",
+      "gh pr diff:*",
+      "gh pr status:*",
+      "gh repo view:*",
+      "gh auth status:*",
+      "./gradlew ktlintCheck:*",
+      "./gradlew ktlintFormat:*",
+      "./gradlew build:*",
+      "./gradlew test:*",
+      "./gradlew integrationTest:*",
+      "./gradlew projects:*",
+      "./gradlew dependencies:*",
+      "python3 scripts/harness/generate.py:*",
+      "python3 scripts/harness/validate.py:*",
+      "rg:*",
+      "fd:*",
+      "ls:*",
+      "tree:*"
+    ],
+    "ask": [
+      "gh pr ready:*",
+      "gh pr merge:*",
+      "gh issue create:*",
+      "gh pr review:*",
+      "gh pr comment:*",
+      "gh pr edit:*",
+      "gh api:*",
+      "git rebase --abort:*"
+    ],
+    "deny": [
+      "git reset --hard:*",
+      "git clean -fd:*"
+    ],
+    "denyRead": [
+      "./.env",
+      "./.env.*",
+      "**/application-local.yml",
+      "**/application-secret*.yml",
+      "**/*.key",
+      "**/*.jks",
+      "**/*.p12"
+    ]
+  }
+}

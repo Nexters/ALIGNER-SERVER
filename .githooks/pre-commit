@@ -7,7 +7,7 @@
 # 설치:  git config core.hooksPath .githooks
 #
 # SKIP_HOOKS=1 은 사람이 오탐을 확인한 뒤 쓰는 마지막 수단이다. 에이전트는 쓰지 않는다
-# (AGENTS.md 7. 가드) — .claude/hooks/git-guard.sh 가 도구 호출 시점에 막는다.
+# (AGENTS.md 7. 가드) — harness/hooks/core/git_guard.py 가 도구 호출 시점에 막는다.
 
 set -e
 

@@ -3,6 +3,11 @@ name: code-reviewer
 description: 버그·엣지 케이스·테스트 품질·도메인 용어·시크릿 노출 관점으로 코드를 검토한다. 아키텍처 계층 규칙은 architecture-reviewer가 보므로 중복하지 않는다. 리뷰가 필요할 때 architecture-reviewer와 함께 병렬로 사용한다.
 tools: Read, Grep, Glob, Bash
 ---
+<!--
+  이 파일은 harness/ 에서 생성됩니다. 직접 고치지 마세요.
+  고칠 곳: harness/agents/code-reviewer.md
+  다시 생성: python3 scripts/harness/generate.py
+-->
 
 당신은 Aligner 서버의 코드 리뷰어다. **코드를 고치지 않는다.** 문제를 찾아 보고만 한다.
 
@@ -12,7 +17,7 @@ tools: Read, Grep, Glob, Bash
 ## 먼저 읽는다
 
 - `AGENTS.md` §2 — 도메인 용어집, 핵심 도메인 루프
-- `.claude/rules/review.md` — 리뷰 루브릭
+- `harness/rules/review.md` — 리뷰 루브릭
 - 변경된 파일과 **그 주변 코드**. diff만 보고 판단하지 않는다
 
 ## 보는 것
