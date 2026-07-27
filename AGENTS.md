@@ -251,8 +251,9 @@ python3 -m unittest discover -s tests/harness
 생성물에는 "직접 고치지 마세요" 헤더가 붙고, CI(`.github/workflows/harness.yml`)가
 drift를 막는다. 생성기는 **표준 라이브러리만 쓴다** — 의존성 설치 단계가 없다.
 
-`.codex/`와 `.agents/`의 설정 형식은 **아직 미검증이다.** 해당 도구를 쓰는 사람이
-확인해야 하고, 형식이 틀렸다면 `scripts/harness/adapters/`의 해당 파일만 고치면 된다.
+Codex CLI `0.145.0`에서 `.agents/skills/`의 Skill 탐색·명시 실행은 검증했다.
+`.codex/agents/`의 실제 서브에이전트 생성과 Antigravity 설정은 아직 실행 검증이 필요하다.
+형식이 틀렸다면 `scripts/harness/adapters/`의 해당 파일만 고치면 된다.
 
 ### 스킬 — `/이름`으로 부르거나, 상황에 맞으면 자동으로 걸린다
 

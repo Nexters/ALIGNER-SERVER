@@ -158,8 +158,15 @@ class 생성물(unittest.TestCase):
         self.assertEqual("Bash", handler["matcher"])
         self.assertEqual("command", handler["hooks"][0]["type"])
         self.assertIn("prefix_rule(", files[".codex/rules/aligner.rules"])
-        skills = [path for path in files if path.startswith(".codex/skills/")]
-        self.assertEqual(len(load_bundle(ROOT).skills), len(skills))
+
+        source_skill_count = len(load_bundle(ROOT).skills)
+        generated_skills = [
+            path
+            for path in files
+            if path.startswith(".agents/skills/") and path.endswith("/SKILL.md")
+        ]
+        self.assertEqual(source_skill_count, len(generated_skills))
+        self.assertFalse(any(path.startswith(".codex/skills/") for path in files))
 
     def test_antigravity_네이티브_스키마(self):
         files, _ = validate.build(warn=lambda message: None)

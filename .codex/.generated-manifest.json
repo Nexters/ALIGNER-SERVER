@@ -8,15 +8,6 @@
     "agents/module-scaffolder.toml",
     "config.toml",
     "hooks.json",
-    "rules/aligner.rules",
-    "skills/commit/SKILL.md",
-    "skills/design/SKILL.md",
-    "skills/flow/SKILL.md",
-    "skills/implement/SKILL.md",
-    "skills/plan/SKILL.md",
-    "skills/pr-feedback/SKILL.md",
-    "skills/pr-review/SKILL.md",
-    "skills/pr/SKILL.md",
-    "skills/review/SKILL.md"
+    "rules/aligner.rules"
   ]
 }
