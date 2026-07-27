@@ -1,0 +1,87 @@
+{
+  "_comment": [
+    "하네스 공통 권한 정책. 각 어댑터가 자기 설정 형식으로 변환한다.",
+    "여기 있는 값은 도구 이름을 포함하지 않는다 — Bash(...) 같은 하네스별 표기는",
+    "scripts/harness/adapters/ 가 붙인다.",
+    "",
+    "판단 기준은 AGENTS.md 7. 가드다.",
+    "  allow — 읽기 전용이거나 되돌리기 싼 것",
+    "  ask   — 팀에 보이는 outward 동작 (PR 리뷰 요청, 병합, 이슈 생성)",
+    "  deny  — 되돌릴 수 없는 것과 시크릿",
+    "",
+    "git commit·push 가 allow 인 것은 의도적이다. 네이티브 정책·hook·GitHub 브랜치 보호를 함께 쓴다.",
+    "hook은 보조 안전장치다. 서버측 브랜치 보호와 하네스 sandbox/rules를 대체하지 않는다."
+  ],
+  "commands": {
+    "allow": [
+      "git status:*",
+      "git diff:*",
+      "git log:*",
+      "git show:*",
+      "git branch:*",
+      "git fetch:*",
+      "git switch:*",
+      "git add:*",
+      "git rev-parse:*",
+      "git commit:*",
+      "git push:*",
+      "git rebase:*",
+      "gh pr create:*",
+      "gh issue list:*",
+      "gh issue view:*",
+      "gh pr list:*",
+      "gh pr view:*",
+      "gh pr diff:*",
+      "gh pr status:*",
+      "gh repo view:*",
+      "gh auth status:*",
+      "./gradlew ktlintCheck:*",
+      "./gradlew ktlintFormat:*",
+      "./gradlew build:*",
+      "./gradlew test:*",
+      "./gradlew integrationTest:*",
+      "./gradlew projects:*",
+      "./gradlew dependencies:*",
+      "python3 scripts/harness/generate.py:*",
+      "python3 scripts/harness/validate.py:*",
+      "rg:*",
+      "fd:*",
+      "ls:*",
+      "tree:*"
+    ],
+    "ask": [
+      "gh pr ready:*",
+      "gh pr merge:*",
+      "gh issue create:*",
+      "gh pr review:*",
+      "gh pr comment:*",
+      "gh pr edit:*",
+      "gh api:*",
+      "git rebase --abort:*"
+    ],
+    "deny": [
+      "git reset --hard:*",
+      "git clean -fd:*"
+    ]
+  },
+  "files": {
+    "denyRead": [
+      "./.env",
+      "./.env.*",
+      "**/application-local.yml",
+      "**/application-secret*.yml",
+      "**/*.key",
+      "**/*.jks",
+      "**/*.p12"
+    ]
+  },
+  "hooks": {
+    "preToolUse": [
+      {
+        "match": "shell",
+        "entrypoint": "harness/hooks/run.py",
+        "timeout": 10
+      }
+    ]
+  }
+}

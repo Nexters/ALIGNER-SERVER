@@ -1,0 +1,74 @@
+### Gradle ###
+.gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### Kotlin / Java ###
+*.class
+*.jar
+# wrapper jar 은 커밋한다. 부정 패턴은 *.jar 아래에 둬야 이긴다 (뒤에 오는 패턴이 우선)
+!gradle/wrapper/gradle-wrapper.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+replay_pid*
+out/
+bin/
+
+### Python ###
+__pycache__/
+*.py[cod]
+
+### IntelliJ IDEA ###
+.idea/
+*.iml
+*.iws
+*.ipr
+
+### Eclipse / VS Code ###
+.classpath
+.project
+.settings/
+.vscode/
+
+### Spring Boot ###
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### 환경 변수 · 시크릿 ###
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+src/main/resources/application-local.yml
+src/main/resources/application-secret*.yml
+**/src/main/resources/application-local.yml
+**/src/main/resources/application-secret*.yml
+
+### 에이전트 로컬 설정 ###
+.claude/
+.codex/
+.agents/
+
+### Python 실행 산출물 ###
+__pycache__/
+*.py[cod]
+
+### macOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+### Windows ###
+Thumbs.db
+Desktop.ini
+
+### 기타 ###
+*.tmp
+*.bak
