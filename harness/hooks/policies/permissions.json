@@ -32,6 +32,7 @@
       "gh pr list:*",
       "gh pr view:*",
       "gh pr diff:*",
+      "gh pr checkout:*",
       "gh pr status:*",
       "gh repo view:*",
       "gh auth status:*",

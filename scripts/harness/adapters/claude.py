@@ -98,6 +98,18 @@ class ClaudeAdapter(Adapter):
                 "enabled": True,
                 "failIfUnavailable": True,
                 "allowUnsandboxedCommands": False,
+                "network": {
+                    # gh 는 Go 바이너리라 TLS 인증서 검증을 trustd 에 XPC 로 위임한다.
+                    # 이걸 막으면 gh 의 모든 네트워크 호출이
+                    # `x509: OSStatus -26276` 으로 죽고, gh 는 그걸 "token in keyring
+                    # is invalid" 로 잘못 보고한다 (토큰·키체인은 멀쩡하다).
+                    # /pr·/pr-review·/pr-feedback 이 통째로 못 돈다.
+                    #
+                    # 같은 증상을 enableWeakerNetworkIsolation 으로도 풀 수 있지만
+                    # 그건 trustd 를 포함한 격리를 통째로 낮춘다. 필요한 서비스
+                    # 하나만 연다.
+                    "allowMachLookup": ["com.apple.trustd.agent"],
+                },
                 "filesystem": {
                     # ~/.config/gh 는 막지 않는다. gh 는 모든 서브커맨드에서 config.yml 을
                     # 먼저 읽으므로 차단하면 gh 자체가 실행 불가가 되고, 같은 파일이 자동 허용한
