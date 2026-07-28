@@ -99,10 +99,12 @@ class ClaudeAdapter(Adapter):
                 "failIfUnavailable": True,
                 "allowUnsandboxedCommands": False,
                 "filesystem": {
+                    # ~/.config/gh 는 막지 않는다. gh 는 모든 서브커맨드에서 config.yml 을
+                    # 먼저 읽으므로 차단하면 gh 자체가 실행 불가가 되고, 같은 파일이 자동 허용한
+                    # `gh pr create` 와 /pr·/flow 스킬이 통째로 죽는다.
                     "denyRead": [
                         "~/.ssh/**",
                         "~/.aws/**",
-                        "~/.config/gh/**",
                         "~/.kube/**",
                         *bundle.policies["files"]["denyRead"],
                     ],
