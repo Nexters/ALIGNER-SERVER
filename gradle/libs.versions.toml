@@ -39,11 +39,18 @@ springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-w
 # 코루틴 — 사용 범위는 docs/architecture.md §11 에서 미정. 카탈로그에만 올려둔다
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 
+# 버전은 Spring Boot BOM(jackson)과 Kotlin 플러그인(kotlin-reflect)이 관리한다
+jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
+
 # 테스트
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
-testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
-testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter" }
+# Boot 4.1 이 testcontainers 2.0.5 를 고정하는데, 2.x 부터 아티팩트 id 에
+# testcontainers- 접두사가 붙었다. 레거시 좌표(org.testcontainers:postgresql)는
+# 이 BOM 에 없어 "no version specified" 로 해석이 실패한다.
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 
 # build-logic 클래스패스 전용 — 컨벤션 플러그인이 적용할 Gradle 플러그인 구현체
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

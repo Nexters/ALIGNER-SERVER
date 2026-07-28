@@ -111,13 +111,19 @@ class ClaudeAdapter(Adapter):
                     "allowMachLookup": ["com.apple.trustd.agent"],
                 },
                 "filesystem": {
-                    # ~/.config/gh 는 막지 않는다. gh 는 모든 서브커맨드에서 config.yml 을
-                    # 먼저 읽으므로 차단하면 gh 자체가 실행 불가가 되고, 같은 파일이 자동 허용한
-                    # `gh pr create` 와 /pr·/flow 스킬이 통째로 죽는다.
+                    # ~/.config/gh 를 통째로 막지는 않는다. gh 는 모든 서브커맨드에서
+                    # config.yml 을 먼저 읽으므로 디렉터리를 막으면 gh 자체가 실행 불가가
+                    # 되고, 같은 파일이 자동 허용한 `gh pr create` 와 /pr·/flow 스킬이
+                    # 통째로 죽는다.
+                    #
+                    # 다만 hosts.yml 은 따로 막는다. 키체인을 쓸 수 없는 환경(CI, 헤드리스,
+                    # GH_CONFIG_DIR 커스텀)에서는 여기에 oauth_token 이 평문으로 남는다.
+                    # gh 는 이 파일을 못 읽어도 키체인 토큰으로 정상 동작한다.
                     "denyRead": [
                         "~/.ssh/**",
                         "~/.aws/**",
                         "~/.kube/**",
+                        "~/.config/gh/hosts.yml",
                         *bundle.policies["files"]["denyRead"],
                     ],
                     "allowRead": ["."],
