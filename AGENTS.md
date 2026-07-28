@@ -28,7 +28,7 @@ P1: `Concern`, 사진·영상 분석, 전후 비교, 배지·리워드, 리마�
 
 ## 4. 기술 스택과 아키텍처
 
-- Kotlin 2.4.10, JDK 25, Spring Boot 4.1.0, PostgreSQL, Spring Data JDBC, Liquibase, Kotest·TestContainers, ktlint. JPA·QueryDSL·Exposed는 사용하지 않는다. 코드 위치·의존성 판단의 정본은 `docs/architecture.md`다.
+- Kotlin 2.4.10, JDK 25, Spring Boot 4.1.0, Gradle 9.6.1, PostgreSQL, Spring Data JDBC, Liquibase, Kotest·TestContainers, ktlint. JPA·QueryDSL·Exposed는 사용하지 않는다. **버전 정본은 `gradle/libs.versions.toml`이다** — 임의로 올리거나 내리지 않는다. 코드 위치·의존성 판단의 정본은 `docs/architecture.md`다.
 - **정본:** 코드 위치·모듈·Bean·스키마 판단은 작업 전에 `docs/architecture.md`를 읽는다. 이 파일은 그 결정을 복제하지 않는다.
 - Hexagonal Modular Monolith: `application-api`만 실행한다. 도메인은 기본 `model`, `infrastructure`, `service`, `repository-jdbc`, `api`, `schema`로 나눈다. 도메인 연결이 실제로 필요할 때만 `contract`/`adapter-*`를 만든다.
 - `api → service → infrastructure port` 방향을 지킨다. `api → repository-jdbc`, `service → CrudRepository/JdbcClient`, 도메인 간 직접 참조·DB FK는 금지다.

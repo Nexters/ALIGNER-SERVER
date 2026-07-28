@@ -554,7 +554,7 @@ support-core/
 support-web/
 ├── AlignerPrincipal.kt          인증된 회원 표현
 ├── SecurityConfig.kt            SecurityFilterChain, OAuth2 공통 설정
-├── ErrorResponse.kt             공통 에러 응답 포맷
+├── ApiErrorResponse.kt          공통 에러 응답 포맷 (Spring 의 ErrorResponse 와 이름 충돌 회피)
 └── GlobalExceptionHandler.kt    @RestControllerAdvice
 ```
 
@@ -588,10 +588,10 @@ abstract class BaseException(
 @RestControllerAdvice
 class GlobalExceptionHandler {
     @ExceptionHandler(BaseException::class)
-    fun handle(exception: BaseException): ResponseEntity<ErrorResponse> =
+    fun handle(exception: BaseException): ResponseEntity<ApiErrorResponse> =
         ResponseEntity
             .status(exception.errorCode.status)
-            .body(ErrorResponse.from(exception.errorCode))
+            .body(ApiErrorResponse.from(exception.errorCode))
 }
 ```
 

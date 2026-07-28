@@ -1,0 +1,10 @@
+# 루트 changelog. 도메인 changelog 를 여기서 include 한다.
+#
+# 도메인이 추가될 때마다 한 줄씩 늘어난다 (docs/architecture.md §6, §10 7단계).
+#
+#   databaseChangeLog:
+#     - include:
+#         file: classpath:db/member/db.changelog-member.yaml
+#
+# 아직 도메인이 없다 (이슈 #3 범위 밖).
+databaseChangeLog: []
