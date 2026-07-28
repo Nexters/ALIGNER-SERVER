@@ -1,9 +1,12 @@
 package team.aligner.support.web
 
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatusCode
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.context.request.WebRequest
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 import team.aligner.support.core.BaseException
 import team.aligner.support.core.CommonErrorCode
@@ -21,10 +24,29 @@ import team.aligner.support.core.CommonErrorCode
  * ExceptionHandlerExceptionResolver 가 DefaultHandlerExceptionResolver 보다 먼저 돌기 때문에
  * 400(본문 파싱 실패·검증 실패)·404·405 가 전부 500 으로 나가고, 클라이언트 입력 오류가
  * error 로그를 오염시킨다. 부모가 프레임워크 예외를 구체 타입으로 먼저 잡는다.
+ *
+ * 다만 부모는 본문을 ProblemDetail(application/problem+json) 로 만든다. 그대로 두면
+ * 실패 응답이 두 포맷으로 갈려서 클라이언트가 분기에 쓰는 code 필드가 프레임워크 예외에만
+ * 없어진다. handleExceptionInternal 을 덮어 본문을 ApiErrorResponse 로 통일한다.
  */
 @RestControllerAdvice
 class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
     private val log = LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
+
+    override fun handleExceptionInternal(
+        ex: Exception,
+        body: Any?,
+        headers: HttpHeaders,
+        statusCode: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any>? {
+        // 상태 코드만 부모 판단을 따르고 본문은 우리 포맷으로 바꾼다.
+        // 예외 메시지는 클라이언트 입력을 되비추므로 싣지 않는다.
+        val errorCode = CommonErrorCode.ofStatus(statusCode.value())
+        return ResponseEntity
+            .status(statusCode)
+            .body(ApiErrorResponse.from(errorCode))
+    }
 
     @ExceptionHandler(BaseException::class)
     fun handle(exception: BaseException): ResponseEntity<ApiErrorResponse> =

@@ -17,8 +17,16 @@ Aligner는 코치 없이 요가하는 사용자가 **원인**을 찾아 보강 �
 | --- | --- |
 | 부위 / 자가 스크리닝 / 원인 | `BodyPart` / `Screening` / `Cause` |
 | 코스 / 스텝 / 보강 운동 | `Course` / `Step` / `Exercise` |
-| 목표 자세 / 자세 포인트 / 세션 / 도장 | `TargetPose` 또는 `PeakPose` / `PoseCheckpoint` / `Session` / `Stamp` |
+| 코스 템플릿 / 코스 스텝 | `CourseTemplate` / `CourseStep` |
+| 목표 자세 / 자세 포인트 / 세션 / 도장 | `TargetPose` / `PoseCheckpoint` / `Session` / `Stamp` |
 | 고민 유형 | `Concern` — **P1**, 현재 구현하지 않는다 |
+
+목표 자세는 `TargetPose`로 통일한다. `PeakPose`·`Pose`를 새로 쓰지 않는다 — 테이블·컬럼·계약
+이름이 `target_pose`, `target_pose_id`, `TargetPoseContract`로 파생된다. 다만 `PoseCheckpoint`는
+이 표의 확정 이름이므로 그대로 둔다.
+
+코스는 마스터(`CourseTemplate`)와 회원별 인스턴스(`Course`)가 다르다. 목록 상세는
+`docs/domains.md`가 정본이다.
 
 ## 3. MVP 구현 범위 (P0)
 
