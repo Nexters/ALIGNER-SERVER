@@ -15,6 +15,10 @@ import org.springframework.security.web.SecurityFilterChain
  * AuthMemberPort 구현체가 없기 때문이다. 지금은 무상태 필터체인만 세워두고,
  * 인증 규칙은 member 착수 시 이 파일에서 채운다.
  *
+ * 그 사이 기본값은 `authenticated()` 로 닫아둔다. 이 클래스는 AutoConfiguration.imports 에
+ * 등록돼 프로덕션 경로에도 그대로 실리므로, `permitAll()` 을 임시로 두면 도메인 API 가
+ * 붙는 순간 무인증으로 열린다. 공개해야 할 경로는 그때 여기에 하나씩 명시한다.
+ *
  * Pod 이중화 전제이므로 세션을 쓰지 않는다 (AGENTS.md §4 배포 구성).
  *
  * `before` 가 없으면 Boot 기본 체인이 이긴다. auto-configuration 은 클래스명 알파벳순으로 먼저
@@ -34,6 +38,6 @@ class SecurityConfig {
             .httpBasic { it.disable() }
             .formLogin { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-            .authorizeHttpRequests { it.anyRequest().permitAll() }
+            .authorizeHttpRequests { it.anyRequest().authenticated() }
             .build()
 }

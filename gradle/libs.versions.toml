@@ -39,8 +39,10 @@ springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-w
 # 코루틴 — 사용 범위는 docs/architecture.md §11 에서 미정. 카탈로그에만 올려둔다
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 
-# 버전은 Spring Boot BOM(jackson)과 Kotlin 플러그인(kotlin-reflect)이 관리한다
-jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
+# 버전은 Spring Boot BOM(jackson)과 Kotlin 플러그인(kotlin-reflect)이 관리한다.
+# Boot 4.1 의 웹 스택은 Jackson 3(tools.jackson) 을 쓴다. 레거시 좌표
+# (com.fasterxml.jackson.module)는 Jackson 2 용이라 실제 ObjectMapper 에 등록되지 않는다.
+jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
 
 # 테스트

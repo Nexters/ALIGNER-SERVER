@@ -40,11 +40,14 @@ class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
         statusCode: HttpStatusCode,
         request: WebRequest,
     ): ResponseEntity<Any>? {
-        // 상태 코드만 부모 판단을 따르고 본문은 우리 포맷으로 바꾼다.
+        // 상태 코드와 헤더는 부모 판단을 따르고 본문만 우리 포맷으로 바꾼다.
+        // headers 를 버리면 405 의 Allow 나 406 의 협상 헤더가 함께 사라져서
+        // 클라이언트가 무엇을 고쳐야 하는지 알 수 없게 된다.
         // 예외 메시지는 클라이언트 입력을 되비추므로 싣지 않는다.
         val errorCode = CommonErrorCode.ofStatus(statusCode.value())
         return ResponseEntity
             .status(statusCode)
+            .headers(headers)
             .body(ApiErrorResponse.from(errorCode))
     }
 

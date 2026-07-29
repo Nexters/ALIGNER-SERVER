@@ -17,8 +17,8 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
-# 기본값은 꺼둔다. SecurityConfig 가 아직 anyRequest().permitAll() 이라 켜두면
-# 무인증으로 API 스펙 전체가 공개된다. 로컬에서는 application-local.yml 로 켠다.
+# 기본값은 꺼둔다. 인증 규칙이 아직 없어(SecurityConfig) 스펙 공개 범위를 정할 수 없다.
+# 로컬에서는 application-local.yml 로 켠다.
 springdoc:
   api-docs:
     enabled: ${SPRINGDOC_ENABLED:false}

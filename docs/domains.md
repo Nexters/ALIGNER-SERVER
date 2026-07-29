@@ -314,7 +314,7 @@ training.checkpoint_result_item  item_id(pk), result_id, checkpoint_id, passed
 
 ---
 
-## 5. 모듈 목록 — `settings.gradle.kts` include 대상
+## 5. 예정 모듈 구성 — 향후 `settings.gradle.kts` include 대상
 
 ```text
 build-logic (includeBuild)
@@ -333,8 +333,10 @@ training:    model infrastructure service repository-jdbc api schema
 
 패키지 루트는 `team.aligner.{domain}`이다(§10).
 
-`application-api`는 5개 도메인의 `api` · `repository-jdbc` · `schema` · `adapter-*`와
-`member:contract` · `support-web` · `support-core`를 조립한다.
+현재 `settings.gradle.kts`가 include 하는 것은 `support-core` · `support-web` ·
+`application-api` 뿐이고 `build-logic`은 `includeBuild` 대상이다. 위 목록의 도메인 모듈은
+아직 없다. 도메인 구현 이후 `application-api`는 5개 도메인의 `api` · `repository-jdbc` ·
+`schema` · `adapter-*`와 `member:contract` · `support-web` · `support-core`를 조립한다.
 
 ### 착수 순서
 
@@ -383,15 +385,15 @@ training:    model infrastructure service repository-jdbc api schema
 3. **`Course` 용어.** `AGENTS.md` §2 용어집은 코스를 "원인별 처방"으로 적었으나, ⑦ 때문에 실제로는
    회원별로 재편성되는 인스턴스다. 이 문서는 마스터를 `CourseTemplate`, 회원 인스턴스를 `Course`로
    구분한다. 용어집에 `CourseTemplate` 행을 추가해야 한다.
-5. **YMove 장애 시 무엇을 보여주는가.** 영상 없이는 세션을 진행할 수 없어 fallback이 없다.
+4. **YMove 장애 시 무엇을 보여주는가.** 영상 없이는 세션을 진행할 수 없어 fallback이 없다.
    타임아웃 값, 재시도 여부, 사용자에게 보일 메시지를 `catalog` 착수 전에 정해야 한다.
-6. **재생 URL 캐시 위치와 TTL.** 48시간 만료이므로 그보다 짧아야 한다. 코스 상세 조회처럼
+5. **재생 URL 캐시 위치와 TTL.** 48시간 만료이므로 그보다 짧아야 한다. 코스 상세 조회처럼
    여러 자세를 한 번에 그리는 화면에서 매번 YMove를 치지 않도록 `PoseVideoPort` 구현체 안에
    둘지, 그 위에 둘지 정해야 한다. `thumbnailUrl`도 같이 만료되는지 YMove 확인이 필요하다.
-7. **YMove의 `slug`가 안정적인가.** 우리 seed가 `ymove_slug`를 유일한 연결 고리로 쓰므로,
+6. **YMove의 `slug`가 안정적인가.** 우리 seed가 `ymove_slug`를 유일한 연결 고리로 쓰므로,
    YMove 쪽에서 slug가 바뀌면 해당 운동·자세가 통째로 깨진다. 불안정하면 내부 id를 함께
    저장해야 한다.
-8. **고민 유형(`Concern`)은 P1**이다(`AGENTS.md` §3). `screening.body_part` 아래 자리만 비워두고
+7. **고민 유형(`Concern`)은 P1**이다(`AGENTS.md` §3). `screening.body_part` 아래 자리만 비워두고
    지금 만들지 않는다. 추가될 때 `screening.concern` + `cause_rule`에 `concern_code`가 붙는다.
 
 ## 8. 이 분할에서 아직 정하지 않은 것
