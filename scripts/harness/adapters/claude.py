@@ -98,11 +98,33 @@ class ClaudeAdapter(Adapter):
                 "enabled": True,
                 "failIfUnavailable": True,
                 "allowUnsandboxedCommands": False,
+                "network": {
+                    # gh 는 Go 바이너리라 TLS 인증서 검증을 trustd 에 XPC 로 위임한다.
+                    # 이걸 막으면 gh 의 모든 네트워크 호출이
+                    # `x509: OSStatus -26276` 으로 죽고, gh 는 그걸 "token in keyring
+                    # is invalid" 로 잘못 보고한다 (토큰·키체인은 멀쩡하다).
+                    # /pr·/pr-review·/pr-feedback 이 통째로 못 돈다.
+                    #
+                    # 같은 증상을 enableWeakerNetworkIsolation 으로도 풀 수 있지만
+                    # 그건 trustd 를 포함한 격리를 통째로 낮춘다. 필요한 서비스
+                    # 하나만 연다.
+                    "allowMachLookup": ["com.apple.trustd.agent"],
+                },
                 "filesystem": {
+                    # ~/.config/gh 는 막지 않는다. hosts.yml 만 막아도 gh 는 실행 자체가
+                    # 안 된다 — 인증보다 먼저 설정 파일을 읽고, EPERM 이면 그 자리에서
+                    # `failed to read configuration` 으로 죽는다. 키체인 토큰으로
+                    # 대신 동작하지 않는다(실측). /pr·/pr-review·/pr-feedback·/flow 가
+                    # 통째로 막히고, 그 상태를 피하려고 GH_CONFIG_DIR 를 다른 디렉터리로
+                    # 돌리면 차단 자체가 무의미해진다.
+                    #
+                    # 대가는 감수한다. 키체인을 쓸 수 없는 환경(CI, 헤드리스)에서는
+                    # hosts.yml 에 oauth_token 이 평문으로 남고, 샌드박스 안에서 읽힌다.
+                    # 토큰 보호의 주 경계는 이 목록이 아니라 GitHub 쪽 스코프 제한과
+                    # branch protection 이다(AGENTS.md §7).
                     "denyRead": [
                         "~/.ssh/**",
                         "~/.aws/**",
-                        "~/.config/gh/**",
                         "~/.kube/**",
                         *bundle.policies["files"]["denyRead"],
                     ],

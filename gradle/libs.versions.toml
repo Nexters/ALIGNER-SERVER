@@ -1,0 +1,61 @@
+# 이 파일이 버전 정본이다 (AGENTS.md §4). 임의로 올리거나 내리지 않는다.
+#
+# AGENTS.md §4 에 이름이 적힌 것: kotlin, springBoot, gradle(wrapper), ktlint, kotest,
+# testcontainers, postgresql. 나머지(coroutines, springdoc)와 구체 버전은 이슈 #3 에서
+# Maven Central 최신 안정판으로 확정했다.
+
+[versions]
+kotlin = "2.4.10"
+springBoot = "4.1.0"
+ktlint = "14.2.0"
+coroutines = "1.11.0"
+kotest = "6.2.3"
+springdoc = "3.0.3"
+javaToolchain = "25"
+# testcontainers · postgresql · liquibase 는 Spring Boot BOM 이 관리한다
+# (4.1.0 기준 각각 2.0.5 / 42.7.11 / 5.0.3). 여기에 핀을 박으면 BOM 과 어긋난다.
+
+[libraries]
+# 플랫폼 — Spring 계열 버전은 전부 이 BOM 이 결정한다
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+
+# Spring (버전 없음 = BOM 이 관리)
+spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure" }
+spring-tx = { module = "org.springframework:spring-tx" }
+spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
+spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
+
+# Boot 4 는 auto-configuration 을 기술별 모듈로 쪼갰다. starter 를 넣지 않으면
+# spring.datasource.* / spring.liquibase.* 설정이 바인딩될 대상 자체가 없어 조용히 무시된다.
+spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc" }
+spring-boot-starter-liquibase = { module = "org.springframework.boot:spring-boot-starter-liquibase" }
+
+postgresql = { module = "org.postgresql:postgresql" }
+springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+
+# 코루틴 — 사용 범위는 docs/architecture.md §11 에서 미정. 카탈로그에만 올려둔다
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+
+# 버전은 Spring Boot BOM(jackson)과 Kotlin 플러그인(kotlin-reflect)이 관리한다.
+# Boot 4.1 의 웹 스택은 Jackson 3(tools.jackson) 을 쓴다. 레거시 좌표
+# (com.fasterxml.jackson.module)는 Jackson 2 용이라 실제 ObjectMapper 에 등록되지 않는다.
+jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
+
+# 테스트
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+# Boot 4.1 이 testcontainers 2.0.5 를 고정하는데, 2.x 부터 아티팩트 id 에
+# testcontainers- 접두사가 붙었다. 레거시 좌표(org.testcontainers:postgresql)는
+# 이 BOM 에 없어 "no version specified" 로 해석이 실패한다.
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
+
+# build-logic 클래스패스 전용 — 컨벤션 플러그인이 적용할 Gradle 플러그인 구현체
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-allopen = { module = "org.jetbrains.kotlin:kotlin-allopen", version.ref = "kotlin" }
+spring-boot-gradle-plugin = { module = "org.springframework.boot:spring-boot-gradle-plugin", version.ref = "springBoot" }
+ktlint-gradle-plugin = { module = "org.jlleitschuh.gradle:ktlint-gradle", version.ref = "ktlint" }

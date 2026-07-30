@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: aligner-server
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/aligner}
+    username: ${DB_USERNAME:aligner}
+    # 기본값을 두지 않는다. 로컬에서도 환경변수로 넣는다.
+    password: ${DB_PASSWORD}
+
+  liquibase:
+    change-log: classpath:db/changelog-master.yaml
+    # 도메인 테이블은 각자의 schema 에 만들고, 변경 이력 테이블만 public 에 둔다
+    # (docs/architecture.md §6).
+    liquibase-schema: public
+
+server:
+  port: ${SERVER_PORT:8080}
+
+# 기본값은 꺼둔다. 인증 규칙이 아직 없어(SecurityConfig) 스펙 공개 범위를 정할 수 없다.
+# 로컬에서는 application-local.yml 로 켠다.
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:false}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:false}
