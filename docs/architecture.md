@@ -553,10 +553,28 @@ support-core/
 
 support-web/
 ├── AlignerPrincipal.kt          인증된 회원 표현
-├── SecurityConfig.kt            SecurityFilterChain, OAuth2 공통 설정
+├── SecurityConfig.kt            SecurityFilterChain, 공개 경로, 401/403 응답
 ├── ApiErrorResponse.kt          공통 에러 응답 포맷 (Spring 의 ErrorResponse 와 이름 충돌 회피)
-└── GlobalExceptionHandler.kt    @RestControllerAdvice
+├── GlobalExceptionHandler.kt    @RestControllerAdvice
+├── AuthMemberPort.kt            웹 계층이 회원 도메인에 요구하는 최소 port
+└── auth/                        인증 흐름 (이슈 #5 에서 추가)
+    ├── AuthProperties.kt        aligner.auth.* 바인딩
+    ├── AuthErrorCode.kt         카카오 검증 실패·장애
+    ├── AuthenticationFailedException.kt
+    ├── KakaoUserClient.kt       카카오 사용자 조회 계약
+    ├── RestClientKakaoUserClient.kt  구현체 (internal)
+    ├── JwtTokenProvider.kt      자체 토큰 발급·검증 계약
+    ├── NimbusJwtTokenProvider.kt     구현체 (internal, HS256)
+    ├── JwtAuthenticationFilter.kt    Bearer → AlignerPrincipal (internal)
+    └── KakaoAuthController.kt   POST /auth/kakao
 ```
+
+**JWT 발급·검증과 카카오 사용자 조회도 `support-web`이 담당한다.** 둘 다 "이 요청을 누가
+보냈나"를 웹 계층에서 판정하는 장치이고, 모든 도메인 `api`가 똑같이 필요로 한다.
+`member:api`에 두면 다른 도메인이 인증 때문에 `member`를 직접 참조하게 되어 §7 위반이다.
+
+단, **JWT 코드는 어느 도메인도 몰라야 한다.** 토큰에는 `memberId` 원시값만 싣고,
+`support-web`은 `member:*` 어느 모듈도 의존하지 않는다.
 
 ### 규칙
 
@@ -665,10 +683,17 @@ fun start(
    `api`/`implementation` 구분은 §8 표를 따른다
 3. 루트 `settings.gradle.kts`에 6개 모듈 `include`
 4. 패키지 루트는 `team.aligner.{domain}`
-5. `@AutoConfiguration` 클래스와 `AutoConfiguration.imports` 작성 — 세 모듈 모두
+5. `@AutoConfiguration` 클래스와 `AutoConfiguration.imports` 작성 — **Bean 을 등록하는 모듈 전부**
    - `service` — 서비스 Bean
    - `repository-jdbc` — `@EnableJdbcRepositories` + port 구현 Bean
    - `api` — **컨트롤러를 `@Bean`으로 등록** (안 하면 404, §5)
+   - `adapter-*` / `adapter-auth` — port 구현 Bean. 만들었다면 여기도 필요하다.
+     빠지면 "Bean 없음"으로 기동이 실패하는데, 모듈을 조립에서 뺐을 때와 증상이 같아
+     원인을 잘못 짚기 쉽다
+   - **`service` 구현체의 `@Transactional` 은 메서드가 아니라 클래스에 붙인다.**
+     allopen 은 클래스에 붙은 어노테이션만 보고 `open` 을 매긴다. 메서드에만 붙이면
+     클래스가 `final` 로 남아 CGLIB 프록시 생성이 실패하고 기동이 죽는다.
+     빌드로는 드러나지 않는다
 6. `schema` changelog 작성 — 첫 changeset에 `CREATE SCHEMA IF NOT EXISTS {domain}`,
    이후 DDL은 schema-qualified (§6)
 7. 루트 `changelog-master.yaml`에 도메인 changelog include 추가
