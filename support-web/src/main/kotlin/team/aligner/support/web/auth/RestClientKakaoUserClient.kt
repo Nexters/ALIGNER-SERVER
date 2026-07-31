@@ -12,8 +12,8 @@ import java.time.Duration
  * 응답을 DTO 가 아니라 Map 으로 읽는다. 필요한 값이 세 개뿐이고, 카카오가 필드를 추가해도
  * 역직렬화가 깨지지 않는다.
  *
- * ⚠️ 엔드포인트와 응답 필드 경로는 카카오 개발자 문서로 확인이 필요하다
- * (docs/plan-5-member-도메인.md §9 확인 필요 1). 값이 다르면 KAKAO_ID_PATH 등 아래 상수만 고친다.
+ * ⚠️ 엔드포인트와 응답 필드 경로는 카카오 개발자 문서로 확인이 필요하다 (이슈 #5, PR #6 미검증 항목).
+ * 값이 다르면 아래 companion object 의 상수만 고치면 된다.
  */
 internal class RestClientKakaoUserClient(
     private val properties: AuthProperties,
