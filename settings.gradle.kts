@@ -35,4 +35,5 @@ include(
     "member:model",
     "member:infrastructure",
     "member:contract",
+    "member:schema",
 )
