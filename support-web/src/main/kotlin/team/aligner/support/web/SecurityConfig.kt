@@ -3,21 +3,27 @@ package team.aligner.support.web
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration
 import org.springframework.context.annotation.Bean
+import org.springframework.http.HttpMethod
+import org.springframework.http.MediaType
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import team.aligner.support.core.CommonErrorCode
+import team.aligner.support.web.auth.JwtAuthenticationFilter
+import team.aligner.support.web.auth.JwtTokenProvider
+import tools.jackson.databind.ObjectMapper
 
 /**
  * 도메인 횡단 보안 설정.
  *
- * **카카오 OAuth2 는 아직 붙이지 않는다** (이슈 #3 범위 밖). member 도메인이 없어
- * AuthMemberPort 구현체가 없기 때문이다. 지금은 무상태 필터체인만 세워두고,
- * 인증 규칙은 member 착수 시 이 파일에서 채운다.
+ * 인증은 자체 JWT 다. 클라이언트가 카카오 SDK 로 받은 액세스 토큰을 POST /auth/kakao 로
+ * 넘기면 서버가 확인 후 JWT 를 발급하고, 이후 요청은 Authorization: Bearer 로 온다.
+ * 서버가 인가 코드 리다이렉트를 받는 방식은 쓰지 않는다.
  *
- * 그 사이 기본값은 `authenticated()` 로 닫아둔다. 이 클래스는 AutoConfiguration.imports 에
- * 등록돼 프로덕션 경로에도 그대로 실리므로, `permitAll()` 을 임시로 두면 도메인 API 가
- * 붙는 순간 무인증으로 열린다. 공개해야 할 경로는 그때 여기에 하나씩 명시한다.
+ * 기본값은 `authenticated()` 로 닫아둔다. 이 클래스는 AutoConfiguration.imports 에
+ * 등록돼 프로덕션 경로에도 그대로 실리므로, 공개 경로는 메서드까지 한정해 하나씩 명시한다.
  *
  * Pod 이중화 전제이므로 세션을 쓰지 않는다 (AGENTS.md §4 배포 구성).
  *
@@ -32,12 +38,51 @@ import org.springframework.security.web.SecurityFilterChain
 @EnableWebSecurity
 class SecurityConfig {
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain =
+    fun securityFilterChain(
+        http: HttpSecurity,
+        jwtTokenProvider: JwtTokenProvider,
+        objectMapper: ObjectMapper,
+    ): SecurityFilterChain =
         http
             .csrf { it.disable() }
             .httpBasic { it.disable() }
             .formLogin { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-            .authorizeHttpRequests { it.anyRequest().authenticated() }
-            .build()
+            .authorizeHttpRequests {
+                // 로그인만 연다. 메서드까지 한정해 같은 경로의 다른 메서드가 딸려 열리지 않게 한다.
+                it.requestMatchers(HttpMethod.POST, LOGIN_PATH).permitAll()
+                it.anyRequest().authenticated()
+            }
+            // JwtAuthenticationFilter 를 @Bean 으로 올리지 않는다. Boot 의 서블릿 필터 자동 등록이
+            // 시큐리티 체인 밖에서 한 번 더 실행시킨다.
+            .addFilterBefore(
+                JwtAuthenticationFilter(jwtTokenProvider),
+                UsernamePasswordAuthenticationFilter::class.java,
+            ).exceptionHandling {
+                // 진입점을 지정하지 않으면 인증 없는 요청이 401 이 아니라 403 으로 나간다.
+                it.authenticationEntryPoint { _, response, _ ->
+                    response.writeError(objectMapper, CommonErrorCode.UNAUTHORIZED)
+                }
+                it.accessDeniedHandler { _, response, _ ->
+                    response.writeError(objectMapper, CommonErrorCode.FORBIDDEN)
+                }
+            }.build()
+
+    /**
+     * 필터체인이 만드는 실패 응답도 GlobalExceptionHandler 와 같은 포맷이어야 한다.
+     * 여기만 다르면 클라이언트가 에러 파싱을 두 벌 만들게 된다.
+     */
+    private fun jakarta.servlet.http.HttpServletResponse.writeError(
+        objectMapper: ObjectMapper,
+        errorCode: CommonErrorCode,
+    ) {
+        status = errorCode.status
+        contentType = MediaType.APPLICATION_JSON_VALUE
+        characterEncoding = Charsets.UTF_8.name()
+        writer.write(objectMapper.writeValueAsString(ApiErrorResponse.from(errorCode)))
+    }
+
+    private companion object {
+        const val LOGIN_PATH = "/auth/kakao"
+    }
 }

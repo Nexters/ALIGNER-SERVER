@@ -17,6 +17,21 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+aligner:
+  auth:
+    jwt:
+      # 기본값을 두지 않는다. DB_PASSWORD 와 같은 규칙이다.
+      # HS256 키라 32 바이트 이상이어야 하고, 미만이면 기동 시 예외가 난다.
+      secret: ${JWT_SECRET}
+      # 리프레시 토큰이 없다. 만료되면 클라이언트가 카카오 SDK 로 다시 받아 재로그인한다.
+      expiration-seconds: ${JWT_EXPIRATION_SECONDS:1209600}
+      issuer: aligner
+    kakao:
+      user-info-uri: ${KAKAO_USER_INFO_URI:https://kapi.kakao.com/v2/user/me}
+      # 카카오가 느려지면 로그인 요청이 스레드를 잡고 있다. 짧게 끊고 502 로 알린다.
+      connect-timeout-millis: ${KAKAO_CONNECT_TIMEOUT_MILLIS:2000}
+      read-timeout-millis: ${KAKAO_READ_TIMEOUT_MILLIS:3000}
+
 # 기본값은 꺼둔다. 인증 규칙이 아직 없어(SecurityConfig) 스펙 공개 범위를 정할 수 없다.
 # 로컬에서는 application-local.yml 로 켠다.
 springdoc:
