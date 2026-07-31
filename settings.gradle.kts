@@ -38,4 +38,5 @@ include(
     "member:schema",
     "member:service",
     "member:repository-jdbc",
+    "member:adapter-auth",
 )
