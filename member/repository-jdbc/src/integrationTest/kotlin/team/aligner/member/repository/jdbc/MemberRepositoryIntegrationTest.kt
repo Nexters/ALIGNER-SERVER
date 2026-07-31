@@ -97,6 +97,9 @@ class MemberRepositoryIntegrationTest {
         // 닉네임을 비워둔 채로 가입한 회원이 그대로 돌아와야 한다.
         found.nickname.shouldBeNull()
         found.profileImageUrl.shouldBeNull()
+        // save() 가 돌려준 시각은 DB 에 실제로 들어간 값이어야 한다. TIMESTAMPTZ 가
+        // 마이크로초로 자르므로 나노초를 그대로 넣으면 여기서 갈린다 (Linux 에서만 재현된다).
+        found.createdAt shouldBe saved.createdAt
     }
 
     @Test

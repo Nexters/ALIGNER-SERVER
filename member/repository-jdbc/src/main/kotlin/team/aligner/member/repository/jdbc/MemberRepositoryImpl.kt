@@ -4,6 +4,7 @@ import team.aligner.member.infrastructure.MemberRepository
 import team.aligner.member.model.Member
 import team.aligner.member.model.MemberIdentity
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 /**
  * Entity ↔ Model 변환이 일어나는 유일한 자리다. 도메인은 Entity 를 모른다.
@@ -15,7 +16,12 @@ internal class MemberRepositoryImpl(
     private val memberJdbcRepository: MemberJdbcRepository,
 ) : MemberRepository {
     override fun save(member: Member): Member {
-        val now = Instant.now()
+        // PostgreSQL TIMESTAMPTZ 는 마이크로초까지만 담는다. Instant.now() 를 그대로 쓰면
+        // 나노초가 저장 시 잘려서 save() 가 돌려준 모델이 DB 에 실제로 들어간 값과 달라진다.
+        // 저장 정밀도를 아는 것은 이 어댑터이므로 여기서 맞춘다.
+        //
+        // macOS 시계는 마이크로초 단위라 로컬에서는 드러나지 않는다. Linux CI 에서만 깨진다.
+        val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
         val saved =
             memberJdbcRepository.save(
                 MemberEntity(
