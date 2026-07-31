@@ -37,4 +37,5 @@ include(
     "member:contract",
     "member:schema",
     "member:service",
+    "member:repository-jdbc",
 )
