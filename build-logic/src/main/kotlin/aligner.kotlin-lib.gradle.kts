@@ -35,10 +35,18 @@ configurations["integrationTestRuntimeOnly"].extendsFrom(configurations["testRun
 dependencies {
     "testImplementation"(alignerLibs.lib("kotest-runner-junit5"))
     "testImplementation"(alignerLibs.lib("kotest-assertions-core"))
+    // out-port 를 스텁하는 데 쓴다. 모듈마다 반복 선언하면 같은 줄이 도메인 수만큼 흩어진다.
+    "testImplementation"(alignerLibs.lib("mockk"))
 }
+
+// mockk 는 byte-buddy 로 자기 JVM 에 에이전트를 붙인다. JDK 21 부터 self-attach 가 기본
+// 차단이라 이게 없으면 첫 mockk() 호출이 ExceptionInInitializerError 로 죽는다.
+// byte-buddy 가 외부 프로세스로 우회를 시도하지만 그건 더 느리고 환경을 탄다.
+val mockkAgentJvmArgs = listOf("-Djdk.attach.allowAttachSelf=true")
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
+    jvmArgs(mockkAgentJvmArgs)
 }
 
 tasks.register<Test>("integrationTest") {
@@ -47,5 +55,6 @@ tasks.register<Test>("integrationTest") {
     testClassesDirs = integrationTestSourceSet.output.classesDirs
     classpath = integrationTestSourceSet.runtimeClasspath
     useJUnitPlatform()
+    jvmArgs(mockkAgentJvmArgs)
     shouldRunAfter(tasks.named("test"))
 }

@@ -17,6 +17,9 @@ dependencies {
     // 그 도메인 schema 모듈의 changelog 로 테이블을 만든다 (docs/architecture.md §3).
     "integrationTestImplementation"(alignerLibs.lib("spring-boot-starter-test"))
     "integrationTestImplementation"(alignerLibs.lib("spring-boot-testcontainers"))
+    // changelog 를 실제로 돌리는 자동설정이 boot-application 에만 있어 통합 테스트에서는
+    // 테이블이 만들어지지 않는다. TestContainers 를 여기 둔 것과 같은 이유로 이 계층의 성질이다.
+    "integrationTestImplementation"(alignerLibs.lib("spring-boot-starter-liquibase"))
     "integrationTestImplementation"(alignerLibs.lib("testcontainers-postgresql"))
     "integrationTestImplementation"(alignerLibs.lib("testcontainers-junit-jupiter"))
     "integrationTestRuntimeOnly"(alignerLibs.lib("postgresql"))
