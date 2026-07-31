@@ -38,5 +38,6 @@ include(
     "member:schema",
     "member:service",
     "member:repository-jdbc",
+    "member:api",
     "member:adapter-auth",
 )
