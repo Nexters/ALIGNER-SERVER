@@ -20,6 +20,10 @@ AGENTS.md 7 "--no-verify·SKIP_HOOKS=1로 우회하지 않는다"를 강제한�
 harness/hooks/adapters/ 가 처리한다.
 """
 
+# 런처가 /usr/bin/python3 를 박아 쓴다 (macOS 기본 3.9). str | None 같은 PEP 604
+# 어노테이션은 3.10 부터라 이게 없으면 import 시점에 TypeError 로 훅이 통째로 죽는다.
+from __future__ import annotations
+
 import re
 import shlex
 import subprocess
