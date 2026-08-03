@@ -7,12 +7,13 @@ package team.aligner.catalog.model.view
  * (docs/domains.md §7-2). YMove 가 요가 콘텐츠 전량을 beginner 로 태깅해 변별력이 없으므로
  * 우리가 감수로 부여한 값이다 (§4-3-1).
  *
- * imageUrl 은 우리 seed 컬럼이라 YMove 없이도 그릴 수 있다. 재생 URL 은 여기 없다.
+ * imageAssetKey 는 URL 이 아니라 안정된 키다. 이미지 파일은 프론트가 정적으로 갖고 서버는
+ * 매핑만 내린다 (§4-3). 재생 URL 은 여기 없다.
  */
 data class TargetPoseDetailView(
     val targetPoseId: Long,
     val name: String,
-    val imageUrl: String?,
+    val imageAssetKey: String?,
     val bodyPartCode: String,
     val level: Int,
     val muscles: List<MuscleView>,

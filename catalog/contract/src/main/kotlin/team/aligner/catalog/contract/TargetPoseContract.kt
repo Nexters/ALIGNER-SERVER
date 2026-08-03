@@ -16,11 +16,13 @@ interface TargetPoseContract {
  * level 은 부위 안에서의 단계다. 부위별로 1 → 2 → 3 선형이고 분기하지 않으므로
  * course.course_template.unlock_required_target_pose_id 한 컬럼으로 사다리가 표현된다
  * (docs/domains.md §7-2).
+ *
+ * imageAssetKey 는 URL 이 아니라 안정된 키다. 파일은 프론트가 정적으로 갖는다 (§4-3).
  */
 data class TargetPoseResponse(
     val targetPoseId: Long,
     val name: String,
-    val imageUrl: String?,
+    val imageAssetKey: String?,
     val bodyPartCode: String,
     val level: Int,
 )
