@@ -672,6 +672,24 @@ training:    model infrastructure service repository-jdbc api schema
     아니면 순차 재생으로 MVP를 끝낼지가 미정이다. **스키마는 이 결정을 기다리지 않아도 되지만**
     (§4-3 — 확정 시 `UPDATE` changeset), seed 값을 두 번 만들지 않으려면 seed 이슈 전에 정하는
     편이 낫다.
+16. **콘텐츠 운영 API를 만들 것인가.** 운동·자세·근육·음성 큐를 감수자가 직접 추가·수정하는
+    화면과 API가 언젠가 필요하다. **MVP에서는 만들지 않는다** — 콘텐츠가 고유 자세 32개로
+    고정이고 감수 주기가 길어 seed changeset으로 충분하다.
+
+    지금 구조가 이것을 막지는 않는다. `catalog`에 쓰기가 붙는 것은 전부 **추가**다 — 애그리거트
+    클래스, `CommandService`, 쓰기 port, `@Table` 엔티티를 그때 만들면 되고 스키마는 그대로다.
+    `created_at`·`updated_at`도 그때 `ADD COLUMN`한다. seed만 있는 지금은 감사 시각이 의미가 없다.
+
+    다만 착수 전에 답해야 할 것이 셋이다.
+
+    - **seed와 운영 API가 같은 테이블을 쓰면 DB 상태가 changeset과 갈라진다.** 환경마다 콘텐츠가
+      달라지고 감수 이력이 Git에 남지 않는다. 운영 API로 넣은 것을 changeset으로 역수출할지,
+      아니면 처음부터 한쪽만 쓸지 정해야 한다
+    - **어디에 배포하나.** `application-api`는 회원용이고 운영 API는 보안 경계가 다르다.
+      `docs/architecture.md` §2가 실행 모듈을 `application-api` 하나로 두고 있어, 운영 앱을
+      따로 두는 것은 그 결정을 건드린다
+    - **감수자가 직접 쓰는가.** 감수자가 쓰는 화면이면 프론트가 하나 더 필요하다. 개발자가 쓰는
+      내부 도구라면 seed changeset과 실익 차이가 크지 않다
 
 ## 8. 이 분할에서 아직 정하지 않은 것
 
