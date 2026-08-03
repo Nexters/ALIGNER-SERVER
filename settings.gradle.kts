@@ -49,4 +49,5 @@ include(
     "catalog:infrastructure",
     "catalog:contract",
     "catalog:schema",
+    "catalog:service",
 )

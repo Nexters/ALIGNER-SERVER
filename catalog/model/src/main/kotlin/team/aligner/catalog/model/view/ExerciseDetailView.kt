@@ -19,7 +19,7 @@ data class ExerciseDetailView(
     val defaultDurationSeconds: Int?,
     val metValue: BigDecimal?,
     val difficulty: String?,
-    val contraindications: String?,
+    val cautionNote: String?,
     val muscles: List<MuscleView>,
     val voiceCues: List<ExerciseVoiceCueView>,
 )
