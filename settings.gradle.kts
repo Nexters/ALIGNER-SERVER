@@ -41,3 +41,11 @@ include(
     "member:api",
     "member:adapter-auth",
 )
+
+// catalog — 보강 운동·목표 자세·근육·음성 큐잉 대본. Command 가 없는 조회 전용 도메인
+// (docs/domains.md §4-3, §5). adapter-ymove 는 §7-4·5·6 이 정해진 뒤 후속으로 붙인다.
+include(
+    "catalog:model",
+    "catalog:infrastructure",
+    "catalog:contract",
+)
