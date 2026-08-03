@@ -2,9 +2,8 @@
 #
 # 도메인이 추가될 때마다 한 줄씩 늘어난다 (docs/architecture.md §6, §10 7단계).
 #
-#   databaseChangeLog:
-#     - include:
-#         file: classpath:db/member/db.changelog-member.yaml
-#
-# 아직 도메인이 없다 (이슈 #3 범위 밖).
-databaseChangeLog: []
+# 경로에 classpath: 접두사를 붙이지 않는다. Liquibase 의 ResourceAccessor 가 이미
+# 클래스패스 루트 기준이라 접두사가 붙으면 파일을 못 찾는다.
+databaseChangeLog:
+  - include:
+      file: db/member/db.changelog-member.yaml

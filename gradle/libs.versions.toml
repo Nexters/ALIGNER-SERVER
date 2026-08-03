@@ -12,6 +12,9 @@ coroutines = "1.11.0"
 kotest = "6.2.3"
 springdoc = "3.0.3"
 javaToolchain = "25"
+# mockk 는 Spring Boot BOM 관리 대상이 아니라 여기에 핀을 박는다.
+# coroutines · springdoc 과 같은 방식으로 Maven Central 최신 안정판을 확정했다.
+mockk = "1.14.11"
 # testcontainers · postgresql · liquibase 는 Spring Boot BOM 이 관리한다
 # (4.1.0 기준 각각 2.0.5 / 42.7.11 / 5.0.3). 여기에 핀을 박으면 BOM 과 어긋난다.
 
@@ -25,6 +28,10 @@ spring-tx = { module = "org.springframework:spring-tx" }
 spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
+
+# starter-security 에는 JWT 인코더·디코더가 없다. NimbusJwtEncoder/Decoder 가 여기 있다.
+# 버전은 Boot BOM 이 import 하는 spring-security-bom 이 결정한다.
+spring-security-oauth2-jose = { module = "org.springframework.security:spring-security-oauth2-jose" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
 
@@ -48,6 +55,9 @@ kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref =
 # 테스트
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+# 좌표는 io.mockk:mockk 다. mockk-jvm 은 멀티플랫폼 아티팩트의 JVM 변종이고,
+# JVM 전용 프로젝트는 aggregator 를 쓴다.
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 # Boot 4.1 이 testcontainers 2.0.5 를 고정하는데, 2.x 부터 아티팩트 id 에
 # testcontainers- 접두사가 붙었다. 레거시 좌표(org.testcontainers:postgresql)는
 # 이 BOM 에 없어 "no version specified" 로 해석이 실패한다.

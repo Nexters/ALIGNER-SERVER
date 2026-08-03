@@ -22,9 +22,22 @@ dependencyResolutionManagement {
 
 rootProject.name = "aligner-server"
 
-// 루트 레벨 공유 모듈과 실행 모듈. 도메인은 아직 없다 (이슈 #3 범위 밖).
+// 루트 레벨 공유 모듈과 실행 모듈.
 include(
     "support-core",
     "support-web",
     "application-api",
+)
+
+// member — 카카오 로그인·회원·프로필. 기본 6 개 + contract + adapter-auth
+// (docs/domains.md §4-1, §5).
+include(
+    "member:model",
+    "member:infrastructure",
+    "member:contract",
+    "member:schema",
+    "member:service",
+    "member:repository-jdbc",
+    "member:api",
+    "member:adapter-auth",
 )
