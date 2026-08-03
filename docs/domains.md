@@ -22,7 +22,7 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 | 도장(`Stamp`) | `course` 소유 (달성 판단은 `course`, 수행 기록은 `training`). **판정 기준 미정** (§7-8) |
 | 자세 포인트(`PoseCheckpoint`) | **만들지 않는다.** 완료 판정은 "운동 수행 + 시간 종료"다 (§4-3) |
 | 총 모듈 수 | **44개** — 도메인 40 + 루트 4 |
-| 외부 시스템 | **YMove** — 영상·음성 대본. `catalog`만 접근한다 (§4-3-1) |
+| 외부 시스템 | **YMove** — 영상·썸네일. `catalog`만 접근한다 (§4-3-1). **음성 큐잉 대본은 `catalog`가 소유한다** |
 
 ### 도메인 지도
 
@@ -30,7 +30,7 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 | --- | --- | --- |
 | `member` | 회원, 카카오 식별자, 프로필, 신체 정보 | 1, 8 |
 | `screening` | 부위, 자세 체감 → 원인 분기 규칙, 회원 응답과 판별된 원인 | 2, 3(앞) |
-| `catalog` | 보강 운동·목표 자세·근육, YMove 연동(영상·음성 대본) | 5, 7(정의) |
+| `catalog` | 보강 운동·목표 자세·근육, 음성 큐잉 대본(번역본), YMove 연동(영상) | 5, 7(정의) |
 | `course` | 원인별 코스 템플릿, 회원별 처방 코스·스텝·진행 상태, 도장·해금 | 3(뒤), 4, 7 |
 | `training` | 세션 시작·완료·수행 기록 | 6 |
 
@@ -96,7 +96,7 @@ support-web ──→ member:contract           (adapter-auth, §9)
 
 course   ──→ screening:contract           최신 원인 조회
 course   ──→ catalog:contract             운동·자세 조회, 존재 검증
-catalog  ──→ YMove (외부 HTTP)            영상 URL·음성 대본, 48시간 만료 (§4-3-1)
+catalog  ──→ YMove (외부 HTTP)            videoUrl·thumbnailUrl, 48시간 만료 (§4-3-1)
 training ──→ course:contract              스텝 구성 조회 / 세션 완료 push
 training ──→ catalog:contract             세션 중 운동 상세 조회
 ```
@@ -241,20 +241,22 @@ seed의 `weight`로 조절**한다 — 감수 결과가 바뀌어도 changeset�
 | 애그리거트 | `Exercise` `TargetPose` `Muscle` |
 | Command | **없음** — `CommandService`·쓰기 port를 만들지 않는다(§4) |
 | Query | 운동 상세, 자세 상세, 자세·운동별 근육 |
-| 외부 의존 | **YMove** — 영상·음성 대본의 정본 (§4-3-1) |
+| 외부 의존 | **YMove** — 영상·썸네일의 정본. 음성 큐잉 대본은 `catalog` seed다 (§4-3-1) |
 | 모듈 | 기본 6 + `contract` + `adapter-ymove` = **8** |
 
 ```text
-catalog.exercise         exercise_id(pk), ymove_slug(uk), name,
-                         default_set_count, default_rep_count,
-                         default_duration_seconds, met_value, difficulty,
-                         contraindications                                       [seed]
-catalog.target_pose      target_pose_id(pk), ymove_slug(uk), name, image_url,
-                         body_part_code, level                                   [seed]
-catalog.muscle           muscle_code(pk), name, body_part_code,
-                         highlight_asset_key                                     [seed]
-catalog.pose_muscle      target_pose_id, muscle_code, role, display_order        [seed]
-catalog.exercise_muscle  exercise_id, muscle_code, role, display_order           [seed]
+catalog.exercise            exercise_id(pk), ymove_slug(uk), name,
+                            default_set_count, default_rep_count,
+                            default_duration_seconds, met_value, difficulty,
+                            contraindications                                    [seed]
+catalog.target_pose         target_pose_id(pk), ymove_slug(uk), name, image_url,
+                            body_part_code, level                                [seed]
+catalog.muscle              muscle_code(pk), name, body_part_code,
+                            highlight_asset_key                                  [seed]
+catalog.pose_muscle         target_pose_id, muscle_code, role, display_order     [seed]
+catalog.exercise_muscle     exercise_id, muscle_code, role, display_order        [seed]
+catalog.exercise_voice_cue  cue_id(pk), exercise_id, display_order,
+                            offset_seconds(null), content                        [seed]
 ```
 
 `catalog`는 순수 카탈로그다. "어떤 원인에 어떤 운동을 쓰는가"는 처방 규칙이므로 `course`가 갖는다.
@@ -299,6 +301,42 @@ MET을 레벨이 아니라 **운동 단위로 두는 이유**는 코스 구성�
 
 MET 값의 출처와 보간 근거는 감수 대상이다.
 
+#### 음성 큐잉 대본 — 우리가 소유하고, 컬럼이 아니라 테이블로 둔다
+
+**대본을 `catalog`가 소유한다.** YMove의 `instructions`는 영어 원문이고, 우리는 그것을 한글로
+옮긴 **번역본을 소유**한다(§4-3-1). 요가 큐잉은 번역 품질이 곧 지도 품질이라 원문을 그대로
+읽어줄 수 없고, 옮긴 결과는 감수 대상 seed다(§6).
+
+**컬럼 하나가 아니라 별도 테이블이다.** `exercise.voice_guide_script TEXT` 한 컬럼으로 두면
+지금은 충분하지만, 세션 플레이어의 MVP 기능이 "음성 큐잉·카운트·타이머"라 큐가 재생 시각에
+붙어야 할 가능성이 남아 있다. 그때 `TEXT` → 테이블 전환은 **데이터 변환 changeset**을 요구하는데
+`docs/architecture.md` §6이 "이미 적용된 changeset은 수정하지 않는다"고 못박았다. 반대로 처음부터
+행 단위로 쪼개 두면 확장이 값 채우기로 끝난다.
+
+- `display_order` — **지금의 재생 순서.** 타임코드가 없어도 순차 재생이 성립한다
+- `offset_seconds` — **타임코드. 확정 전에는 `NULL`이다.** 확정되면 `UPDATE` changeset으로
+  값만 채운다. **스키마를 바꾸지 않는다**
+- `content` — 한글 번역 대본
+- PK는 서로게이트 `cue_id`, 순서 중복은 `UNIQUE (exercise_id, display_order)`로 막는다.
+  `(exercise_id, display_order)`를 PK로 쓰면 재감수로 큐 순서가 바뀔 때마다 식별자가 흔들린다.
+  `course.course_step_exercise`·`screening.screening_answer`도 자식 테이블에 서로게이트 키를 쓴다
+- `exercise_id`는 **`catalog` 내부 FK를 건다.** 금지된 것은 도메인 간 FK다(§6)
+
+**`target_pose`에는 두지 않는다.** 세션 재생 경로가 지나는 것은
+`course.course_step_exercise → exercise_id`뿐이고, `training`이 `catalog:contract`로 읽는 것도
+운동 상세다(§3). 핀포즈 역시 `exercise` 행으로 존재한다 — §7-10이 MET을 "준비 동작과 핀포즈에
+각각" 부여한다고 적었고 `met_value`는 `exercise`에만 있다. `target_pose`는 진단 그리드와
+사다리·도장의 마스터이지 재생 단위가 아니다.
+
+**`audio_asset_key`를 지금 넣지 않는다.** 서버 TTS 산출물을 쓸지 클라이언트가 텍스트로 읽을지
+정해지지 않았고(§7-14), `docs/architecture.md` §3·§4의 "미리 만들지 않는다"에 걸린다. 별도
+테이블과 판단이 갈리는 이유는 **되돌리기 비용이 다르기 때문**이다 — 컬럼 추가는 `ADD COLUMN`
+changeset 한 줄이지만 컬럼 → 테이블 전환은 데이터 변환을 동반한다.
+
+**YMove 영문 원문(`source_content`)도 저장하지 않는다.** §4-3-1이 YMove 소유 값을 중복 저장하지
+않기로 했고, 원문이 필요한 곳은 런타임이 아니라 번역·감수 과정이다. 원문이 바뀌었을 때 번역본을
+어떻게 갱신할지는 §7-13에 열린 질문으로 남긴다. 필요해지면 이것도 `ADD COLUMN`이다.
+
 #### 4-3-1. YMove 연동 — `catalog`가 순수 seed 도메인이 아닌 이유
 
 영상과 음성은 YMove를 쓴다. **`videos[].videoUrl`이 48시간 만료라 DB에 넣을 수 없다.**
@@ -311,7 +349,7 @@ seed changeset에 박으면 이틀 뒤 전부 죽는다. 그래서 `catalog`는 
 | --- | --- | --- |
 | `ymove_slug` | `catalog` seed | 어떤 자세를 쓸지는 우리 감수 결정이다 |
 | `videoUrl` `thumbnailUrl` | YMove (매 요청) | 48시간 만료. 캐시 TTL을 그보다 짧게 둔다 |
-| `instructions` | YMove | 음성 큐잉 대본. `voice_guide_script` 컬럼을 없앤 이유다 |
+| `instructions` | **`catalog` seed (번역본)** | 음성 큐잉 대본. **한 번 YMove로 넘겼다가 되찾아왔다.** 아래 참고 |
 | `title` `description` `videoDurationSecs` | YMove | 중복 저장하지 않는다 |
 | `name` | `catalog` seed | YMove `title`을 우리 표현으로 덮어야 할 때만 쓰는 override |
 | `difficulty` | `catalog` seed | **YMove 값을 쓰지 않는다.** 아래 참고 |
@@ -319,6 +357,14 @@ seed changeset에 박으면 이틀 뒤 전부 죽는다. 그래서 `catalog`는 
 | `default_set_count` `default_rep_count` `default_duration_seconds` | `catalog` seed | YMove에 없다. 감수 대상이다 |
 | `met_value` | `catalog` seed | YMove에 없다. 칼로리 계산 입력이다 |
 | `contraindications` | `catalog` seed | 금기 사항. 운동 가이드의 주의사항 탭에 쓴다 |
+
+**대본을 되찾아온 이유.** 처음에는 "YMove가 `instructions`를 준다"는 사실만 보고 대본을 통째로
+YMove 소유로 넘겼고, 그 결과로 `voice_guide_script` 컬럼을 지웠다. 그 판단이 놓친 것은 **YMove의
+`instructions`가 영어**라는 점이다. 음성 큐잉은 세션 중에 **읽어주는** 문장이라 언어가 맞지 않으면
+기능 자체가 성립하지 않고, 요가 큐잉은 번역 품질이 곧 지도 품질이라 기계 번역을 그대로 태울 수도
+없다. 그래서 **번역을 전처리로 돌리고 그 산출물을 우리가 소유한다.** 우리가 감수해서 만든 값이라
+`difficulty`·`met_value`와 같은 성격이 됐고, 소유가 `catalog`로 돌아오는 것이 일관된다.
+넘겼다 되찾은 대상은 **번역본**이고, 영어 원문의 정본은 여전히 YMove다.
 
 **`difficulty`를 YMove에서 받지 않는다.** YMove는 요가 콘텐츠 전량을 `beginner`로 태깅하고
 있어 값이 변별력이 없다. 레벨은 우리가 감수로 부여한다. `target_pose.level`도 같은 이유다.
@@ -347,8 +393,13 @@ interface PoseVideoPort {
 
 ##### 장애와 성능
 
-- **YMove가 죽으면 세션이 안 돈다.** 영상 없이 진행할 수 없으므로 fallback이 없다. 타임아웃과
-  실패 시 사용자에게 보일 메시지를 `course`·`training` 착수 전에 정해야 한다(§7-5).
+- **재생 시점에 YMove에서 받는 값은 `videoUrl`·`thumbnailUrl` 둘뿐이다.** 대본이 우리 것이 되면서
+  외부 호출로만 얻을 수 있는 값의 범위가 그만큼 좁아졌다.
+- **YMove가 죽어도 대본은 살아 있다.** `catalog.exercise_voice_cue`는 우리 DB이므로 외부 장애와
+  무관하다. 다만 **영상 없이 세션을 진행할 수 없다는 사실은 그대로**여서 fallback은 여전히 없다.
+  대본이 남는다는 것은 "장애 시 음성만으로 진행"이라는 선택지가 **생겼다**는 뜻이지 그렇게 하기로
+  정했다는 뜻이 아니다 — 타임아웃과 실패 시 사용자에게 보일 메시지를 `course`·`training` 착수
+  전에 정해야 한다(§7-5).
 - `training`이 세션 중 운동 상세를 `catalog:contract`로 읽는데, 그 응답에 재생 URL이 실리면
   스텝마다 YMove를 친다. 캐시 위치와 TTL을 정해야 한다(§7-6).
 - 홈·코스 목록이 스텝마다 썸네일과 시간을 그린다. **목록 조회에서 YMove를 스텝 수만큼 치면
@@ -466,17 +517,23 @@ training:    model infrastructure service repository-jdbc api schema
 - 루트 `changelog-master.yaml`에 5개 include를 추가한다.
 - **도메인 간 FK 없음.** `member_id` `exercise_id` `target_pose_id` `muscle_code` `cause_code`는
   전부 값 컬럼이다. 존재 검증이 필요하면 port로 한다.
-- seed는 `schema/seed/`의 changeset으로 넣는다. 감수 전 데이터가 들어가는 곳은 다섯이다.
+- seed는 `schema/seed/`의 changeset으로 넣는다. 감수 전 데이터가 들어가는 곳은 여섯이다.
 
 | seed | 위치 | 감수 대상 |
 | --- | --- | --- |
 | 부위·원인·자세 체감 분기 규칙(`weight` 포함) | `screening/schema/seed/` | ✅ |
 | 운동·목표 자세·레벨·난이도·MET·금기 | `catalog/schema/seed/` | ✅ |
 | 근육 마스터·자세↔근육·운동↔근육 | `catalog/schema/seed/` | ✅ |
+| 운동별 음성 큐잉 번역 대본(순서·타임코드) | `catalog/schema/seed/` | ✅ |
 | 원인별 코스 템플릿·스텝 구성 | `course/schema/seed/` | ✅ |
 | 자세 사다리(선행 자세) | `course/schema/seed/` | ✅ |
 
-이 넷 중 어느 것도 코드에 하드코딩하지 않는다. 하드코딩은 그 자체로 `[필수]` 지적이다.
+**번역 대본이 감수 대상인 근거.** 세션 중에 읽어주는 문장이라 잘못된 큐가 곧 잘못된 지도이고,
+`docs/architecture.md` §6이 감수 전 데이터의 하드코딩을 금지한다. 원문이 YMove 것이어도 **옮긴
+결과는 우리 판단이 들어간 값**이다 — 기계 번역 산출물을 그대로 넣더라도 감수를 거치지 않은 채
+사용자에게 읽히면 안 된다. 전처리를 어디서 돌릴지는 §7-12에 남아 있다.
+
+이 여섯 중 어느 것도 코드에 하드코딩하지 않는다. 하드코딩은 그 자체로 `[필수]` 지적이다.
 
 ---
 
@@ -514,6 +571,25 @@ training:    model infrastructure service repository-jdbc api schema
 11. **`AGENTS.md` 갱신.** §1 핵심 루프의 `PoseCheckpoint 확인 → Stamp/다음 코스 보강`,
     §2 용어집의 `PoseCheckpoint` 행이 이 문서와 어긋난다. §2에 `CourseTemplate` 행을 추가하는
     것도 남아 있다. `AGENTS.md`는 루트 판단 문서라 **별도 승인 후** 갱신한다.
+12. **번역 전처리를 언제·어디서 돌리는가.** YMove `instructions`(영어) → 한글 대본으로 옮기는
+    작업의 위치가 미정이다. 오프라인 스크립트로 돌려 산출물을 `catalog/schema/seed/` changeset에
+    박는 방식이 유력하나(감수 대상이라 결과가 고정돼야 한다), 런타임 번역이라면 `adapter-ymove`
+    이후로 밀린다. **스크립트를 이 저장소에 둘지도 정하지 않았다** — 두면 `build-logic`·모듈
+    레이아웃(`docs/architecture.md` §3) 어디에도 자리가 없는 새 범주가 생긴다.
+13. **YMove 원문이 바뀌면 번역본을 어떻게 갱신하는가.** 우리는 번역본만 갖고 영어 원문은 저장하지
+    않으므로(§4-3), 원문이 조용히 바뀌어도 우리 대본은 그대로다. §7-6의 `ymove_slug` 안정성과
+    같은 성격의 문제다 — 감지 수단이 필요하면 원문 해시나 `source_content` 컬럼을 `ADD COLUMN`으로
+    붙인다. **YMove가 원문 변경을 통지하는지부터 확인이 필요하다.**
+14. **음성 큐의 산출물이 텍스트인가 오디오인가.** 서버에서 TTS를 돌려 오디오 파일을 만들어 두면
+    `exercise_voice_cue`에 `audio_asset_key`가 붙고 정적 asset 저장소가 필요해진다(§4-3의
+    `highlight_asset_key`와 같은 형태). 클라이언트가 Web Speech로 읽으면 텍스트만 내리면 된다.
+    "음악 위에 얹기·백그라운드 재생"(리서치 IA 3번)이 어느 쪽으로 가능한지가 판단 근거인데
+    **확인되지 않았다.** 결정 전에는 컬럼을 만들지 않는다.
+15. **타임코드를 언제 확정하는가.** `exercise_voice_cue.offset_seconds`는 확정 전까지 `NULL`이고
+    재생은 `display_order` 순차로 한다. 큐를 영상 재생 시각에 맞출지, 클라이언트 타이머에 맞출지,
+    아니면 순차 재생으로 MVP를 끝낼지가 미정이다. **스키마는 이 결정을 기다리지 않아도 되지만**
+    (§4-3 — 확정 시 `UPDATE` changeset), seed 값을 두 번 만들지 않으려면 seed 이슈 전에 정하는
+    편이 낫다.
 
 ## 8. 이 분할에서 아직 정하지 않은 것
 
