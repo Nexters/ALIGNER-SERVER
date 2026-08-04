@@ -21,4 +21,15 @@ dependencies {
     implementation(project(":member:contract"))
     // 이 줄을 빼면 AuthMemberPort Bean 이 없어 기동이 실패해야 정상이다 (§9).
     implementation(project(":member:adapter-auth"))
+
+    // catalog — 보강 운동·목표 자세·근육·음성 큐 (docs/architecture.md §10 8 단계).
+    implementation(project(":catalog:api"))
+    implementation(project(":catalog:repository-jdbc"))
+    implementation(project(":catalog:schema"))
+    // catalog:contract 를 넣지 않는다. 소비자인 course/adapter-catalog 가 아직 없고, 계약
+    // 구현체 Bean 은 catalog:api → catalog:service 로 런타임 전이돼 등록된다. member 가
+    // contract 를 명시한 것은 §9 가 support-web 과 함께 조립하라고 못박았기 때문이다.
+
+    // catalog:adapter-ymove 가 없다. 영상 연동은 docs/domains.md §7-4·5·6 이 정해진 뒤
+    // 후속 이슈로 붙인다.
 }

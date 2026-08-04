@@ -13,6 +13,16 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint")
 }
 
+// jar 이름을 모듈 경로 전체로 짓는다. 도메인마다 model·service·api 처럼 같은 이름의 모듈이
+// 있어서 기본값(디렉터리명)으로 두면 member:api 와 catalog:api 가 둘 다 api.jar 가 되고,
+// bootJar 가 BOOT-INF/lib 에 담을 때 "duplicate" 로 실패한다.
+//
+// duplicatesStrategy 로 넘기면 안 된다. 그건 둘 중 하나를 조용히 버려서 런타임에
+// ClassNotFoundException 이 된다. 이름을 유일하게 만드는 것이 유일한 해결이다.
+base {
+    archivesName = project.path.removePrefix(":").replace(':', '-')
+}
+
 kotlin {
     // 툴체인 버전도 카탈로그가 정본이다 (AGENTS.md §4).
     jvmToolchain(alignerLibs.findVersion("javaToolchain").get().requiredVersion.toInt())
