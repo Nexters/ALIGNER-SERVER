@@ -45,8 +45,8 @@ class ExerciseQueryServiceTest :
                             ),
                         voiceCues =
                             listOf(
-                                ExerciseVoiceCueView(1, null, "무릎을 골반 너비로 벌리세요"),
-                                ExerciseVoiceCueView(2, 35, "명치를 천장으로 끌어올리세요"),
+                                ExerciseVoiceCueView(1, null, null, "무릎을 골반 너비로 벌리세요"),
+                                ExerciseVoiceCueView(2, 35, 75, "명치를 천장으로 끌어올리고 40 초 유지하세요"),
                             ),
                     )
 
@@ -54,7 +54,8 @@ class ExerciseQueryServiceTest :
 
                 detail.name shouldBe "낙타자세"
                 detail.muscles.map { it.role } shouldBe listOf(MuscleRole.STRENGTHEN, MuscleRole.STRETCH)
-                detail.voiceCues.map { it.offsetSeconds } shouldBe listOf(null, 35)
+                detail.voiceCues.map { it.startOffsetSeconds } shouldBe listOf(null, 35)
+                detail.voiceCues.map { it.endOffsetSeconds } shouldBe listOf(null, 75)
             }
 
             it("없는 운동이면 ExerciseNotFoundException 이다") {

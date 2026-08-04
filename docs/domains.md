@@ -276,7 +276,8 @@ catalog.muscle              muscle_code(pk), name, body_part_code,
 catalog.pose_muscle         target_pose_id, muscle_code, role, display_order     [seed]
 catalog.exercise_muscle     exercise_id, muscle_code, role, display_order        [seed]
 catalog.exercise_voice_cue  cue_id(pk), exercise_id, display_order,
-                            offset_seconds(null), content                        [seed]
+                            start_offset_seconds(null), end_offset_seconds(null),
+                            content                                              [seed]
 ```
 
 `catalog`는 순수 카탈로그다. "어떤 원인에 어떤 운동을 쓰는가"는 처방 규칙이므로 `course`가 갖는다.
@@ -391,9 +392,16 @@ MET 값의 출처와 보간 근거는 감수 대상이다.
 행 단위로 쪼개 두면 확장이 값 채우기로 끝난다.
 
 - `display_order` — **지금의 재생 순서.** 타임코드가 없어도 순차 재생이 성립한다
-- `offset_seconds` — **타임코드. 확정 전에는 `NULL`이다.** 확정되면 `UPDATE` changeset으로
-  값만 채운다. **스키마를 바꾸지 않는다**
+- `start_offset_seconds` `end_offset_seconds` — **타임코드. 확정 전에는 둘 다 `NULL`이다.**
+  확정되면 `UPDATE` changeset으로 값만 채운다. **스키마를 바꾸지 않는다**
 - `content` — 한글 번역 대본
+
+**큐를 순간이 아니라 구간으로 둔다.** 핀포즈가 "40초 × 3"처럼 유지 구간을 갖고 세션 플레이어가
+카운트다운(`00:35`)을 그리므로, 큐가 언제 끝나는지가 화면에 필요하다. 끝을 다음 큐의 시작으로
+추론하면 두 가지를 못 한다 — 큐 사이에 침묵 구간을 두는 것과, 마지막 큐의 끝을 아는 것이다.
+
+`end_offset_seconds`는 유지 구간이 없는 큐에서 `NULL`로 남는다. `end`만 있고 `start`가 없는
+상태는 `CHECK`으로 막는다.
 - PK는 서로게이트 `cue_id`, 순서 중복은 `UNIQUE (exercise_id, display_order)`로 막는다.
   `(exercise_id, display_order)`를 PK로 쓰면 재감수로 큐 순서가 바뀔 때마다 식별자가 흔들린다.
   `course.course_step_exercise`·`screening.screening_answer`도 자식 테이블에 서로게이트 키를 쓴다
@@ -667,9 +675,9 @@ training:    model infrastructure service repository-jdbc api schema
     `highlight_asset_key`와 같은 형태). 클라이언트가 Web Speech로 읽으면 텍스트만 내리면 된다.
     "음악 위에 얹기·백그라운드 재생"(리서치 IA 3번)이 어느 쪽으로 가능한지가 판단 근거인데
     **확인되지 않았다.** 결정 전에는 컬럼을 만들지 않는다.
-15. **타임코드를 언제 확정하는가.** `exercise_voice_cue.offset_seconds`는 확정 전까지 `NULL`이고
-    재생은 `display_order` 순차로 한다. 큐를 영상 재생 시각에 맞출지, 클라이언트 타이머에 맞출지,
-    아니면 순차 재생으로 MVP를 끝낼지가 미정이다. **스키마는 이 결정을 기다리지 않아도 되지만**
+15. **타임코드를 언제 확정하는가.** `exercise_voice_cue`의 `start_offset_seconds`·
+    `end_offset_seconds`는 확정 전까지 `NULL`이고 재생은 `display_order` 순차로 한다. 큐를 영상
+    재생 시각에 맞출지, 클라이언트 타이머에 맞출지, 아니면 순차 재생으로 MVP를 끝낼지가 미정이다. **스키마는 이 결정을 기다리지 않아도 되지만**
     (§4-3 — 확정 시 `UPDATE` changeset), seed 값을 두 번 만들지 않으려면 seed 이슈 전에 정하는
     편이 낫다.
 16. **콘텐츠 운영 API를 만들 것인가.** 운동·자세·근육·음성 큐를 감수자가 직접 추가·수정하는
