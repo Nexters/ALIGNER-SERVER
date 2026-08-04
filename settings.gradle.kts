@@ -51,4 +51,5 @@ include(
     "catalog:schema",
     "catalog:service",
     "catalog:repository-jdbc",
+    "catalog:api",
 )
