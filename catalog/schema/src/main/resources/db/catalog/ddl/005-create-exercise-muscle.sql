@@ -13,7 +13,7 @@ CREATE TABLE catalog.exercise_muscle (
     CONSTRAINT ck_exercise_muscle_role CHECK (role IN ('STRETCH', 'STRENGTHEN'))
 );
 
-CREATE INDEX ix_exercise_muscle_exercise_id ON catalog.exercise_muscle (exercise_id);
+-- exercise_id 단독 인덱스를 두지 않는다. uk_exercise_muscle 이 커버한다 (004 참고).
 
 COMMENT ON TABLE catalog.exercise_muscle IS '보강 운동이 쓰는 근육';
 COMMENT ON COLUMN catalog.exercise_muscle.role IS 'STRETCH 는 늘리는 근육, STRENGTHEN 은 쓰는 근육';

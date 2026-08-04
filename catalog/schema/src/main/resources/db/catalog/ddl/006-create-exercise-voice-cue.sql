@@ -29,7 +29,7 @@ CREATE TABLE catalog.exercise_voice_cue (
     )
 );
 
-CREATE INDEX ix_exercise_voice_cue_exercise_id ON catalog.exercise_voice_cue (exercise_id);
+-- exercise_id 단독 인덱스를 두지 않는다. uk_exercise_voice_cue 가 커버한다 (004 참고).
 
 COMMENT ON TABLE catalog.exercise_voice_cue IS '음성 큐잉 대본. YMove 영어 원문을 번역한 우리 자산이다';
 COMMENT ON COLUMN catalog.exercise_voice_cue.start_offset_seconds IS '큐 시작 타임코드. 미확정이라 NULL 을 허용한다. NULL 이면 display_order 순차 재생이다';

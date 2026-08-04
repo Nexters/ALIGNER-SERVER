@@ -20,7 +20,8 @@ CREATE TABLE catalog.pose_muscle (
     CONSTRAINT ck_pose_muscle_role CHECK (role IN ('STRETCH', 'STRENGTHEN'))
 );
 
-CREATE INDEX ix_pose_muscle_target_pose_id ON catalog.pose_muscle (target_pose_id);
+-- target_pose_id 단독 인덱스를 두지 않는다. uk_pose_muscle 이 (target_pose_id, muscle_code)
+-- btree 라 선행 컬럼 조회를 그대로 커버한다.
 
 COMMENT ON TABLE catalog.pose_muscle IS '목표 자세가 쓰는 근육';
 COMMENT ON COLUMN catalog.pose_muscle.role IS 'STRETCH 는 늘리는 근육, STRENGTHEN 은 쓰는 근육. 콘텐츠 정본의 "(신장)" 표기가 전자다';

@@ -233,6 +233,63 @@ class CatalogRepositoryIntegrationTest {
         assertThrows<DataIntegrityViolationException> {
             insertExerciseMuscle(2L, "존재하지-않는-근육", MuscleRole.STRETCH, 1)
         }
+        assertThrows<DataIntegrityViolationException> {
+            insertPoseMuscle(1L, "존재하지-않는-근육", MuscleRole.STRETCH, 1)
+        }
+    }
+
+    @Test
+    fun `없는 자세를 참조하지 못한다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertPoseMuscle(999L, "ERECTOR_SPINAE", MuscleRole.STRETCH, 1)
+        }
+    }
+
+    /**
+     * 한 자세·운동에서 같은 근육이 두 역할을 갖지 못하게 막는다.
+     *
+     * docs/domains.md §4-3 이 이 제약을 설계 근거로 명시했다. 감수 결과가 뒤집히면 PK 가 아니라
+     * 이 UNIQUE 만 재정의하면 된다는 판단이라, 지금 무엇을 막고 있는지 고정해 둔다.
+     */
+    @Test
+    fun `한 자세에서 같은 근육이 두 번 나오지 못한다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertPoseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRETCH, 9)
+        }
+        assertThrows<DataIntegrityViolationException> {
+            insertExerciseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRETCH, 9)
+        }
+    }
+
+    @Test
+    fun `한 운동에서 큐 순서가 겹치지 못한다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertVoiceCue(1L, 1, null, null, "순서 중복")
+        }
+    }
+
+    @Test
+    fun `음수 타임코드와 잘못된 레벨을 막는다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertVoiceCue(2L, 1, -1, null, "음수 시작")
+        }
+        assertThrows<DataIntegrityViolationException> {
+            insertTargetPose(90L, "zero-level", "레벨 0", "BACK", 0)
+        }
+    }
+
+    /**
+     * ORDER BY level, target_pose_id 의 두 번째 정렬 키를 확인한다.
+     * 레벨이 서로 다른 픽스처만으로는 검증되지 않는다.
+     */
+    @Test
+    fun `같은 레벨은 식별자 순으로 정렬된다`() {
+        insertTargetPose(51L, "pose-b", "나중", "ABDOMEN", 1)
+        insertTargetPose(50L, "pose-a", "먼저", "ABDOMEN", 1)
+
+        targetPoseQueryRepository
+            .findAllByBodyPartCode("ABDOMEN")
+            .map { it.targetPoseId } shouldBe listOf(50L, 51L)
     }
 
     @Test

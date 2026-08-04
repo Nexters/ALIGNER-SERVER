@@ -273,8 +273,10 @@ catalog.target_pose         target_pose_id(pk), ymove_slug(uk), name,
                             image_asset_key, body_part_code, level               [seed]
 catalog.muscle              muscle_code(pk), name, body_part_code,
                             highlight_asset_key                                  [seed]
-catalog.pose_muscle         target_pose_id, muscle_code, role, display_order     [seed]
-catalog.exercise_muscle     exercise_id, muscle_code, role, display_order        [seed]
+catalog.pose_muscle         pose_muscle_id(pk), target_pose_id, muscle_code,
+                            role, display_order                                  [seed]
+catalog.exercise_muscle     exercise_muscle_id(pk), exercise_id, muscle_code,
+                            role, display_order                                  [seed]
 catalog.exercise_voice_cue  cue_id(pk), exercise_id, display_order,
                             start_offset_seconds(null), end_offset_seconds(null),
                             content                                              [seed]
@@ -323,8 +325,8 @@ slug 정도이고 둘 다 seed라 changeset을 같이 쌓으면 된다.
 `role`은 **`STRETCH`(신장) | `STRENGTHEN`(강화)** 다. 같은 자세가 어떤 근육은 늘리고 어떤
 근육은 쓰므로 구분이 필요하다. 콘텐츠 정본이 주동근을 "장요근(신장)"처럼 표기하는 그 구분이다.
 
-`pose_muscle`·`exercise_muscle`은 서로게이트 PK에 `UNIQUE (target_pose_id, muscle_code)`를
-건다. 현재 정본에는 한 자세에서 같은 근육이 두 역할을 갖는 사례가 없어 `role`을 키에서 뺐지만,
+`pose_muscle`·`exercise_muscle`은 서로게이트 PK에 `UNIQUE`를 건다 — 각각
+`(target_pose_id, muscle_code)`와 `(exercise_id, muscle_code)`다. 현재 정본에는 한 자세에서 같은 근육이 두 역할을 갖는 사례가 없어 `role`을 키에서 뺐지만,
 후굴에서 척추기립근이 수축과 신장을 겸하는 식의 감수 결과가 나올 수 있다. 그때 PK를 바꾸는
 것보다 UNIQUE 제약만 재정의하는 편이 가볍다.
 
@@ -484,9 +486,9 @@ interface PoseVideoPort {
   무관하다. 다만 **영상 없이 세션을 진행할 수 없다는 사실은 그대로**여서 fallback은 여전히 없다.
   대본이 남는다는 것은 "장애 시 음성만으로 진행"이라는 선택지가 **생겼다**는 뜻이지 그렇게 하기로
   정했다는 뜻이 아니다 — 타임아웃과 실패 시 사용자에게 보일 메시지를 `course`·`training` 착수
-  전에 정해야 한다(§7-5).
+  전에 정해야 한다(§7-4).
 - `training`이 세션 중 운동 상세를 `catalog:contract`로 읽는데, 그 응답에 재생 URL이 실리면
-  스텝마다 YMove를 친다. 캐시 위치와 TTL을 정해야 한다(§7-6).
+  스텝마다 YMove를 친다. 캐시 위치와 TTL을 정해야 한다(§7-5).
 - 홈·코스 목록이 스텝마다 썸네일과 시간을 그린다. **목록 조회에서 YMove를 스텝 수만큼 치면
   안 된다.** `difficulty` `default_duration_seconds`를 seed로 내린 이유이기도 하다.
 
@@ -567,10 +569,12 @@ training:    model infrastructure service repository-jdbc api schema
 
 패키지 루트는 `team.aligner.{domain}`이다(§10).
 
-현재 `settings.gradle.kts`가 include 하는 것은 `support-core` · `support-web` ·
-`application-api` 뿐이고 `build-logic`은 `includeBuild` 대상이다. 위 목록의 도메인 모듈은
-아직 없다. 도메인 구현 이후 `application-api`는 5개 도메인의 `api` · `repository-jdbc` ·
-`schema` · `adapter-*`와 `member:contract` · `support-web` · `support-core`를 조립한다.
+현재 `settings.gradle.kts`는 루트 3개에 더해 `member` 8개와 `catalog` 7개를 include 한다.
+`build-logic`은 `includeBuild` 대상이다. `screening` · `course` · `training`은 아직 없다.
+`catalog`의 `adapter-ymove`도 §7-4·5·6이 정해진 뒤 후속으로 붙인다.
+
+도메인이 다 구현되면 `application-api`는 5개 도메인의 `api` · `repository-jdbc` · `schema` ·
+`adapter-*`와 `member:contract` · `support-web` · `support-core`를 조립한다.
 
 ### 착수 순서
 
@@ -607,7 +611,7 @@ training:    model infrastructure service repository-jdbc api schema
 | seed | 위치 | 감수 대상 |
 | --- | --- | --- |
 | 부위·원인·자세 체감 분기 규칙(`weight` 포함) | `screening/schema/seed/` | ✅ |
-| 운동·목표 자세·레벨·난이도·MET·금기 | `catalog/schema/seed/` | ✅ |
+| 운동·목표 자세·레벨·난이도·MET·주의사항 | `catalog/schema/seed/` | ✅ |
 | 근육 마스터·자세↔근육·운동↔근육 | `catalog/schema/seed/` | ✅ |
 | 운동별 음성 큐잉 번역 대본(순서·타임코드) | `catalog/schema/seed/` | ✅ |
 | 원인별 코스 템플릿·스텝 구성 | `course/schema/seed/` | ✅ |
