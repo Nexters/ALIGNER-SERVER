@@ -1,5 +1,6 @@
 package team.aligner.catalog.api.dto
 
+import io.swagger.v3.oas.annotations.media.Schema
 import team.aligner.catalog.model.view.ExerciseDetailView
 import team.aligner.catalog.model.view.ExerciseVoiceCueView
 import java.math.BigDecimal
@@ -12,16 +13,31 @@ import java.math.BigDecimal
  *
  * 재생 URL 과 썸네일이 없다. YMove 연동은 후속 이슈다 (§7-4·5·6).
  */
+@Schema(description = "운동 가이드 화면 전체")
 data class ExerciseDetailResponse(
+    @field:Schema(description = "운동 식별자", example = "1")
     val exerciseId: Long,
+    @field:Schema(description = "운동 이름", example = "턱 당기기")
     val name: String,
+    @field:Schema(description = "권장 세트 수. 시간으로 수행하는 운동이면 null 이다", example = "3", nullable = true)
     val defaultSetCount: Int?,
+    @field:Schema(description = "세트당 권장 반복 수. 시간으로 수행하는 운동이면 null 이다", example = "10", nullable = true)
     val defaultRepCount: Int?,
+    @field:Schema(description = "권장 수행 시간(초). 횟수로 수행하는 운동이면 null 이다", example = "30", nullable = true)
     val defaultDurationSeconds: Int?,
+    @field:Schema(
+        description = "운동 강도(MET). kcal 은 회원 몸무게의 함수인데 몸무게는 member 소유라 서버가 계산하지 않는다",
+        example = "2.5",
+        nullable = true,
+    )
     val metValue: BigDecimal?,
+    @field:Schema(description = "난이도. 감수 전 데이터라 아직 값 집합을 고정하지 않았다", example = "EASY", nullable = true)
     val difficulty: String?,
+    @field:Schema(description = "수행 시 주의사항", example = "목에 통증이 오면 즉시 멈춘다", nullable = true)
     val cautionNote: String?,
+    @field:Schema(description = "근육맵 탭에 쓰는 근육 목록")
     val muscles: List<MuscleResponse>,
+    @field:Schema(description = "음성 큐잉 대본. displayOrder 오름차순이다")
     val voiceCues: List<VoiceCueResponse>,
 ) {
     companion object {
@@ -47,10 +63,19 @@ data class ExerciseDetailResponse(
  *
  * endOffsetSeconds 는 유지 구간이 없는 큐에서 null 로 남는다.
  */
+@Schema(description = "음성 큐 한 줄")
 data class VoiceCueResponse(
+    @field:Schema(description = "재생 순서. 작을수록 먼저다", example = "1")
     val displayOrder: Int,
+    @field:Schema(
+        description = "재생 시작 지점(초). 타임코드가 확정되기 전이면 null 이고, 그때는 displayOrder 순차 재생으로 읽는다",
+        example = "0",
+        nullable = true,
+    )
     val startOffsetSeconds: Int?,
+    @field:Schema(description = "재생 종료 지점(초). 유지 구간이 없는 큐에서는 null 이다", example = "5", nullable = true)
     val endOffsetSeconds: Int?,
+    @field:Schema(description = "읽어줄 문장", example = "턱을 뒤로 당겨 이중 턱을 만듭니다")
     val content: String,
 ) {
     companion object {
