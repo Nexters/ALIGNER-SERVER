@@ -50,4 +50,5 @@ include(
     "catalog:contract",
     "catalog:schema",
     "catalog:service",
+    "catalog:repository-jdbc",
 )
