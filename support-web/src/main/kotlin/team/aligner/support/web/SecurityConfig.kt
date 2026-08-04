@@ -49,8 +49,12 @@ class SecurityConfig {
             .formLogin { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
-                // 로그인만 연다. 메서드까지 한정해 같은 경로의 다른 메서드가 딸려 열리지 않게 한다.
-                it.requestMatchers(HttpMethod.POST, LOGIN_PATH).permitAll()
+                // 메서드까지 한정해 같은 경로의 다른 메서드가 딸려 열리지 않게 한다.
+                it.requestMatchers(HttpMethod.POST, PublicPaths.LOGIN).permitAll()
+                // API 문서. 브라우저가 Authorization 헤더를 붙이지 못해서 닫아두면 UI 자체를
+                // 열 수 없다. 근거와 끄는 방법은 PublicPaths 에 적었다.
+                it.requestMatchers(HttpMethod.GET, *PublicPaths.API_DOCS).permitAll()
+                it.requestMatchers(HttpMethod.GET, *PublicPaths.SWAGGER_UI).permitAll()
                 it.anyRequest().authenticated()
             }
             // JwtAuthenticationFilter 를 @Bean 으로 올리지 않는다. Boot 의 서블릿 필터 자동 등록이
@@ -80,9 +84,5 @@ class SecurityConfig {
         contentType = MediaType.APPLICATION_JSON_VALUE
         characterEncoding = Charsets.UTF_8.name()
         writer.write(objectMapper.writeValueAsString(ApiErrorResponse.from(errorCode)))
-    }
-
-    private companion object {
-        const val LOGIN_PATH = "/auth/kakao"
     }
 }
