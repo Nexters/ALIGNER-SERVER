@@ -20,6 +20,7 @@ import team.aligner.catalog.model.ExerciseIdentity
 import team.aligner.catalog.model.MuscleRole
 import team.aligner.catalog.model.TargetPoseIdentity
 import team.aligner.catalog.repository.jdbc.bootstrap.CatalogRepositoryTestApplication
+import java.math.BigDecimal
 
 /**
  * 러너는 Kotest 가 아니라 JUnit5 다. kotest-extensions-spring 이 버전 카탈로그에 없다.
@@ -110,6 +111,32 @@ class CatalogRepositoryIntegrationTest {
         // 타임코드 미확정 큐와 구간 큐가 섞여 있어도 그대로 돌아와야 한다.
         detail.voiceCues.map { it.startOffsetSeconds } shouldBe listOf(null, 35)
         detail.voiceCues.map { it.endOffsetSeconds } shouldBe listOf(null, 75)
+    }
+
+    /**
+     * SMALLINT 컬럼(default_set_count·default_rep_count)이 Int 로 매핑되는지 확인한다.
+     *
+     * getObject 캐스트를 쓰던 시절에는 컬럼 타입이 넓어지면 런타임에 깨졌다. getIntOrNull 로
+     * 바꿨고 그 매핑이 실제로 도는지 여기서 본다.
+     */
+    @Test
+    fun `숫자 컬럼이 값과 NULL 을 구분해 매핑된다`() {
+        val detail = exerciseQueryRepository.findDetail(ExerciseIdentity.of(1L)).shouldNotBeNull()
+
+        // SMALLINT 에 값이 있는 경우
+        detail.defaultSetCount shouldBe 3
+        // SMALLINT 가 비어 있는 경우. getInt 는 0 을 돌려주므로 wasNull 을 안 보면 0 이 된다.
+        detail.defaultRepCount shouldBe null
+        // INT
+        detail.defaultDurationSeconds shouldBe 120
+        detail.metValue shouldBe BigDecimal("2.30")
+
+        val summary =
+            exerciseQueryRepository.findAllByIdentities(listOf(ExerciseIdentity.of(1L))).single()
+
+        summary.defaultSetCount shouldBe 3
+        summary.defaultRepCount shouldBe null
+        summary.defaultDurationSeconds shouldBe 120
     }
 
     @Test

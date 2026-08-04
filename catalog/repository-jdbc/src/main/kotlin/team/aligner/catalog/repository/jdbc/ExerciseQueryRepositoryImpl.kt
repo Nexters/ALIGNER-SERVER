@@ -41,9 +41,9 @@ internal class ExerciseQueryRepositoryImpl(
                     ExerciseDetailView(
                         exerciseId = rs.getLong("exercise_id"),
                         name = rs.getString("name"),
-                        defaultSetCount = rs.getObject("default_set_count") as Int?,
-                        defaultRepCount = rs.getObject("default_rep_count") as Int?,
-                        defaultDurationSeconds = rs.getObject("default_duration_seconds") as Int?,
+                        defaultSetCount = rs.getIntOrNull("default_set_count"),
+                        defaultRepCount = rs.getIntOrNull("default_rep_count"),
+                        defaultDurationSeconds = rs.getIntOrNull("default_duration_seconds"),
                         metValue = rs.getBigDecimal("met_value"),
                         difficulty = rs.getString("difficulty"),
                         cautionNote = rs.getString("caution_note"),
@@ -74,9 +74,9 @@ internal class ExerciseQueryRepositoryImpl(
                 ExerciseSummaryView(
                     exerciseId = rs.getLong("exercise_id"),
                     name = rs.getString("name"),
-                    defaultSetCount = rs.getObject("default_set_count") as Int?,
-                    defaultRepCount = rs.getObject("default_rep_count") as Int?,
-                    defaultDurationSeconds = rs.getObject("default_duration_seconds") as Int?,
+                    defaultSetCount = rs.getIntOrNull("default_set_count"),
+                    defaultRepCount = rs.getIntOrNull("default_rep_count"),
+                    defaultDurationSeconds = rs.getIntOrNull("default_duration_seconds"),
                     metValue = rs.getBigDecimal("met_value"),
                     difficulty = rs.getString("difficulty"),
                 )
@@ -110,8 +110,8 @@ internal class ExerciseQueryRepositoryImpl(
             .query { rs, _ ->
                 ExerciseVoiceCueView(
                     displayOrder = rs.getInt("display_order"),
-                    startOffsetSeconds = rs.getObject("start_offset_seconds") as Int?,
-                    endOffsetSeconds = rs.getObject("end_offset_seconds") as Int?,
+                    startOffsetSeconds = rs.getIntOrNull("start_offset_seconds"),
+                    endOffsetSeconds = rs.getIntOrNull("end_offset_seconds"),
                     content = rs.getString("content"),
                 )
             }.list()
