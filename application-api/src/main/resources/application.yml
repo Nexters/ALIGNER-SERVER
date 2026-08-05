@@ -32,10 +32,18 @@ aligner:
       connect-timeout-millis: ${KAKAO_CONNECT_TIMEOUT_MILLIS:2000}
       read-timeout-millis: ${KAKAO_READ_TIMEOUT_MILLIS:3000}
 
-# 기본값은 꺼둔다. 인증 규칙이 아직 없어(SecurityConfig) 스펙 공개 범위를 정할 수 없다.
-# 로컬에서는 application-local.yml 로 켠다.
+# 기본값을 켜둔다. 이 두 줄이 false 이던 것이 문서가 전혀 뜨지 않던 원인이다 —
+# springdoc 의 SpringDocConfiguration 이 @ConditionalOnProperty("springdoc.api-docs.enabled")
+# 라서 false 면 자동설정이 통째로 빠지고, 그래서 기동 로그에 springdoc 줄이 한 줄도 없었다.
+#
+# 공개 범위는 SecurityConfig 와 PublicPaths 가 정했다 — 문서 경로만 GET permitAll 이다.
+# 배포에서 닫아야 하면 SPRINGDOC_ENABLED=false 하나로 끈다. 그 순간 핸들러 자체가 사라져서
+# 열려 있는 경로도 404 만 돌려준다.
 springdoc:
   api-docs:
-    enabled: ${SPRINGDOC_ENABLED:false}
+    enabled: ${SPRINGDOC_ENABLED:true}
   swagger-ui:
-    enabled: ${SPRINGDOC_ENABLED:false}
+    enabled: ${SPRINGDOC_ENABLED:true}
+    # 태그·경로 정렬을 고정한다. 기본값은 등록 순서라 재기동마다 화면이 바뀐다.
+    tags-sorter: alpha
+    operations-sorter: method

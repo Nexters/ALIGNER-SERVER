@@ -554,9 +554,12 @@ support-core/
 support-web/
 ├── AlignerPrincipal.kt          인증된 회원 표현
 ├── SecurityConfig.kt            SecurityFilterChain, 공개 경로, 401/403 응답
+├── PublicPaths.kt               인증 없이 여는 경로의 정본 (로그인 · API 문서)
 ├── ApiErrorResponse.kt          공통 에러 응답 포맷 (Spring 의 ErrorResponse 와 이름 충돌 회피)
 ├── GlobalExceptionHandler.kt    @RestControllerAdvice
 ├── AuthMemberPort.kt            웹 계층이 회원 도메인에 요구하는 최소 port
+├── docs/                        API 문서 (이슈 #11 에서 추가)
+│   └── OpenApiConfig.kt         메타데이터 · Bearer 스킴 · 공통 에러 응답
 └── auth/                        인증 흐름 (이슈 #5 에서 추가)
     ├── AuthProperties.kt        aligner.auth.* 바인딩
     ├── AuthErrorCode.kt         카카오 검증 실패·장애
@@ -671,6 +674,35 @@ fun start(
 > `member` 도메인과 혼동하지 않는다. `support-web`은 "이 요청을 누가 보냈나"를 **웹 계층에서
 > 표현**할 뿐이고, 회원의 실제 정보·가입·프로필은 `member` 도메인이 소유한다.
 > `AlignerPrincipal`은 식별자와 인증에 필요한 최소한만 담는다.
+
+### API 문서 — springdoc
+
+문서 설정도 `support-web`에 둔다. 인증 방식과 에러 포맷은 어느 한 도메인의 것이 아니면서 모든
+도메인 `api`가 똑같이 필요로 하기 때문이고, `SecurityConfig`를 여기에 둔 이유와 같다.
+`application-api`에 두면 도메인 `api`가 조립 모듈을 역참조하는 모양이 된다.
+
+| 무엇을 | 어디에 |
+| --- | --- |
+| title·version·description, Bearer 스킴, 전역 SecurityRequirement | `support-web/docs/OpenApiConfig.kt` |
+| **모든** 엔드포인트가 똑같이 내는 실패 — 401·500 | 같은 파일의 `OpenApiCustomizer` |
+| 그 도메인이 정하는 실패 — 404·400 등 | 해당 컨트롤러의 `@ApiResponse` |
+| 엔드포인트 설명·파라미터·스키마 | 해당 컨트롤러와 DTO의 `@Operation`·`@Parameter`·`@Schema` |
+
+`OpenApiCustomizer`에 경로별 분기를 넣지 않는다. 넣는 순간 `support-web`이 도메인을 알게 되고,
+`GlobalExceptionHandler`에 도메인 분기를 금지한 것과 같은 이유로 막는다.
+
+**문서 경로는 인증 없이 연다.** `PublicPaths`가 그 목록의 정본이고 `SecurityConfig`가 GET만
+`permitAll`한다. 브라우저 주소창은 `Authorization` 헤더를 붙이지 못하므로 닫아두면 Swagger UI를
+아예 열 수 없다. 대신 스위치를 하나 둔다 — `SPRINGDOC_ENABLED=false`면 springdoc 자동설정이
+통째로 빠져 핸들러 자체가 없어지고, 열려 있는 경로도 404만 돌려준다.
+
+**프로파일을 새로 만들지 않는다.** MVP는 단일 배포 서버라 분기할 대상이 없다. 운영에서 닫아야
+하면 K8s가 그 환경변수만 주면 된다. 프로파일이 필요해지는 시점은 배포 환경이 둘 이상이 될 때다.
+
+> springdoc은 클래스패스에 있다고 도는 게 아니다. `SpringDocConfiguration`이
+> `@ConditionalOnProperty("springdoc.api-docs.enabled")`라서, 이 값이 `false`면 자동설정이 통째로
+> 빠지고 기동 로그에 springdoc 줄이 한 줄도 남지 않는다. 이슈 #11 이전에 문서가 뜨지 않던 원인이
+> 이것이었다.
 
 ---
 
