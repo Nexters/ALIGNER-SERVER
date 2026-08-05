@@ -268,6 +268,24 @@ class CatalogRepositoryIntegrationTest {
         }
     }
 
+    /**
+     * NULL 은 "기본값 미지정"이고 0 이나 음수는 잘못된 값이다. 둘을 구분하지 않으면 세트 0 회짜리
+     * 운동이 코스 스텝으로 내려간다. default_duration_seconds·met_value 와 같은 성질이라
+     * 제약도 같이 건다.
+     */
+    @Test
+    fun `기본 세트 수와 반복 수는 0 이나 음수가 될 수 없다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertExercise(91L, "zero-set", "세트 0", setCount = 0)
+        }
+        assertThrows<DataIntegrityViolationException> {
+            insertExercise(92L, "negative-rep", "반복 음수", repCount = -1)
+        }
+
+        // 미지정은 그대로 통과해야 한다.
+        insertExercise(93L, "unset-counts", "미지정", setCount = null, repCount = null)
+    }
+
     @Test
     fun `음수 타임코드와 잘못된 레벨을 막는다`() {
         assertThrows<DataIntegrityViolationException> {
@@ -322,16 +340,20 @@ class CatalogRepositoryIntegrationTest {
         id: Long,
         slug: String?,
         name: String,
+        setCount: Int? = 3,
+        repCount: Int? = null,
     ) = jdbcClient
         .sql(
             """
-            INSERT INTO catalog.exercise (exercise_id, ymove_slug, name, default_set_count,
+            INSERT INTO catalog.exercise (exercise_id, ymove_slug, name, default_set_count, default_rep_count,
                                           default_duration_seconds, met_value, difficulty, caution_note)
-            VALUES (:id, :slug, :name, 3, 120, 2.30, '하', '통증이 오면 중단하세요')
+            VALUES (:id, :slug, :name, :setCount, :repCount, 120, 2.30, '하', '통증이 오면 중단하세요')
             """.trimIndent(),
         ).param("id", id)
         .param("slug", slug)
         .param("name", name)
+        .param("setCount", setCount)
+        .param("repCount", repCount)
         .update()
 
     private fun insertTargetPose(

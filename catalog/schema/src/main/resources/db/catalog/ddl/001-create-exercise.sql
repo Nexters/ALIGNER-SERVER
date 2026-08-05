@@ -14,6 +14,8 @@ CREATE TABLE catalog.exercise (
     difficulty               VARCHAR(20),
     caution_note             TEXT,
     CONSTRAINT uk_exercise_ymove_slug UNIQUE (ymove_slug),
+    CONSTRAINT ck_exercise_default_set_count CHECK (default_set_count > 0),
+    CONSTRAINT ck_exercise_default_rep_count CHECK (default_rep_count > 0),
     CONSTRAINT ck_exercise_default_duration CHECK (default_duration_seconds > 0),
     CONSTRAINT ck_exercise_met_value CHECK (met_value > 0)
 );
@@ -21,6 +23,8 @@ CREATE TABLE catalog.exercise (
 COMMENT ON TABLE catalog.exercise IS '보강 운동. 코스 스텝으로 재생되는 동작이다. 핀포즈도 여기에 행을 갖는다';
 COMMENT ON COLUMN catalog.exercise.ymove_slug IS 'YMove 연결 고리. 좌우 분리 자세 취급이 미정이라 NULL 을 허용한다 (docs/domains.md §7-6). UNIQUE 는 NULL 을 여러 개 허용한다';
 COMMENT ON COLUMN catalog.exercise.name IS 'YMove title 을 우리 표현으로 덮는 override';
+COMMENT ON COLUMN catalog.exercise.default_set_count IS '기본 세트 수. NULL 은 미지정이고, 값이 있으면 양수다';
+COMMENT ON COLUMN catalog.exercise.default_rep_count IS '기본 반복 수. NULL 은 미지정이고, 값이 있으면 양수다';
 COMMENT ON COLUMN catalog.exercise.default_duration_seconds IS '기본 수행 시간. course.course_step_exercise 가 비어 있을 때 쓴다';
 COMMENT ON COLUMN catalog.exercise.met_value IS '칼로리 계산 입력. kcal 은 회원 몸무게의 함수라 저장하지 않고 조회 시 계산한다';
 COMMENT ON COLUMN catalog.exercise.difficulty IS '우리가 감수로 부여한다. YMove 는 요가 전량을 beginner 로 태깅해 변별력이 없다. 값 집합이 미정이라 CHECK 을 걸지 않았다';
