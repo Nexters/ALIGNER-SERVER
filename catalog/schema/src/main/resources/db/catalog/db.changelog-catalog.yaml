@@ -1,0 +1,71 @@
+# catalog 도메인 changelog.
+#
+# changeset id 에 도메인 접두사를 붙인다. 도메인 5 개가 public.DATABASECHANGELOG 하나를
+# 공유하므로 접두사가 없으면 번호가 겹친다 (docs/architecture.md §6).
+#
+# 이미 적용된 changeset 은 수정하지 않고 새로 쌓는다.
+#
+# 순서가 FK 를 따른다. pose_muscle 은 target_pose·muscle 뒤, exercise_muscle 과
+# exercise_voice_cue 는 exercise 뒤여야 한다.
+databaseChangeLog:
+  - changeSet:
+      id: catalog-0001-create-schema
+      author: aligner
+      comment: catalog 스키마 생성
+      changes:
+        - sql:
+            sql: CREATE SCHEMA IF NOT EXISTS catalog
+
+  - changeSet:
+      id: catalog-0002-create-exercise
+      author: aligner
+      comment: 보강 운동 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/001-create-exercise.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0003-create-target-pose
+      author: aligner
+      comment: 목표 자세 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/002-create-target-pose.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0004-create-muscle
+      author: aligner
+      comment: 근육 마스터 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/003-create-muscle.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0005-create-pose-muscle
+      author: aligner
+      comment: 목표 자세와 근육 매핑 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/004-create-pose-muscle.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0006-create-exercise-muscle
+      author: aligner
+      comment: 보강 운동과 근육 매핑 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/005-create-exercise-muscle.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0007-create-exercise-voice-cue
+      author: aligner
+      comment: 음성 큐잉 대본 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/006-create-exercise-voice-cue.sql
+            relativeToChangelogFile: true

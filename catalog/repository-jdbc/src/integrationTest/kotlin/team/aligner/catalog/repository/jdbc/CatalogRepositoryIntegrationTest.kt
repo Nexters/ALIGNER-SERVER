@@ -1,0 +1,439 @@
+package team.aligner.catalog.repository.jdbc
+
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection
+import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.jdbc.core.simple.JdbcClient
+import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.junit.jupiter.Container
+import org.testcontainers.junit.jupiter.Testcontainers
+import team.aligner.catalog.infrastructure.ExerciseQueryRepository
+import team.aligner.catalog.infrastructure.TargetPoseQueryRepository
+import team.aligner.catalog.model.ExerciseIdentity
+import team.aligner.catalog.model.MuscleRole
+import team.aligner.catalog.model.TargetPoseIdentity
+import team.aligner.catalog.repository.jdbc.bootstrap.CatalogRepositoryTestApplication
+import java.math.BigDecimal
+
+/**
+ * 러너는 Kotest 가 아니라 JUnit5 다. kotest-extensions-spring 이 버전 카탈로그에 없다.
+ * 단언만 kotest-assertions-core 를 쓴다.
+ *
+ * 픽스처를 seed 가 아니라 테스트가 직접 넣는다. seed changeset 은 후속 이슈이고, 감수 데이터가
+ * 바뀔 때마다 이 테스트가 깨지면 안 된다.
+ *
+ * 여기서 처음으로 확인되는 것들이다.
+ * - changelog 가 Liquibase 로 실제로 도는가 (DDL 자체는 psql 로 확인했으나 YAML 은 아니다)
+ * - JdbcClient SQL 이 schema-qualified 인가 (안 그러면 public 을 친다)
+ * - `@EnableJdbcRepositories` 없이 JdbcClient Bean 이 주입되는가
+ */
+@Testcontainers
+@SpringBootTest(classes = [CatalogRepositoryTestApplication::class])
+class CatalogRepositoryIntegrationTest {
+    @Autowired
+    private lateinit var exerciseQueryRepository: ExerciseQueryRepository
+
+    @Autowired
+    private lateinit var targetPoseQueryRepository: TargetPoseQueryRepository
+
+    @Autowired
+    private lateinit var jdbcClient: JdbcClient
+
+    @BeforeEach
+    fun `픽스처를 새로 넣는다`() {
+        jdbcClient
+            .sql(
+                """
+                TRUNCATE catalog.exercise_voice_cue, catalog.pose_muscle, catalog.exercise_muscle,
+                         catalog.exercise, catalog.target_pose, catalog.muscle
+                RESTART IDENTITY CASCADE
+                """.trimIndent(),
+            ).update()
+
+        insertMuscle("ERECTOR_SPINAE", "척추기립근", "BACK")
+        insertMuscle("ILIOPSOAS", "장요근", "PELVIS")
+
+        insertExercise(1L, "camel-pose", "낙타자세")
+        insertExerciseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRENGTHEN, 1)
+        insertExerciseMuscle(1L, "ILIOPSOAS", MuscleRole.STRETCH, 2)
+        insertVoiceCue(1L, 1, null, null, "무릎을 골반 너비로 벌리세요")
+        insertVoiceCue(1L, 2, 35, 75, "명치를 천장으로 끌어올리고 유지하세요")
+
+        insertExercise(2L, "cat-cow-pose", "캣카우")
+
+        insertTargetPose(1L, "camel-pose", "낙타자세", "BACK", 2)
+        insertPoseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRENGTHEN, 1)
+        insertTargetPose(2L, "upward-facing-dog-pose", "업독", "BACK", 1)
+        insertTargetPose(3L, "bridge-pose", "브릿지", "PELVIS", 1)
+    }
+
+    @Test
+    fun `changelog 가 catalog 스키마에 테이블을 만든다`() {
+        jdbcClient
+            .sql("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'catalog'")
+            .query(Int::class.java)
+            .single() shouldBe 6
+
+        jdbcClient
+            .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'catalog-%'")
+            .query(Int::class.java)
+            .single() shouldBe 7
+    }
+
+    @Test
+    fun `도메인 테이블이 public 에 새지 않는다`() {
+        listOf("exercise", "target_pose", "muscle", "exercise_voice_cue").forEach { table ->
+            jdbcClient
+                .sql("SELECT to_regclass('public.$table')")
+                .query(String::class.java)
+                .optional()
+                .orElse(null)
+                .shouldBeNull()
+        }
+    }
+
+    @Test
+    fun `운동 상세가 근육과 음성 큐를 순서대로 싣는다`() {
+        val detail = exerciseQueryRepository.findDetail(ExerciseIdentity.of(1L)).shouldNotBeNull()
+
+        detail.name shouldBe "낙타자세"
+        detail.muscles.map { it.name } shouldBe listOf("척추기립근", "장요근")
+        // role 문자열이 MuscleRole 로 매핑돼야 한다.
+        detail.muscles.map { it.role } shouldBe listOf(MuscleRole.STRENGTHEN, MuscleRole.STRETCH)
+        detail.voiceCues.map { it.displayOrder } shouldBe listOf(1, 2)
+        // 타임코드 미확정 큐와 구간 큐가 섞여 있어도 그대로 돌아와야 한다.
+        detail.voiceCues.map { it.startOffsetSeconds } shouldBe listOf(null, 35)
+        detail.voiceCues.map { it.endOffsetSeconds } shouldBe listOf(null, 75)
+    }
+
+    /**
+     * SMALLINT 컬럼(default_set_count·default_rep_count)이 Int 로 매핑되는지 확인한다.
+     *
+     * getObject 캐스트를 쓰던 시절에는 컬럼 타입이 넓어지면 런타임에 깨졌다. getIntOrNull 로
+     * 바꿨고 그 매핑이 실제로 도는지 여기서 본다.
+     */
+    @Test
+    fun `숫자 컬럼이 값과 NULL 을 구분해 매핑된다`() {
+        val detail = exerciseQueryRepository.findDetail(ExerciseIdentity.of(1L)).shouldNotBeNull()
+
+        // SMALLINT 에 값이 있는 경우
+        detail.defaultSetCount shouldBe 3
+        // SMALLINT 가 비어 있는 경우. getInt 는 0 을 돌려주므로 wasNull 을 안 보면 0 이 된다.
+        detail.defaultRepCount shouldBe null
+        // INT
+        detail.defaultDurationSeconds shouldBe 120
+        detail.metValue shouldBe BigDecimal("2.30")
+
+        val summary =
+            exerciseQueryRepository.findAllByIdentities(listOf(ExerciseIdentity.of(1L))).single()
+
+        summary.defaultSetCount shouldBe 3
+        summary.defaultRepCount shouldBe null
+        summary.defaultDurationSeconds shouldBe 120
+    }
+
+    @Test
+    fun `자식이 없는 운동은 빈 목록이다`() {
+        val detail = exerciseQueryRepository.findDetail(ExerciseIdentity.of(2L)).shouldNotBeNull()
+
+        detail.muscles shouldBe emptyList()
+        detail.voiceCues shouldBe emptyList()
+    }
+
+    @Test
+    fun `없는 운동은 null 이다`() {
+        exerciseQueryRepository.findDetail(ExerciseIdentity.of(999L)).shouldBeNull()
+    }
+
+    @Test
+    fun `일괄 조회는 없는 식별자가 섞여도 찾은 것만 돌려준다`() {
+        val summaries =
+            exerciseQueryRepository.findAllByIdentities(
+                listOf(ExerciseIdentity.of(1L), ExerciseIdentity.of(999L), ExerciseIdentity.of(2L)),
+            )
+
+        summaries.map { it.exerciseId } shouldBe listOf(1L, 2L)
+    }
+
+    @Test
+    fun `자세 그리드는 부위로 걸러 레벨 순으로 돌려준다`() {
+        val poses = targetPoseQueryRepository.findAllByBodyPartCode("BACK")
+
+        poses.map { it.name } shouldBe listOf("업독", "낙타자세")
+        poses.map { it.level } shouldBe listOf(1, 2)
+    }
+
+    @Test
+    fun `자세가 없는 부위는 빈 목록이다`() {
+        targetPoseQueryRepository.findAllByBodyPartCode("NECK") shouldBe emptyList()
+    }
+
+    @Test
+    fun `자세 상세가 근육을 싣는다`() {
+        val detail = targetPoseQueryRepository.findDetail(TargetPoseIdentity.of(1L)).shouldNotBeNull()
+
+        detail.imageAssetKey shouldBe "camel-pose"
+        detail.level shouldBe 2
+        detail.muscles.map { it.name } shouldBe listOf("척추기립근")
+    }
+
+    @Test
+    fun `핀포즈는 같은 slug 로 exercise 와 target_pose 양쪽에 존재한다`() {
+        val exerciseSlug =
+            jdbcClient
+                .sql("SELECT ymove_slug FROM catalog.exercise WHERE exercise_id = 1")
+                .query(String::class.java)
+                .single()
+        val poseSlug =
+            jdbcClient
+                .sql("SELECT ymove_slug FROM catalog.target_pose WHERE target_pose_id = 1")
+                .query(String::class.java)
+                .single()
+
+        exerciseSlug shouldBe poseSlug
+    }
+
+    @Test
+    fun `ymove_slug 는 중복을 막지만 비어 있는 것은 여럿 허용한다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertExercise(90L, "camel-pose", "중복 slug")
+        }
+
+        insertExercise(91L, null, "무명1")
+        insertExercise(92L, null, "무명2")
+
+        jdbcClient
+            .sql("SELECT count(*) FROM catalog.exercise WHERE ymove_slug IS NULL")
+            .query(Int::class.java)
+            .single() shouldBe 2
+    }
+
+    @Test
+    fun `근육 역할에 정의되지 않은 값이 들어가지 않는다`() {
+        assertThrows<DataIntegrityViolationException> {
+            jdbcClient
+                .sql(
+                    """
+                    INSERT INTO catalog.exercise_muscle (exercise_id, muscle_code, role, display_order)
+                    VALUES (2, 'ERECTOR_SPINAE', 'INVALID', 1)
+                    """.trimIndent(),
+                ).update()
+        }
+    }
+
+    @Test
+    fun `없는 근육을 참조하지 못한다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertExerciseMuscle(2L, "존재하지-않는-근육", MuscleRole.STRETCH, 1)
+        }
+        assertThrows<DataIntegrityViolationException> {
+            insertPoseMuscle(1L, "존재하지-않는-근육", MuscleRole.STRETCH, 1)
+        }
+    }
+
+    @Test
+    fun `없는 자세를 참조하지 못한다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertPoseMuscle(999L, "ERECTOR_SPINAE", MuscleRole.STRETCH, 1)
+        }
+    }
+
+    /**
+     * 한 자세·운동에서 같은 근육이 두 역할을 갖지 못하게 막는다.
+     *
+     * docs/domains.md §4-3 이 이 제약을 설계 근거로 명시했다. 감수 결과가 뒤집히면 PK 가 아니라
+     * 이 UNIQUE 만 재정의하면 된다는 판단이라, 지금 무엇을 막고 있는지 고정해 둔다.
+     */
+    @Test
+    fun `한 자세에서 같은 근육이 두 번 나오지 못한다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertPoseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRETCH, 9)
+        }
+        assertThrows<DataIntegrityViolationException> {
+            insertExerciseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRETCH, 9)
+        }
+    }
+
+    @Test
+    fun `한 운동에서 큐 순서가 겹치지 못한다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertVoiceCue(1L, 1, null, null, "순서 중복")
+        }
+    }
+
+    /**
+     * NULL 은 "기본값 미지정"이고 0 이나 음수는 잘못된 값이다. 둘을 구분하지 않으면 세트 0 회짜리
+     * 운동이 코스 스텝으로 내려간다. default_duration_seconds·met_value 와 같은 성질이라
+     * 제약도 같이 건다.
+     */
+    @Test
+    fun `기본 세트 수와 반복 수는 0 이나 음수가 될 수 없다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertExercise(91L, "zero-set", "세트 0", setCount = 0)
+        }
+        assertThrows<DataIntegrityViolationException> {
+            insertExercise(92L, "negative-rep", "반복 음수", repCount = -1)
+        }
+
+        // 미지정은 그대로 통과해야 한다.
+        insertExercise(93L, "unset-counts", "미지정", setCount = null, repCount = null)
+    }
+
+    @Test
+    fun `음수 타임코드와 잘못된 레벨을 막는다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertVoiceCue(2L, 1, -1, null, "음수 시작")
+        }
+        assertThrows<DataIntegrityViolationException> {
+            insertTargetPose(90L, "zero-level", "레벨 0", "BACK", 0)
+        }
+    }
+
+    /**
+     * ORDER BY level, target_pose_id 의 두 번째 정렬 키를 확인한다.
+     * 레벨이 서로 다른 픽스처만으로는 검증되지 않는다.
+     */
+    @Test
+    fun `같은 레벨은 식별자 순으로 정렬된다`() {
+        insertTargetPose(51L, "pose-b", "나중", "ABDOMEN", 1)
+        insertTargetPose(50L, "pose-a", "먼저", "ABDOMEN", 1)
+
+        targetPoseQueryRepository
+            .findAllByBodyPartCode("ABDOMEN")
+            .map { it.targetPoseId } shouldBe listOf(50L, 51L)
+    }
+
+    @Test
+    fun `음성 큐는 종료가 시작보다 앞설 수 없다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertVoiceCue(2L, 1, 50, 40, "역전된 구간")
+        }
+    }
+
+    @Test
+    fun `음성 큐는 시작 없이 종료만 가질 수 없다`() {
+        assertThrows<DataIntegrityViolationException> {
+            insertVoiceCue(2L, 1, null, 40, "시작 없는 구간")
+        }
+    }
+
+    private fun insertMuscle(
+        code: String,
+        name: String,
+        bodyPartCode: String,
+    ) = jdbcClient
+        .sql("INSERT INTO catalog.muscle VALUES (:code, :name, :bodyPartCode, :assetKey)")
+        .param("code", code)
+        .param("name", name)
+        .param("bodyPartCode", bodyPartCode)
+        .param("assetKey", code.lowercase())
+        .update()
+
+    private fun insertExercise(
+        id: Long,
+        slug: String?,
+        name: String,
+        setCount: Int? = 3,
+        repCount: Int? = null,
+    ) = jdbcClient
+        .sql(
+            """
+            INSERT INTO catalog.exercise (exercise_id, ymove_slug, name, default_set_count, default_rep_count,
+                                          default_duration_seconds, met_value, difficulty, caution_note)
+            VALUES (:id, :slug, :name, :setCount, :repCount, 120, 2.30, '하', '통증이 오면 중단하세요')
+            """.trimIndent(),
+        ).param("id", id)
+        .param("slug", slug)
+        .param("name", name)
+        .param("setCount", setCount)
+        .param("repCount", repCount)
+        .update()
+
+    private fun insertTargetPose(
+        id: Long,
+        slug: String,
+        name: String,
+        bodyPartCode: String,
+        level: Int,
+    ) = jdbcClient
+        .sql(
+            """
+            INSERT INTO catalog.target_pose (target_pose_id, ymove_slug, name, image_asset_key,
+                                             body_part_code, level)
+            VALUES (:id, :slug, :name, :slug, :bodyPartCode, :level)
+            """.trimIndent(),
+        ).param("id", id)
+        .param("slug", slug)
+        .param("name", name)
+        .param("bodyPartCode", bodyPartCode)
+        .param("level", level)
+        .update()
+
+    private fun insertExerciseMuscle(
+        exerciseId: Long,
+        muscleCode: String,
+        role: MuscleRole,
+        displayOrder: Int,
+    ) = jdbcClient
+        .sql(
+            """
+            INSERT INTO catalog.exercise_muscle (exercise_id, muscle_code, role, display_order)
+            VALUES (:exerciseId, :muscleCode, :role, :displayOrder)
+            """.trimIndent(),
+        ).param("exerciseId", exerciseId)
+        .param("muscleCode", muscleCode)
+        .param("role", role.name)
+        .param("displayOrder", displayOrder)
+        .update()
+
+    private fun insertPoseMuscle(
+        targetPoseId: Long,
+        muscleCode: String,
+        role: MuscleRole,
+        displayOrder: Int,
+    ) = jdbcClient
+        .sql(
+            """
+            INSERT INTO catalog.pose_muscle (target_pose_id, muscle_code, role, display_order)
+            VALUES (:targetPoseId, :muscleCode, :role, :displayOrder)
+            """.trimIndent(),
+        ).param("targetPoseId", targetPoseId)
+        .param("muscleCode", muscleCode)
+        .param("role", role.name)
+        .param("displayOrder", displayOrder)
+        .update()
+
+    private fun insertVoiceCue(
+        exerciseId: Long,
+        displayOrder: Int,
+        start: Int?,
+        end: Int?,
+        content: String,
+    ) = jdbcClient
+        .sql(
+            """
+            INSERT INTO catalog.exercise_voice_cue (exercise_id, display_order,
+                                                    start_offset_seconds, end_offset_seconds, content)
+            VALUES (:exerciseId, :displayOrder, :start, :end, :content)
+            """.trimIndent(),
+        ).param("exerciseId", exerciseId)
+        .param("displayOrder", displayOrder)
+        .param("start", start)
+        .param("end", end)
+        .param("content", content)
+        .update()
+
+    companion object {
+        @Container
+        @ServiceConnection
+        @JvmStatic
+        val postgres = PostgreSQLContainer("postgres:17-alpine")
+    }
+}

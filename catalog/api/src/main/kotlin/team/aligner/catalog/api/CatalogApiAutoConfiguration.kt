@@ -1,0 +1,20 @@
+package team.aligner.catalog.api
+
+import org.springframework.boot.autoconfigure.AutoConfiguration
+import org.springframework.context.annotation.Bean
+import team.aligner.catalog.service.ExerciseQueryService
+import team.aligner.catalog.service.TargetPoseQueryService
+
+/**
+ * 컨트롤러를 @Bean 으로 등록하는 자리다. 빠지면 기동은 성공하고 호출만 404 가 되므로
+ * 사람 눈으로만 잡힌다 (docs/architecture.md §5).
+ */
+@AutoConfiguration
+class CatalogApiAutoConfiguration {
+    @Bean
+    fun exerciseController(exerciseQueryService: ExerciseQueryService): ExerciseController = ExerciseController(exerciseQueryService)
+
+    @Bean
+    fun targetPoseController(targetPoseQueryService: TargetPoseQueryService): TargetPoseController =
+        TargetPoseController(targetPoseQueryService)
+}
