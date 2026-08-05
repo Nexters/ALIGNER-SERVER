@@ -3,12 +3,15 @@ package team.aligner.support.web
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
+import org.springframework.http.client.SimpleClientHttpRequestFactory
+import org.springframework.web.client.RestClient
 import team.aligner.support.web.auth.AuthProperties
 import team.aligner.support.web.auth.JwtTokenProvider
 import team.aligner.support.web.auth.KakaoAuthController
 import team.aligner.support.web.auth.KakaoUserClient
 import team.aligner.support.web.auth.NimbusJwtTokenProvider
 import team.aligner.support.web.auth.RestClientKakaoUserClient
+import java.time.Duration
 
 /**
  * support-web 의 Bean 을 명시 등록한다.
@@ -28,8 +31,29 @@ class SupportWebAutoConfiguration {
     @Bean
     fun globalExceptionHandler(): GlobalExceptionHandler = GlobalExceptionHandler()
 
+    /**
+     * RestClient 를 여기서 조립해 넘긴다. 클라이언트가 내부에서 빌더를 만들고 requestFactory 를
+     * 덮어쓰면 테스트가 MockRestServiceServer 를 끼울 자리가 없다 — 목이 심어둔 팩토리를
+     * 클라이언트가 다시 갈아끼우기 때문이다. 타임아웃은 배선 관심사라 조립부에 두는 편이 맞다.
+     *
+     * 카카오가 느려지면 로그인 요청이 스레드를 잡고 있다. 짧게 끊고 502 로 알린다.
+     */
     @Bean
-    fun kakaoUserClient(authProperties: AuthProperties): KakaoUserClient = RestClientKakaoUserClient(authProperties)
+    fun kakaoUserClient(
+        authProperties: AuthProperties,
+        restClientBuilder: RestClient.Builder,
+    ): KakaoUserClient {
+        val restClient =
+            restClientBuilder
+                .requestFactory(
+                    SimpleClientHttpRequestFactory().apply {
+                        setConnectTimeout(Duration.ofMillis(authProperties.kakao.connectTimeoutMillis))
+                        setReadTimeout(Duration.ofMillis(authProperties.kakao.readTimeoutMillis))
+                    },
+                ).build()
+
+        return RestClientKakaoUserClient(authProperties, restClient)
+    }
 
     @Bean
     fun jwtTokenProvider(authProperties: AuthProperties): JwtTokenProvider = NimbusJwtTokenProvider(authProperties)

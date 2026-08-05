@@ -23,11 +23,21 @@ aligner:
       # 기본값을 두지 않는다. DB_PASSWORD 와 같은 규칙이다.
       # HS256 키라 32 바이트 이상이어야 하고, 미만이면 기동 시 예외가 난다.
       secret: ${JWT_SECRET}
-      # 리프레시 토큰이 없다. 만료되면 클라이언트가 카카오 SDK 로 다시 받아 재로그인한다.
+      # 리프레시 토큰이 없다. 만료되면 프론트가 Kakao.Auth.authorize() 부터 다시 태운다.
+      # 전체 페이지 리다이렉트 왕복이라 화면 전환이 생기지만, 14 일에 한 번이면 감수한다.
       expiration-seconds: ${JWT_EXPIRATION_SECONDS:1209600}
       issuer: aligner
     kakao:
+      # 인증 서버(kauth)와 사용자 API(kapi)는 호스트가 다르다.
+      token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
       user-info-uri: ${KAKAO_USER_INFO_URI:https://kapi.kakao.com/v2/user/me}
+      # 기본값을 두지 않는다. DB_PASSWORD · JWT_SECRET 과 같은 규칙이다.
+      # client-id 는 앱 REST API 키다. JavaScript 키가 아니다.
+      client-id: ${KAKAO_CLIENT_ID}
+      client-secret: ${KAKAO_CLIENT_SECRET}
+      # 프론트의 인가 코드 착지 라우트. Kakao.Auth.authorize() 에 넘긴 값과 완전히 일치해야 하고,
+      # 카카오 개발자 콘솔에 local·dev·prod 를 전부 등록해야 한다.
+      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao}
       # 카카오가 느려지면 로그인 요청이 스레드를 잡고 있다. 짧게 끊고 502 로 알린다.
       connect-timeout-millis: ${KAKAO_CONNECT_TIMEOUT_MILLIS:2000}
       read-timeout-millis: ${KAKAO_READ_TIMEOUT_MILLIS:3000}
