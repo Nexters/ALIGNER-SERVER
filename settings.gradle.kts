@@ -42,6 +42,18 @@ include(
     "member:adapter-auth",
 )
 
+// screening — 부위·자세 체감 선택·원인 판별. 어떤 도메인도 의존하지 않는다
+// (docs/domains.md §4-2, §5). 기본 6 개 + contract.
+include(
+    "screening:model",
+    "screening:infrastructure",
+    "screening:contract",
+    "screening:schema",
+    "screening:service",
+    "screening:repository-jdbc",
+    "screening:api",
+)
+
 // catalog — 보강 운동·목표 자세·근육·음성 큐잉 대본. Command 가 없는 조회 전용 도메인
 // (docs/domains.md §4-3, §5). adapter-ymove 는 §7-4·5·6 이 정해진 뒤 후속으로 붙인다.
 include(
