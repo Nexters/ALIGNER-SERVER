@@ -131,7 +131,7 @@ interface TargetPoseContract {
 interface CourseStepContract {
     fun findStep(courseId: Long, stepOrder: Int): CourseStepResponse?
 }
-interface CourseProgressContract {
+interface CourseProgressContract {          // 초안 — §7-8 확정 전까지 고정하지 않는다
     fun completeStep(command: CompleteStepCommand)
     fun completeSession(command: CompleteSessionCommand)
 }
@@ -140,6 +140,11 @@ interface CourseProgressContract {
 `ScreeningResultContract`가 **복수를 돌려준다.** 진단 결과 화면이 원인 부위를 순위로
 나열하므로 단수로는 만들 수 없다. `bodyPartCode` 파라미터도 없다 — 진단이 부위를 결정하는
 쪽이라 호출부가 미리 알고 들어오지 않는다.
+
+`CourseProgressContract`만 초안으로 둔다. 이 문서에는 `training`이 세션 완료를 밀어넣는
+흐름(§4-5)만 있고 **`completeStep`을 누가 부르는지가 없다.** 두 메서드가 모두 열려 있으면
+세션 없이 스텝만 완료하거나 같은 세션이 두 번 반영될 수 있는데, 무엇을 중복으로 볼지는 완수
+판정 기준(§7-8)이 정해져야 답할 수 있다. `course` 착수 시점에 §7-8과 함께 확정한다.
 
 ### port ↔ adapter 대응
 
@@ -216,6 +221,21 @@ screening.screening_cause    screening_cause_id(pk), result_id, cause_code,
 `cause_rule`이 **(자세, 체감) → 원인** 분기표다. `weight`를 두는 것은 자세를 최대 8개까지
 고르기 때문이다. 원인마다 점수가 쌓이고 그 합으로 순위를 매긴다. **집계 방식을 코드가 아니라
 seed의 `weight`로 조절**한다 — 감수 결과가 바뀌어도 changeset만 새로 쌓는다.
+
+#### 같은 자세를 두 번 고를 수 없다 — 제약을 어디에 두는가
+
+점수를 합산해 순위를 매기므로 응답이 중복되면 그대로 순위가 뒤틀린다. 같은 자세가 두 번
+들어오면 원인 점수가 부풀고, 같은 자세를 `EASY`와 `HARD`로 같이 제출하면 모순된 응답이
+저장된다. 둘 다 집계 **전에** 막는다.
+
+- `screening_answer`에 `UNIQUE (result_id, target_pose_id)`. 중복 제출과 난이도 양쪽 제출을
+  한 제약으로 같이 막으려고 `perceived_difficulty`를 키에서 뺐다
+- `perceived_difficulty`는 `CHECK (perceived_difficulty IN ('EASY', 'HARD'))`.
+  `cause_rule`의 같은 이름 컬럼에도 동일하게 건다 — 분기표 좌변과 응답이 같은 값 집합이어야
+  조인이 성립한다
+- **난이도별 최대 4개는 DB 제약으로 만들지 않는다.** 행 개수를 세는 조건이라 `CHECK`으로
+  쓸 수 없고 트리거는 과하다. `ScreeningResult` 애그리거트가 저장 전에 검증한다. 개수 상한은
+  감수 데이터가 아니라 온보딩 화면 규칙이라 바뀔 때 changeset이 아니라 코드만 고치는 편이 맞다
 
 `target_pose_id`는 `catalog`의 값이지만 **참조하지 않는다.** 자세 그리드는 클라이언트가
 `catalog` API로 직접 그리고, `screening`은 식별자만 값으로 받아 저장한다. 덕분에 §1의
@@ -563,6 +583,11 @@ training:    model infrastructure service repository-jdbc api schema
    `3 / 4` 형태의 진행도와 `도전 중 / 완성` 상태를 보여주므로 세션 1회로는 부족하다.
    누적 횟수(`target_pose`에 필요 횟수 seed) 방식이 유력하나 **기획 확정 대기 중**이다.
    이것이 정해지기 전에는 `course`의 도장·해금과 진행도 Query를 확정할 수 없다.
+
+   `CourseProgressContract`(§3)도 여기 달려 있다. `completeSession`을 단일 진입점으로 두고
+   `CompleteSessionCommand`에 `sessionId`를 멱등 키로 넣을지, `completeStep`을 남긴다면 호출
+   주체가 누구인지, `training`이 세션을 저장한 뒤 push에 실패하면 재시도를 어떻게 하는지가
+   전부 완수 판정 기준이 정해진 뒤에야 답이 된다.
 9. **오늘 코스와 내일 코스의 차이.** 보강 편성이 사라지면서 두 코스가 달라질 근거가 없어졌다.
    같은 코스의 반복인지, 레벨 사다리를 따라 진행하는지, 며칠치를 미리 만드는지가 미정이다.
    `course.scheduled_on`의 유니크 제약도 여기 달렸다. **기획 확정 대기 중.**
