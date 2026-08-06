@@ -15,12 +15,7 @@ class NimbusJwtTokenProviderTest :
             expirationSeconds: Long = 3600,
         ) = AuthProperties(
             jwt = AuthProperties.Jwt(secret = secret, expirationSeconds = expirationSeconds, issuer = "aligner"),
-            kakao =
-                AuthProperties.Kakao(
-                    userInfoUri = "https://kapi.kakao.com/v2/user/me",
-                    connectTimeoutMillis = 2000,
-                    readTimeoutMillis = 3000,
-                ),
+            kakao = kakaoProperties(),
         )
 
         describe("issue / parseMemberId") {

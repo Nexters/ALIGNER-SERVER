@@ -40,6 +40,10 @@ spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-te
 spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc" }
 spring-boot-starter-liquibase = { module = "org.springframework.boot:spring-boot-starter-liquibase" }
 
+# 같은 이유로 RestClient 도 별도 모듈이다. starter-webmvc 는 서버 쪽 스택만 담고
+# RestClient.Builder 자동설정을 끌고 오지 않아서, 없으면 기동이 그 Bean 을 못 찾고 실패한다.
+spring-boot-starter-restclient = { module = "org.springframework.boot:spring-boot-starter-restclient" }
+
 postgresql = { module = "org.postgresql:postgresql" }
 springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 

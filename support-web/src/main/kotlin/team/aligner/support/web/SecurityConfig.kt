@@ -18,9 +18,12 @@ import tools.jackson.databind.ObjectMapper
 /**
  * 도메인 횡단 보안 설정.
  *
- * 인증은 자체 JWT 다. 클라이언트가 카카오 SDK 로 받은 액세스 토큰을 POST /auth/kakao 로
- * 넘기면 서버가 확인 후 JWT 를 발급하고, 이후 요청은 Authorization: Bearer 로 온다.
- * 서버가 인가 코드 리다이렉트를 받는 방식은 쓰지 않는다.
+ * 인증은 자체 JWT 다. 프론트가 카카오에서 받은 인가 코드를 POST /auth/kakao 로 넘기면 서버가
+ * 액세스 토큰으로 교환·확인 후 JWT 를 발급하고, 이후 요청은 Authorization: Bearer 로 온다.
+ *
+ * **서버가 리다이렉트를 받지 않고 JWT 를 쿠키로도 주지 않는다.** 그래서 아래 csrf.disable() 과
+ * STATELESS 가 안전하다 — 브라우저가 자동으로 실어 보내는 인증 수단이 없기 때문이다. 쿠키
+ * 인증을 도입하면 CSRF 대응과 CORS 설계가 함께 따라온다 (이슈 #12).
  *
  * 기본값은 `authenticated()` 로 닫아둔다. 이 클래스는 AutoConfiguration.imports 에
  * 등록돼 프로덕션 경로에도 그대로 실리므로, 공개 경로는 메서드까지 한정해 하나씩 명시한다.
