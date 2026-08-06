@@ -5,8 +5,13 @@ import team.aligner.member.model.Member
 import team.aligner.member.model.view.MemberProfileView
 
 /**
- * nickname·profileImageUrl 은 null 로 내려갈 수 있다. 카카오 프로필 제공에 동의하지 않은
- * 회원이며, 서버가 기본값을 만들어 채우지 않는다.
+ * nickname 은 null 로 내려갈 수 있다. 카카오 프로필 제공에 동의하지 않은 회원이며,
+ * 서버가 기본값을 만들어 채우지 않는다.
+ *
+ * **프로필 이미지는 내려보내지 않는다.** 카카오에서 받아 `member.profile_image_url` 에
+ * 저장은 계속하지만 응답에서는 뺐다. 화면이 쓰지 않는 값을 내보내면 프론트가 그 URL 에
+ * 의존하기 시작하고, 카카오 CDN 링크는 우리가 수명을 보장할 수 없다.
+ * 다시 필요해지면 View 와 컬럼이 그대로 있으므로 이 클래스에 필드만 되살리면 된다.
  */
 @Schema(description = "회원 프로필")
 data class MemberProfileResponse(
@@ -14,15 +19,12 @@ data class MemberProfileResponse(
     val memberId: Long,
     @field:Schema(description = "닉네임. 카카오 프로필 제공에 동의하지 않으면 null 이다", example = "강혁", nullable = true)
     val nickname: String?,
-    @field:Schema(description = "프로필 이미지 URL. 카카오가 소유하며 서버가 기본값을 채우지 않는다", nullable = true)
-    val profileImageUrl: String?,
 ) {
     companion object {
         fun from(view: MemberProfileView): MemberProfileResponse =
             MemberProfileResponse(
                 memberId = view.memberId,
                 nickname = view.nickname,
-                profileImageUrl = view.profileImageUrl,
             )
 
         /**
@@ -36,7 +38,6 @@ data class MemberProfileResponse(
             return MemberProfileResponse(
                 memberId = memberIdentity.value,
                 nickname = member.nickname,
-                profileImageUrl = member.profileImageUrl,
             )
         }
     }
