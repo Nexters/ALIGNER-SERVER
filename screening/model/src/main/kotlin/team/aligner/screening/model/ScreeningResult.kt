@@ -71,20 +71,27 @@ data class ScreeningResult(
          * 개수 상한을 DB 제약으로 만들지 않은 이유는 행 개수를 세는 조건이라 `CHECK` 으로 쓸 수
          * 없고 트리거는 과해서다. 상한값 자체도 감수 데이터가 아니라 온보딩 화면 규칙이라,
          * 바뀔 때 changeset 이 아니라 이 상수만 고치는 편이 맞다.
+         *
+         * **받은 목록을 그대로 들고 있지 않고 복사한다.** Kotlin 의 `List` 는 읽기 전용일 뿐
+         * 불변이 아니라서, 호출부가 `MutableList` 를 넘기고 검증 뒤에 원소를 더하면 위 세 검사가
+         * 통째로 무의미해진다. 애그리거트가 자기 불변식을 스스로 지켜야 한다.
          */
         fun submit(
             memberId: Long,
             perceivedBodyPartCode: String,
             answers: List<ScreeningAnswer>,
         ): ScreeningResult {
-            if (answers.isEmpty()) {
+            // 검사 도중에도 바뀔 수 있으므로 먼저 스냅샷을 뜨고, 그 스냅샷만 본다.
+            val submitted = answers.toList()
+
+            if (submitted.isEmpty()) {
                 throw EmptyScreeningAnswerException()
             }
-            if (answers.distinctBy { it.targetPoseId }.size != answers.size) {
+            if (submitted.distinctBy { it.targetPoseId }.size != submitted.size) {
                 // 같은 자세를 EASY 와 HARD 로 같이 낸 모순도 여기서 함께 걸린다.
                 throw DuplicateScreeningAnswerException()
             }
-            if (answers.groupingBy { it.perceivedDifficulty }.eachCount().any { it.value > MAX_ANSWERS_PER_DIFFICULTY }) {
+            if (submitted.groupingBy { it.perceivedDifficulty }.eachCount().any { it.value > MAX_ANSWERS_PER_DIFFICULTY }) {
                 throw TooManyScreeningAnswersException()
             }
 
@@ -92,7 +99,7 @@ data class ScreeningResult(
                 identity = null,
                 memberId = memberId,
                 perceivedBodyPartCode = perceivedBodyPartCode,
-                answers = answers,
+                answers = submitted,
                 causes = emptyList(),
                 createdAt = null,
             )

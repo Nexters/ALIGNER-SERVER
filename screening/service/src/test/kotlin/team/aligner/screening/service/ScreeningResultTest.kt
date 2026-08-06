@@ -71,6 +71,37 @@ class ScreeningResultTest :
 
                 submit(answers).answers.size shouldBe 8
             }
+
+            it("제출 뒤 원본 목록을 바꿔도 애그리거트가 흔들리지 않는다") {
+                // Kotlin 의 List 는 읽기 전용일 뿐 불변이 아니다. 스냅샷을 뜨지 않으면 호출부가
+                // 검증 뒤에 원소를 더해 개수·중복 검사를 통째로 우회할 수 있다.
+                val mutable = mutableListOf(answer(1L, PerceivedDifficulty.HARD))
+
+                val result = submit(mutable)
+                mutable += answer(1L, PerceivedDifficulty.HARD) // 중복
+                mutable += (2L..9L).map { answer(it, PerceivedDifficulty.HARD) } // 개수 초과
+
+                result.answers.size shouldBe 1
+                result.answers.single().targetPoseId shouldBe 1L
+            }
+
+            it("원본을 바꿔도 판별 결과가 달라지지 않는다") {
+                val mutable = mutableListOf(answer(1L, PerceivedDifficulty.HARD))
+                val result = submit(mutable)
+
+                mutable += answer(2L, PerceivedDifficulty.HARD)
+
+                val determined =
+                    result.determineCauses(
+                        listOf(
+                            rule(1L, PerceivedDifficulty.HARD, "THORACIC", 2),
+                            // 나중에 끼워 넣은 자세의 규칙이다. 스냅샷을 떴으므로 걸리면 안 된다.
+                            rule(2L, PerceivedDifficulty.HARD, "HIP", 9),
+                        ),
+                    )
+
+                determined.causes.map { it.causeCode } shouldBe listOf("THORACIC")
+            }
         }
 
         describe("determineCauses") {
