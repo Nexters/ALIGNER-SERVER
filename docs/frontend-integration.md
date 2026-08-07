@@ -1,7 +1,7 @@
 # 프론트엔드 연동 가이드
 
-이 문서는 현재 `feature/8-catalog-도메인-구축` 브랜치에 구현된 서버를 기준으로,
-프론트엔드가 어떤 API를 호출하고 응답을 어떻게 해석해야 하는지 정리한 문서다.
+이 문서는 현재 `develop`에 병합된 서버를 기준으로, 프론트엔드가 어떤 API를 호출하고 응답을
+어떻게 해석해야 하는지 정리한 문서다.
 기획상 전체 MVP의 설명이 아니라 **현재 실제 코드에 존재하는 계약**을 설명한다.
 
 ## 먼저 알아둘 현재 상태
@@ -10,19 +10,33 @@
 
 | 범위 | 상태 | 프론트에서 할 수 있는 일 |
 | --- | --- | --- |
-| `support-web` 인증 | 구현됨 | 카카오 액세스 토큰으로 Aligner JWT 발급 |
+| `support-web` 인증 | 구현됨 | 카카오 인가 코드로 Aligner JWT 발급 |
 | `member` | 구현됨 | 내 프로필 조회·닉네임 수정 |
 | `catalog` | 구현됨 | 목표 자세 목록·상세, 운동 상세 조회 |
-| `screening` | 미구현 | 부위 선택·스크리닝 응답·원인 판별 API 없음 |
+| `screening` | 구현됨 | 부위 목록, 자세 체감 제출·원인 판별, 최신 결과 조회 |
 | `course` | 미구현 | 맞춤 코스·스텝·진행도 API 없음 |
 | `training` | 미구현 | 세션 시작·완료·수행 기록 API 없음 |
 
-현재 Liquibase changelog는 `member`와 `catalog`의 **테이블만 생성**한다. 감수 콘텐츠
-seed는 아직 없으므로 새 DB에서는 catalog 목록이 빈 배열이고, 존재하지 않는 ID의 상세 조회는
-404가 정상일 수 있다. 개발용 화면에서 임의 ID를 고정하지 말고 목록 응답의 ID를 사용한다.
+현재 Liquibase changelog는 `member`·`catalog`·`screening`의 **테이블만 생성**한다. 감수 콘텐츠
+seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 빈 배열이고, 존재하지 않는 ID의
+상세 조회는 404가 정상일 수 있다. 개발용 화면에서 임의 ID를 고정하지 말고 목록 응답의 ID를
+사용한다.
 
-`bodyPartCode`의 값 집합도 아직 `screening`에 확정·구현되지 않았다. 프론트에서 임의의
-영문 코드를 만들어 고정하지 말고, 서버의 screening 계약과 seed가 추가될 때 함께 확정한다.
+**seed가 없는 동안 스크리닝 제출은 성공할 수 없다.** 서버가 정상이어도 그렇다. seed가 어디까지
+들어왔는지에 따라 실패 지점이 다르다.
+
+| 서버 상태 | `GET /screening/body-parts` | `POST /screening/results` |
+| --- | --- | --- |
+| seed 없음 (지금) | `[]` | 404 `BODY_PART_NOT_FOUND` — 보낼 유효한 코드가 없다 |
+| 부위 seed만 있음 | 부위 목록 | 422 `CAUSE_NOT_DETERMINED` — 분기 규칙이 없다 |
+| 분기 규칙까지 있음 | 부위 목록 | 200 |
+
+지금 화면을 만든다면 세 경우를 모두 처리해 두는 편이 낫다. 어느 것도 프론트 요청이 틀려서 나는
+오류가 아니다.
+
+`bodyPartCode`의 값 집합은 이제 `screening`이 소유하며 `GET /screening/body-parts`가 내려준다.
+프론트에서 임의의 영문 코드를 만들어 고정하지 말고 이 API의 응답 값을 그대로 쓴다. 구체적인
+값은 부위 seed가 들어올 때 확정된다.
 
 ## 핵심 용어
 
@@ -34,9 +48,13 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록이 빈 배열이고, 
 | `Muscle` | 자세·운동에 연결된 근육 마스터 | 근육맵·부위 탭에 표시할 콘텐츠 |
 | `MuscleRole` | 근육을 늘리는지 강화하는지 | `STRETCH` 또는 `STRENGTHEN`으로 구분 |
 | `imageAssetKey` | 이미지 파일을 가리키는 안정적인 키 | URL로 바로 렌더링하지 말고 프론트 asset 매핑에 사용 |
-| `bodyPartCode` | 자세·근육이 속한 부위 코드 | 현재 값 집합 미확정. 서버가 소유하는 문자열 |
+| `bodyPartCode` | 자세·근육이 속한 부위 코드 | `GET /screening/body-parts`가 소유하는 문자열 |
 | `metValue` | 운동 칼로리 계산에 쓰는 MET 값 | kcal 자체가 아니며 서버가 몸무게를 합쳐 계산하지 않음 |
 | `voiceCue` | 운동 중 보여줄 한글 큐잉 문장 | `displayOrder` 순서로 재생·표시 |
+| `BodyPart` | 회원이 온보딩에서 고르는 부위 | 온보딩 첫 화면의 선택지 |
+| `PerceivedDifficulty` | 자세를 해보고 느낀 체감 | `EASY`(쉬웠다) 또는 `HARD`(어려웠다) |
+| `Cause` | 판별된 **원인** | 결과 화면이 보여줄 진단. `rank` 1이 가장 유력 |
+| `ScreeningResult` | 제출 1회의 진단 결과 | 원인 목록을 담은 응답. `resultId`로 식별 |
 
 `TargetPose`는 목표 자세 콘텐츠의 이름이다. 예전 기획 용어인 `PoseCheckpoint`를 현재
 서버가 제공한다고 가정하면 안 된다. 현재 도메인 결정에서는 `PoseCheckpoint`를 만들지
@@ -53,15 +71,39 @@ POST /auth/kakao  { authorizationCode }
         ▼
 Authorization: Bearer {alignerAccessToken}
         │
-        ├── GET /members/me
+        ├── GET   /members/me
         ├── PATCH /members/me
-        ├── GET /catalog/target-poses?bodyPartCode=...
-        ├── GET /catalog/target-poses/{targetPoseId}
-        └── GET /catalog/exercises/{exerciseId}
+        ├── GET   /screening/body-parts
+        ├── POST  /screening/results
+        ├── GET   /screening/results/latest
+        ├── GET   /catalog/target-poses?bodyPartCode=...
+        ├── GET   /catalog/target-poses/{targetPoseId}
+        └── GET   /catalog/exercises/{exerciseId}
 ```
 
 로그인 API만 인증 없이 열려 있고, 나머지 현재 API는 모두 Aligner JWT가 필요하다.
 카카오 액세스 토큰을 보호 API의 Bearer 토큰으로 사용하지 않는다.
+
+### 온보딩 화면 순서
+
+세 도메인이 한 흐름으로 이어지는 곳이라 호출 순서를 적어둔다.
+
+```text
+GET  /screening/body-parts                       부위 선택지
+        │  회원이 부위를 고른다
+        ▼
+GET  /catalog/target-poses?bodyPartCode={code}   그 부위의 자세 그리드
+        │  회원이 자세를 해보고 쉬웠는지 어려웠는지 고른다
+        ▼
+POST /screening/results                          제출 → 판별 → 결과가 한 번에 온다
+        │
+        ▼
+결과 화면 (causes[0] 이 1순위 원인)
+```
+
+**`targetPoseId`는 catalog에서 받아 screening으로 넘긴다.** 두 도메인이 서버에서 서로를
+참조하지 않으므로 그 연결을 프론트가 들고 있는다. 자세 그리드 응답의 `targetPoseId`를 그대로
+제출에 실으면 된다.
 
 ## 인증 API
 
@@ -152,6 +194,96 @@ Content-Type: application/json
 
 닉네임은 서버에서 앞뒤 공백을 제거한 뒤 검사한다. 공백만 있는 값과 50자를 초과하는
 값은 400 `INVALID_NICKNAME`이며, 성공 응답에는 trim된 값이 들어간다.
+
+## 스크리닝 API
+
+온보딩의 핵심이다. **회원이 고른 부위와 판별된 원인의 부위는 다를 수 있다.** 목·어깨가 불편해서
+고른 회원의 1순위 원인이 등·허리로 나오는 것이 오류가 아니라 이 서비스의 요점이다. 결과 화면은
+`causes[].bodyPartCode`를 기준으로 그리고, 회원이 고른 부위를 그대로 원인으로 표시하지 않는다.
+
+### `GET /screening/body-parts`
+
+온보딩 첫 화면의 선택지다. 화면 노출 순서로 정렬돼 있으므로 프론트에서 다시 정렬하지 않는다.
+
+```json
+[
+  { "bodyPartCode": "NECK_SHOULDER", "name": "목·어깨" }
+]
+```
+
+부위 seed가 들어오기 전에는 빈 배열 `[]`이다.
+
+### `POST /screening/results`
+
+**제출과 판별이 한 요청에서 끝난다.** 응답만 저장하고 결과를 따로 조회하는 2단계가 아니다.
+요청 한 번에 저장·판별·결과 반환이 모두 일어나므로, 화면은 "선택 → 결과" 한 걸음으로 만든다.
+
+요청:
+
+```http
+POST /screening/results
+Authorization: Bearer {alignerAccessToken}
+Content-Type: application/json
+
+{
+  "bodyPartCode": "NECK_SHOULDER",
+  "answers": [
+    { "targetPoseId": 12, "perceivedDifficulty": "EASY" },
+    { "targetPoseId": 15, "perceivedDifficulty": "HARD" }
+  ]
+}
+```
+
+응답:
+
+```json
+{
+  "resultId": 3,
+  "perceivedBodyPartCode": "NECK_SHOULDER",
+  "causes": [
+    {
+      "causeCode": "THORACIC_STIFFNESS",
+      "name": "굳은 흉추",
+      "bodyPartCode": "UPPER_BACK",
+      "description": "결과 화면에 보여줄 설명",
+      "rank": 1,
+      "score": 7
+    }
+  ],
+  "createdAt": "2026-08-07T10:00:00Z"
+}
+```
+
+제출 규칙은 다음과 같다. 어기면 400이므로 프론트에서 먼저 막는 편이 낫다.
+
+- `answers`가 비면 안 된다 — `EMPTY_SCREENING_ANSWER`
+- `EASY`와 `HARD` **각각 최대 4개**다. 합계 8개가 아니라 체감별로 4개다 — `TOO_MANY_SCREENING_ANSWERS`
+- 같은 `targetPoseId`를 두 번 넣을 수 없다. `EASY`와 `HARD`에 나눠 넣는 것도 중복이다 —
+  `DUPLICATE_SCREENING_ANSWER`
+
+`causes`는 **`rank` 오름차순**으로 온다. `rank`가 1인 것이 가장 유력한 원인이다. `score`는 분기
+규칙 가중치의 합이고 순위의 근거다 — 화면에 그대로 노출할 값은 아니지만, 순위가 왜 그렇게
+나왔는지 확인할 때 쓴다. `description`은 `null`일 수 있다.
+
+**422 `CAUSE_NOT_DETERMINED`를 화면에서 처리해야 한다.** 고른 자세 조합이 어떤 분기 규칙에도
+걸리지 않으면 원인 0개인 진단을 저장하지 않고 422로 돌려준다. 회원이 뭘 잘못한 것이 아니라
+서버 seed가 그 조합을 덮지 못한 것이므로, "다시 입력하세요"가 아니라 "결과를 낼 수 없다"에
+가까운 안내가 맞다.
+
+검증 순서는 **부위 → 제출 규칙 → 판별**이다. 그래서 부위 코드가 틀리면 `answers`가 아무리
+잘못돼도 404가 먼저 나온다. 위 「먼저 알아둘 현재 상태」의 표가 seed 상태별로 어디서 끊기는지
+정리해 뒀다.
+
+### `GET /screening/results/latest`
+
+회원이 가장 최근에 받은 진단이다. 응답 모양은 `POST /screening/results`와 같다.
+
+**진단한 적이 없으면 404 `SCREENING_RESULT_NOT_FOUND`다.** 빈 응답이 아니다. 화면은 이 404를
+"온보딩으로 보내라"는 신호로 읽는다 — 홈 진입 시 이 API가 404면 온보딩, 200이면 결과·코스
+화면으로 분기하는 것이 의도된 사용법이다.
+
+남의 `resultId`는 볼 수 없다. 서버가 회원 식별자를 조건에 함께 넣으므로 존재하지 않는 진단과
+남의 진단이 똑같이 404로 온다.
 
 ## Catalog API
 
@@ -281,13 +413,19 @@ function resolveTargetPoseImage(key: string | null): string | null {
 | --- | --- | --- |
 | 400 | `BAD_REQUEST` | JSON 형식·필수 필드 등 요청 자체를 수정 |
 | 400 | `INVALID_NICKNAME` | 닉네임을 1~50자로 다시 입력 |
+| 400 | `EMPTY_SCREENING_ANSWER` | 자세를 하나도 고르지 않음. 제출 버튼을 먼저 막는다 |
+| 400 | `TOO_MANY_SCREENING_ANSWERS` | 한 체감에 4개를 넘김. 선택 UI에서 먼저 막는다 |
+| 400 | `DUPLICATE_SCREENING_ANSWER` | 같은 자세를 두 번 넣음. `EASY`·`HARD`에 나눠 넣은 경우도 포함 |
 | 401 | `UNAUTHORIZED` | 토큰이 없거나 만료됨. `Kakao.Auth.authorize()`부터 다시 수행 |
 | 401 | `KAKAO_AUTH_CODE_INVALID` | 인가 코드가 무효·만료·재사용. **같은 코드로 재시도하지 말고** `authorize()`부터 다시 태운다 |
 | 401 | `KAKAO_TOKEN_INVALID` | 서버가 교환한 카카오 액세스 토큰이 사용자 조회에서 거부됨. 서버·카카오 쪽 문제이므로 재로그인으로 풀리지 않으면 서버팀에 알린다 |
 | 403 | `FORBIDDEN` | 현재 권한으로 접근할 수 없음 |
 | 404 | `MEMBER_NOT_FOUND` | 현재 토큰의 회원이 없음 |
+| 404 | `BODY_PART_NOT_FOUND` | 존재하지 않는 부위 코드. 부위 목록 API의 값을 그대로 보낸다 |
+| 404 | `SCREENING_RESULT_NOT_FOUND` | 아직 진단한 적이 없음. **온보딩으로 보낸다** |
 | 404 | `TARGET_POSE_NOT_FOUND` | 존재하지 않는 목표 자세 ID |
 | 404 | `EXERCISE_NOT_FOUND` | 존재하지 않는 운동 ID |
+| 422 | `CAUSE_NOT_DETERMINED` | 고른 조합이 분기 규칙에 걸리지 않음. 재입력이 아니라 "결과를 낼 수 없다" 안내 |
 | 502 | `KAKAO_UNAVAILABLE` | 카카오 인증 서버 장애·네트워크 오류. 재시도 안내 |
 | 500 | `INTERNAL_ERROR` | 사용자에게 내부 오류를 노출하지 말고 재시도 안내 |
 
@@ -302,16 +440,41 @@ HTTP 상태만 보지 말고 가능하면 `code`를 기준으로 화면 동작�
    목록 응답에서 받은 ID를 상세 조회에 사용한다.
 3. `bodyPartCode`, `muscleCode`, `imageAssetKey`를 표시용 한글과 혼용하지 않는다.
    서버 값은 식별·매핑용이고, 별도 화면 라벨이 필요하면 프론트 표시 테이블을 둔다.
-4. 현재 서버가 주지 않는 영상 URL·운동 썸네일·코스·스크리닝 결과를 catalog 응답에서
-   추측해 만들지 않는다. 필요한 계약은 해당 도메인 API가 추가될 때 정한다.
+4. 현재 서버가 주지 않는 영상 URL·운동 썸네일·코스를 catalog 응답에서 추측해 만들지 않는다.
+   필요한 계약은 해당 도메인 API가 추가될 때 정한다.
 5. 인증 토큰은 API 클라이언트 한 곳에서 `Authorization` 헤더로 붙인다. 로그인 API에는
    기존 Aligner 토큰을 붙일 필요가 없다.
 6. 인가 코드를 두 번 보내지 않는다. 착지 라우트가 리렌더·StrictMode 등으로 두 번 실행되면
    두 번째 요청이 `KAKAO_AUTH_CODE_INVALID`로 실패한다. 코드는 1회용이다.
-6. 401 처리에서 무한 재로그인 루프를 만들지 않는다. 로그인 실패가 반복되면 세션을
+7. 401 처리에서 무한 재로그인 루프를 만들지 않는다. 로그인 실패가 반복되면 세션을
    비우고 로그인 화면으로 보낸다.
-7. 배포 오리진이 서버와 다르면 CORS 정책을 확인한다. 현재 서버 코드에는 프론트 오리진을
-   허용하는 명시적 CORS 설정이 없다.
+8. `fetch`에 `credentials: 'include'`를 쓰지 않는다. 아래 「CORS」 참고 — 서버가 자격 증명
+   모드를 열지 않으므로 그 옵션을 켜면 요청이 통째로 막힌다.
+
+## CORS
+
+프론트와 서버는 오리진이 다르다(`http://localhost:5173` ↔ `http://localhost:8080`). 서버가 허용
+목록에 있는 오리진에만 교차 출처 요청을 열어준다.
+
+| 항목 | 값 |
+| --- | --- |
+| 허용 오리진 | 서버 설정값. 로컬 기본값은 `http://localhost:5173` |
+| 허용 메서드 | `GET` `POST` `PATCH` |
+| 허용 요청 헤더 | `Authorization` `Content-Type` |
+| 자격 증명(`credentials`) | **열지 않음** |
+
+지켜야 할 것이 셋이다.
+
+1. **`credentials: 'include'`를 쓰지 않는다.** 인증은 `Authorization: Bearer` 헤더 하나뿐이고
+   서버가 쿠키를 내리지 않는다. 이 옵션을 켜면 서버가 `Access-Control-Allow-Credentials`를
+   주지 않으므로 브라우저가 응답을 통째로 버린다 — 401도 아니고 네트워크 오류로 보인다
+2. **오리진은 스킴·호스트·포트가 완전히 일치해야 한다.** `http://localhost:5173`과
+   `http://127.0.0.1:5173`은 브라우저에게 다른 오리진이다. 개발 서버 포트를 바꾸면
+   서버의 `CORS_ALLOWED_ORIGINS`도 같이 바꿔야 한다
+3. **배포 오리진은 배포 전에 서버팀에 알린다.** 와일드카드를 쓰지 않으므로 도메인이 정해지면
+   서버 설정에 넣어야 한다. 넣기 전까지는 배포 환경에서 모든 요청이 막힌다
+
+실패 응답(401·404 등)에도 CORS 헤더가 붙으므로 오류 본문의 `code`를 정상적으로 읽을 수 있다.
 
 ## 서버 코드를 찾는 위치
 
@@ -324,7 +487,10 @@ HTTP 상태만 보지 말고 가능하면 `code`를 기준으로 화면 동작�
 | 목표 자세·운동 API 응답 DTO | `catalog/api/src/main/kotlin/team/aligner/catalog/api/dto` | 구현됨 |
 | 목표 자세·운동 조회 SQL | `catalog/repository-jdbc` | 구현됨 |
 | catalog 콘텐츠 추가·수정 | `catalog/schema`의 Liquibase seed | 현재 seed 미구현 |
-| 부위·스크리닝·원인 | `screening` 도메인 | 도메인 미구현 |
+| 부위·스크리닝·원인 API 응답 DTO | `screening/api/src/main/kotlin/team/aligner/screening/api/dto` | 구현됨 |
+| 원인 판별 규칙 | `screening/model`의 `ScreeningResult.determineCauses` | 구현됨 |
+| 부위·원인·분기 규칙 데이터 | `screening/schema`의 Liquibase seed | 현재 seed 미구현 |
+| CORS 허용 오리진 | `support-web`의 `SecurityConfig`·`CorsProperties` | 구현됨 |
 | 코스·진행도·세션 | `course`, `training` 도메인 | 도메인 미구현 |
 
 예를 들어 프론트가 “코스 상세에서 운동 목록을 받고 싶다”고 요청하면,
@@ -353,6 +519,17 @@ export KAKAO_CLIENT_SECRET=<kakao_client_secret>
 `KAKAO_REDIRECT_URI`의 기본값은 `http://localhost:5173/oauth/kakao`다. 프론트 개발 서버가
 다른 포트를 쓰면 이 값을 바꾸고, **같은 값을 카카오 개발자 콘솔에도 등록해야 한다.**
 `authorize()`에 넘기는 값과 한 글자라도 다르면 토큰 교환이 거부된다.
+
+`CORS_ALLOWED_ORIGINS`의 기본값은 `http://localhost:5173`이다. **개발 서버 포트를 바꾸면
+`KAKAO_REDIRECT_URI`와 이 값을 함께 바꿔야 한다** — 앞의 것은 인가 코드가 착지하는 곳이고
+뒤의 것은 API를 부르는 곳인데, 프론트에서는 같은 오리진이다. 하나만 바꾸면 로그인은 되는데
+API가 전부 막히거나 그 반대가 된다.
+
+여러 오리진은 쉼표로 준다. `*`는 기동 시점에 거부한다.
+
+```bash
+export CORS_ALLOWED_ORIGINS=http://localhost:5173,https://aligner.example.com
+```
 
 Swagger/OpenAPI는 기본적으로 꺼져 있다. 확인이 필요하면 서버 실행 시
 `SPRINGDOC_ENABLED=true`를 별도로 설정한다. 이것이 켜져 있지 않으면 Swagger가 안 보이는
