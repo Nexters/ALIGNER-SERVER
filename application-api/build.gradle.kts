@@ -22,6 +22,13 @@ dependencies {
     // 이 줄을 빼면 AuthMemberPort Bean 이 없어 기동이 실패해야 정상이다 (§9).
     implementation(project(":member:adapter-auth"))
 
+    // screening — 부위·자세 체감 선택·원인 판별 (docs/architecture.md §10 8 단계).
+    implementation(project(":screening:api"))
+    implementation(project(":screening:repository-jdbc"))
+    implementation(project(":screening:schema"))
+    // screening:contract 를 넣지 않는다. 소비자인 course/adapter-screening 이 아직 없고, 계약
+    // 구현체 Bean 은 screening:api → screening:service 로 런타임 전이돼 등록된다. catalog 와 같다.
+
     // catalog — 보강 운동·목표 자세·근육·음성 큐 (docs/architecture.md §10 8 단계).
     implementation(project(":catalog:api"))
     implementation(project(":catalog:repository-jdbc"))

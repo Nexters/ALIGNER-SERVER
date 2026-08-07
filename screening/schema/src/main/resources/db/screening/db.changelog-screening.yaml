@@ -1,0 +1,71 @@
+# screening 도메인 changelog.
+#
+# changeset id 에 도메인 접두사를 붙인다. 도메인 5 개가 public.DATABASECHANGELOG 하나를
+# 공유하므로 접두사가 없으면 번호가 겹친다 (docs/architecture.md §6).
+#
+# 이미 적용된 changeset 은 수정하지 않고 새로 쌓는다.
+#
+# 순서가 FK 를 따른다. cause 는 body_part 뒤, cause_rule 은 cause 뒤,
+# screening_answer 와 screening_cause 는 screening_result 뒤여야 한다.
+databaseChangeLog:
+  - changeSet:
+      id: screening-0001-create-schema
+      author: aligner
+      comment: screening 스키마 생성
+      changes:
+        - sql:
+            sql: CREATE SCHEMA IF NOT EXISTS screening
+
+  - changeSet:
+      id: screening-0002-create-body-part
+      author: aligner
+      comment: 부위 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/001-create-body-part.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: screening-0003-create-cause
+      author: aligner
+      comment: 원인 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/002-create-cause.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: screening-0004-create-cause-rule
+      author: aligner
+      comment: 자세 체감 분기 규칙 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/003-create-cause-rule.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: screening-0005-create-screening-result
+      author: aligner
+      comment: 진단 결과 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/004-create-screening-result.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: screening-0006-create-screening-answer
+      author: aligner
+      comment: 자세 체감 응답 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/005-create-screening-answer.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: screening-0007-create-screening-cause
+      author: aligner
+      comment: 판별된 원인 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/006-create-screening-cause.sql
+            relativeToChangelogFile: true
