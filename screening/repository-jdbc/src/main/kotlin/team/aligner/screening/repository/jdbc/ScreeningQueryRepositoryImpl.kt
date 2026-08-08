@@ -34,7 +34,7 @@ internal class ScreeningQueryRepositoryImpl(
             jdbcClient
                 .sql(
                     """
-                    SELECT result_id, perceived_body_part_code, created_at
+                    SELECT result_id, created_at
                     FROM screening.screening_result
                     WHERE member_id = :memberId
                     ORDER BY created_at DESC, result_id DESC
@@ -56,7 +56,7 @@ internal class ScreeningQueryRepositoryImpl(
             jdbcClient
                 .sql(
                     """
-                    SELECT result_id, perceived_body_part_code, created_at
+                    SELECT result_id, created_at
                     FROM screening.screening_result
                     WHERE result_id = :resultId AND member_id = :memberId
                     """.trimIndent(),
@@ -73,8 +73,8 @@ internal class ScreeningQueryRepositoryImpl(
      * 원인 이름·설명은 마스터 seed 와의 조인이다. 애그리거트에는 `cause_code` 만 있어서
      * 결과 화면을 그리려면 여기서 붙여야 한다.
      *
-     * `bodyPartCode` 는 **원인이 있는 부위**다. `screening_result.perceived_body_part_code`
-     * (회원이 고른 부위)와 다를 수 있고, 다른 것이 이 도메인의 요점이다.
+     * `bodyPartCode` 는 **원인이 있는 부위**다. 결과 화면이 이 부위들을 순위로 보여주고,
+     * 회원은 그다음 화면에서 강화할 부위를 고른다 (docs/domains.md §4-2).
      */
     private fun findCauses(resultId: Long): List<ScreeningCauseView> =
         jdbcClient
@@ -110,7 +110,6 @@ private object ScreeningResultRowMapper : org.springframework.jdbc.core.RowMappe
     ): ScreeningResultView =
         ScreeningResultView(
             resultId = rs.getLong("result_id"),
-            perceivedBodyPartCode = rs.getString("perceived_body_part_code"),
             causes = emptyList(),
             createdAt = rs.getTimestamp("created_at").toInstant(),
         )

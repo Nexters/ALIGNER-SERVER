@@ -205,7 +205,7 @@ screening.cause_rule         rule_id(pk), target_pose_id, perceived_difficulty,
                              cause_code, weight                                   [seed]
 
 screening.screening_result   result_id(pk), member_id,
-                             perceived_body_part_code,       -- 회원이 고른 "느끼는 부위"
+                             perceived_body_part_code(null),  -- 쓰지 않는다. 아래 참고
                              created_at
 screening.screening_answer   answer_id(pk), result_id, target_pose_id,
                              perceived_difficulty            -- EASY | HARD
@@ -213,10 +213,38 @@ screening.screening_cause    screening_cause_id(pk), result_id, cause_code,
                              rank, score                     -- 판별된 "원인 부위"
 ```
 
+#### 온보딩 순서 — 부위는 진단의 입력이 아니라 결과 이후의 선택이다
+
+와이어프레임(`UT용 UI`, `node-id=616-5079`)의 온보딩 순서는 이렇다.
+
+```text
+소셜로그인 → 운동 경력 → 키·몸무게        member
+  → 핀포즈 소개 → 쉬웠던 자세(최대 4)
+  → 어려웠던 자세(최대 4)                 screening  ← 부위를 묻지 않는다
+  → "근육 상태 분석중" → 원인 순위 표시    screening
+  → 강화할 부위 선택 → 난이도 선택         member
+```
+
+**부위를 먼저 묻지 않는다.** 초판 설계는 "부위 선택 → 그 부위의 자세 그리드" 였고 그래서
+`perceived_body_part_code`를 진단의 입력으로 뒀는데, 실제 화면은 자세를 먼저 받아 원인을
+판별하고 **그 결과를 본 뒤에** 강화할 부위를 고른다. 뒤쪽 선택은 마이페이지에서 "난이도
+조정하기"로 계속 바뀌는 회원의 지속 설정이므로 `member`가 갖는다(§4-1).
+
+따라서 `POST /screening/results`는 부위를 받지 않고, `perceived_body_part_code`는 NULL 허용
+컬럼으로 남아 있되 저장 경로가 채우지 않는다. 컬럼을 지우지 않은 것은 "느끼는 부위를 영영
+받지 않는다"가 확정되지 않아서다 — `DROP COLUMN`은 되돌려도 데이터가 돌아오지 않는다.
+
+`GET /screening/body-parts`는 없어지지 않는다. **강화 부위 선택 화면의 선택지**로 쓰인다.
+판별된 원인의 부위만 내리지 않고 전체를 내린다 — 화면이 분석 결과에 없는 부위도 고를 수 있게
+그리기 때문이다.
+
+`GET /catalog/target-poses`의 `bodyPartCode`도 **선택 파라미터**가 됐다. 온보딩 그리드가
+부위로 걸러지지 않고 핀포즈 전체를 펼치므로 그쪽이 기본이다.
+
 #### 문항이 아니라 자세 선택을 받는다
 
-온보딩은 부위를 고른 뒤 **핀포즈 그리드에서 쉬웠던 자세와 어려웠던 자세를 각각 최대 4개**
-고른다. 설문 문항이 없으므로 `screening_question` `screening_option`을 만들지 않는다.
+온보딩은 **핀포즈 그리드에서 쉬웠던 자세와 어려웠던 자세를 각각 최대 4개** 고른다.
+설문 문항이 없으므로 `screening_question` `screening_option`을 만들지 않는다.
 
 `cause_rule`이 **(자세, 체감) → 원인** 분기표다. `weight`를 두는 것은 자세를 최대 8개까지
 고르기 때문이다. 원인마다 점수가 쌓이고 그 합으로 순위를 매긴다. **집계 방식을 코드가 아니라
@@ -241,13 +269,15 @@ seed의 `weight`로 조절**한다 — 감수 결과가 바뀌어도 changeset�
 `catalog` API로 직접 그리고, `screening`은 식별자만 값으로 받아 저장한다. 덕분에 §1의
 단방향 의존이 유지된다 — `screening`은 어떤 도메인도 의존하지 않는다.
 
-#### 느끼는 부위와 원인 부위를 분리한다
+#### 판별된 원인이 곧 부위를 정한다
 
-회원이 고른 부위와 판별된 원인의 부위는 다르다. `AGENTS.md` §1의 *"느끼는 부위가 아니라
-원인 부위를 처방한다"* 가 스키마에 드러난 것이다.
+`AGENTS.md` §1의 *"느끼는 부위가 아니라 원인 부위를 처방한다"* 는 그대로다. 다만 이제
+**회원이 고른 부위와의 대비가 아니라 원인 판별 자체로** 성립한다 — 회원은 자세만 고르고,
+부위는 서버가 판별한 원인이 결정한다.
 
-- `screening_result.perceived_body_part_code` — 회원이 고른 것. 진단의 입력이자 맥락이다
-- `screening_cause` — 판별된 것. `course`가 처방에 쓰는 값이다
+- `screening_cause` — 판별된 원인. `cause.body_part_code`가 곧 원인 부위이고, `course`가
+  처방에 쓰는 값이다
+- `screening_result.perceived_body_part_code` — 옛 온보딩의 흔적. 항상 NULL이다
 
 **원인이 복수다.** 진단 결과 화면이 원인 부위를 순위로 나열하므로 `screening_result` 하나에
 `screening_cause`가 여러 개 달린다. `rank`가 표시 순서이고 `score`가 `weight` 합계다.

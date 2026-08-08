@@ -1,12 +1,10 @@
 package team.aligner.screening.service
 
 import org.springframework.transaction.annotation.Transactional
-import team.aligner.screening.infrastructure.BodyPartRepository
 import team.aligner.screening.infrastructure.CauseRuleRepository
 import team.aligner.screening.infrastructure.ScreeningResultRepository
 import team.aligner.screening.model.ScreeningResult
 import team.aligner.screening.model.ScreeningResultIdentity
-import team.aligner.screening.model.exception.BodyPartNotFoundException
 
 interface ScreeningCommandService {
     fun submit(
@@ -23,7 +21,6 @@ interface ScreeningCommandService {
 @Transactional
 internal class ScreeningCommandServiceImpl(
     private val screeningResultRepository: ScreeningResultRepository,
-    private val bodyPartRepository: BodyPartRepository,
     private val causeRuleRepository: CauseRuleRepository,
 ) : ScreeningCommandService {
     /**
@@ -37,15 +34,9 @@ internal class ScreeningCommandServiceImpl(
         memberId: Long,
         command: SubmitScreeningCommand,
     ): ScreeningResultIdentity {
-        // FK 로도 막히지만 그때는 500 이다. 회원이 없는 부위를 보낸 것은 404 여야 한다.
-        if (!bodyPartRepository.existsByCode(command.perceivedBodyPartCode)) {
-            throw BodyPartNotFoundException()
-        }
-
         val submitted =
             ScreeningResult.submit(
                 memberId = memberId,
-                perceivedBodyPartCode = command.perceivedBodyPartCode,
                 answers = command.answers,
             )
 

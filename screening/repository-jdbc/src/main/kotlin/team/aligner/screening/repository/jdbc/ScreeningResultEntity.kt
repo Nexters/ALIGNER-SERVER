@@ -13,13 +13,16 @@ import java.time.Instant
  *
  * 자식 둘을 @MappedCollection 으로 매단다. 애그리거트 저장이 한 번에 끝나야
  * "응답은 있는데 원인이 없는 진단" 이 생기지 않는다 (docs/architecture.md §4).
+ *
+ * **perceived_body_part_code 에 대응하는 프로퍼티가 없다.** 온보딩이 부위를 받지 않게 되면서
+ * 항상 NULL 인 컬럼이 됐다. 프로퍼티가 없으면 Spring Data JDBC 가 insert 문에서 그 컬럼을
+ * 아예 빼므로 NULL 이 들어간다. 컬럼 자체는 changeset 007 이 NULL 허용으로 남겨뒀다.
  */
 @Table(schema = "screening", name = "screening_result")
 internal data class ScreeningResultEntity(
     @Id
     val resultId: Long?,
     val memberId: Long,
-    val perceivedBodyPartCode: String,
     val createdAt: Instant,
     @MappedCollection(idColumn = "result_id")
     val answers: Set<ScreeningAnswerEntity>,

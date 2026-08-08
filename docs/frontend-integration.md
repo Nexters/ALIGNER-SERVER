@@ -25,11 +25,11 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 �
 **seed가 없는 동안 스크리닝 제출은 성공할 수 없다.** 서버가 정상이어도 그렇다. seed가 어디까지
 들어왔는지에 따라 실패 지점이 다르다.
 
-| 서버 상태 | `GET /screening/body-parts` | `POST /screening/results` |
+| 서버 상태 | `GET /catalog/target-poses` | `POST /screening/results` |
 | --- | --- | --- |
-| seed 없음 (지금) | `[]` | 404 `BODY_PART_NOT_FOUND` — 보낼 유효한 코드가 없다 |
-| 부위 seed만 있음 | 부위 목록 | 422 `CAUSE_NOT_DETERMINED` — 분기 규칙이 없다 |
-| 분기 규칙까지 있음 | 부위 목록 | 200 |
+| seed 없음 (지금) | `[]` | 400 `EMPTY_SCREENING_ANSWER` — 고를 자세가 없다 |
+| 자세 seed만 있음 | 자세 그리드 | 422 `CAUSE_NOT_DETERMINED` — 분기 규칙이 없다 |
+| 분기 규칙까지 있음 | 자세 그리드 | 200 |
 
 지금 화면을 만든다면 세 경우를 모두 처리해 두는 편이 낫다. 어느 것도 프론트 요청이 틀려서 나는
 오류가 아니다.
@@ -51,7 +51,7 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 �
 | `bodyPartCode` | 자세·근육이 속한 부위 코드 | `GET /screening/body-parts`가 소유하는 문자열 |
 | `metValue` | 운동 칼로리 계산에 쓰는 MET 값 | kcal 자체가 아니며 서버가 몸무게를 합쳐 계산하지 않음 |
 | `voiceCue` | 운동 중 보여줄 한글 큐잉 문장 | `displayOrder` 순서로 재생·표시 |
-| `BodyPart` | 회원이 온보딩에서 고르는 부위 | 온보딩 첫 화면의 선택지 |
+| `BodyPart` | 부위 | 진단 결과 뒤 **강화할 부위**를 고르는 화면의 선택지 |
 | `PerceivedDifficulty` | 자세를 해보고 느낀 체감 | `EASY`(쉬웠다) 또는 `HARD`(어려웠다) |
 | `Cause` | 판별된 **원인** | 결과 화면이 보여줄 진단. `rank` 1이 가장 유력 |
 | `ScreeningResult` | 제출 1회의 진단 결과 | 원인 목록을 담은 응답. `resultId`로 식별 |
@@ -76,7 +76,7 @@ Authorization: Bearer {alignerAccessToken}
         ├── GET   /screening/body-parts
         ├── POST  /screening/results
         ├── GET   /screening/results/latest
-        ├── GET   /catalog/target-poses?bodyPartCode=...
+        ├── GET   /catalog/target-poses[?bodyPartCode=...]   부위는 선택
         ├── GET   /catalog/target-poses/{targetPoseId}
         └── GET   /catalog/exercises/{exerciseId}
 ```
@@ -89,17 +89,23 @@ Authorization: Bearer {alignerAccessToken}
 세 도메인이 한 흐름으로 이어지는 곳이라 호출 순서를 적어둔다.
 
 ```text
-GET  /screening/body-parts                       부위 선택지
-        │  회원이 부위를 고른다
-        ▼
-GET  /catalog/target-poses?bodyPartCode={code}   그 부위의 자세 그리드
-        │  회원이 자세를 해보고 쉬웠는지 어려웠는지 고른다
+GET  /catalog/target-poses                       전체 핀포즈 그리드 (부위 파라미터 없이)
+        │  회원이 쉬웠던 자세와 어려웠던 자세를 각각 최대 4개 고른다
         ▼
 POST /screening/results                          제출 → 판별 → 결과가 한 번에 온다
         │
         ▼
 결과 화면 (causes[0] 이 1순위 원인)
+        │
+        ▼
+GET  /screening/body-parts                       강화할 부위 선택지
+        │  회원이 강화할 부위와 난이도를 고른다
+        ▼
+(부위·난이도 저장 API는 아직 없다 — member 확장 이슈)
 ```
+
+**부위를 먼저 묻지 않는다.** 자세를 먼저 받아 원인을 판별하고, 그 결과를 본 뒤에 강화할 부위를
+고르는 순서다. `POST /screening/results` 요청에 `bodyPartCode`를 넣지 않는다.
 
 **`targetPoseId`는 catalog에서 받아 screening으로 넘긴다.** 두 도메인이 서버에서 서로를
 참조하지 않으므로 그 연결을 프론트가 들고 있는다. 자세 그리드 응답의 `targetPoseId`를 그대로
@@ -197,13 +203,14 @@ Content-Type: application/json
 
 ## 스크리닝 API
 
-온보딩의 핵심이다. **회원이 고른 부위와 판별된 원인의 부위는 다를 수 있다.** 목·어깨가 불편해서
-고른 회원의 1순위 원인이 등·허리로 나오는 것이 오류가 아니라 이 서비스의 요점이다. 결과 화면은
-`causes[].bodyPartCode`를 기준으로 그리고, 회원이 고른 부위를 그대로 원인으로 표시하지 않는다.
+온보딩의 핵심이다. **회원은 자세만 고르고 부위는 서버가 판별한다.** 결과 화면은
+`causes[].bodyPartCode`를 기준으로 그린다.
 
 ### `GET /screening/body-parts`
 
-온보딩 첫 화면의 선택지다. 화면 노출 순서로 정렬돼 있으므로 프론트에서 다시 정렬하지 않는다.
+**강화할 부위를 고르는 화면**의 선택지다 — 온보딩 첫 화면이 아니라 진단 결과 다음 화면이다.
+판별된 원인의 부위만이 아니라 전체 부위를 내리므로, 회원은 분석 결과에 없는 부위도 고를 수 있다.
+화면 노출 순서로 정렬돼 있으므로 프론트에서 다시 정렬하지 않는다.
 
 ```json
 [
@@ -226,7 +233,6 @@ Authorization: Bearer {alignerAccessToken}
 Content-Type: application/json
 
 {
-  "bodyPartCode": "NECK_SHOULDER",
   "answers": [
     { "targetPoseId": 12, "perceivedDifficulty": "EASY" },
     { "targetPoseId": 15, "perceivedDifficulty": "HARD" }
@@ -239,7 +245,6 @@ Content-Type: application/json
 ```json
 {
   "resultId": 3,
-  "perceivedBodyPartCode": "NECK_SHOULDER",
   "causes": [
     {
       "causeCode": "THORACIC_STIFFNESS",
@@ -270,8 +275,8 @@ Content-Type: application/json
 서버 seed가 그 조합을 덮지 못한 것이므로, "다시 입력하세요"가 아니라 "결과를 낼 수 없다"에
 가까운 안내가 맞다.
 
-검증 순서는 **부위 → 제출 규칙 → 판별**이다. 그래서 부위 코드가 틀리면 `answers`가 아무리
-잘못돼도 404가 먼저 나온다. 위 「먼저 알아둘 현재 상태」의 표가 seed 상태별로 어디서 끊기는지
+검증 순서는 **제출 규칙 → 판별**이다. 부위를 받지 않으므로 `BODY_PART_NOT_FOUND`는 이 API에서
+더 이상 나오지 않는다. 위 「먼저 알아둘 현재 상태」의 표가 seed 상태별로 어디서 끊기는지
 정리해 뒀다.
 
 ### `GET /screening/results/latest`
@@ -292,8 +297,11 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
 
 ### `GET /catalog/target-poses?bodyPartCode={code}`
 
-해당 부위의 목표 자세 그리드용 요약 목록을 반환한다. 결과는 `level`, `targetPoseId`
+목표 자세 그리드용 요약 목록을 반환한다. 결과는 `bodyPartCode`, `level`, `targetPoseId`
 순으로 정렬된다.
+
+**`bodyPartCode`는 선택 파라미터다.** 생략하면 전체 핀포즈가 온다 — 온보딩 그리드가 부위로
+걸러지지 않고 전체를 펼치므로 그쪽이 기본 사용법이다. 부위를 주면 그 부위만 걸러 온다.
 
 ```json
 [
@@ -421,7 +429,6 @@ function resolveTargetPoseImage(key: string | null): string | null {
 | 401 | `KAKAO_TOKEN_INVALID` | 서버가 교환한 카카오 액세스 토큰이 사용자 조회에서 거부됨. 서버·카카오 쪽 문제이므로 재로그인으로 풀리지 않으면 서버팀에 알린다 |
 | 403 | `FORBIDDEN` | 현재 권한으로 접근할 수 없음 |
 | 404 | `MEMBER_NOT_FOUND` | 현재 토큰의 회원이 없음 |
-| 404 | `BODY_PART_NOT_FOUND` | 존재하지 않는 부위 코드. 부위 목록 API의 값을 그대로 보낸다 |
 | 404 | `SCREENING_RESULT_NOT_FOUND` | 아직 진단한 적이 없음. **온보딩으로 보낸다** |
 | 404 | `TARGET_POSE_NOT_FOUND` | 존재하지 않는 목표 자세 ID |
 | 404 | `EXERCISE_NOT_FOUND` | 존재하지 않는 운동 ID |

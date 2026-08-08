@@ -28,7 +28,6 @@ internal class ScreeningResultRepositoryImpl(
                 ScreeningResultEntity(
                     resultId = screeningResult.identity?.value,
                     memberId = screeningResult.memberId,
-                    perceivedBodyPartCode = screeningResult.perceivedBodyPartCode,
                     createdAt = screeningResult.createdAt ?: now,
                     answers =
                         screeningResult.answers
@@ -59,7 +58,6 @@ private fun ScreeningResultEntity.toModel(): ScreeningResult =
     ScreeningResult(
         identity = resultId?.let { ScreeningResultIdentity.of(it) },
         memberId = memberId,
-        perceivedBodyPartCode = perceivedBodyPartCode,
         answers =
             answers.map {
                 ScreeningAnswer(
