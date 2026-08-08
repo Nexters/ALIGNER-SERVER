@@ -6,18 +6,20 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import team.aligner.member.api.dto.MemberProfileResponse
 import team.aligner.member.api.dto.UpdateMemberProfileRequest
 import team.aligner.member.model.MemberIdentity
 import team.aligner.member.service.MemberCommandService
 import team.aligner.member.service.MemberQueryService
-import team.aligner.member.service.UpdateMemberProfileCommand
 import team.aligner.support.web.AlignerPrincipal
 
 /**
@@ -62,14 +64,22 @@ class MemberController(
 
     @Operation(
         summary = "내 프로필 수정",
-        description = "닉네임만 바꾼다. 프로필 이미지는 카카오가 소유하므로 서버가 수정하지 않는다. 수정된 프로필 전체를 돌려준다.",
+        description =
+            "**보낸 필드만 바뀐다.** 온보딩(경력 · 키·몸무게 · 강화 부위·난이도)과 프로필 편집이 이 API 하나를 같이 쓴다 — " +
+                "온보딩 전용 API 는 없다. 보내지 않은 필드는 그대로 유지되며, null 을 보내도 값이 지워지지 않는다. " +
+                "강화 부위와 난이도는 **함께** 보내야 한다. " +
+                "프로필 이미지는 카카오가 소유하므로 서버가 수정하지 않는다. 수정된 프로필 전체를 돌려준다.",
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "수정 성공. 수정 직후 값을 그대로 돌려준다"),
             ApiResponse(
                 responseCode = "400",
-                description = "`INVALID_NICKNAME` — 닉네임은 1자 이상 50자 이하여야 합니다",
+                description =
+                    "`INVALID_NICKNAME` — 닉네임은 1자 이상 50자 이하여야 합니다 / " +
+                        "`INVALID_HEIGHT` — 키는 100cm 이상 250cm 이하여야 합니다 / " +
+                        "`INVALID_WEIGHT` — 몸무게는 20kg 이상 300kg 이하여야 합니다 / " +
+                        "`INVALID_REINFORCEMENT_SETTING` — 강화 부위와 난이도를 함께 보내야 하고 난이도는 1~3 이다",
                 content = [Content(mediaType = "application/json", schema = Schema(ref = ERROR_SCHEMA_REF))],
             ),
             ApiResponse(
@@ -87,9 +97,35 @@ class MemberController(
         MemberProfileResponse.from(
             memberCommandService.updateProfile(
                 MemberIdentity.of(principal.memberId),
-                UpdateMemberProfileCommand(nickname = request.nickname),
+                request.toCommand(),
             ),
         )
+
+    @Operation(
+        summary = "회원탈퇴",
+        description =
+            "**행을 지우지 않는다.** 운동 기록을 보존하기로 했고 그 기록이 회원 식별자로 붙어 있어서, " +
+                "남는 개인정보인 카카오 식별자만 지우고 탈퇴 표시를 남긴다. " +
+                "이후 이 회원은 모든 조회에서 없는 것으로 취급된다 — 아직 만료되지 않은 토큰으로 호출해도 404 다. " +
+                "같은 카카오 계정으로 다시 가입할 수 있지만 **새 회원**이 되며 이전 기록은 이어지지 않는다.",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "204", description = "탈퇴 성공. 본문이 없다"),
+            ApiResponse(
+                responseCode = "404",
+                description = "`MEMBER_NOT_FOUND` — 토큰은 유효하나 그 회원이 이미 탈퇴했거나 없는 경우",
+                content = [Content(mediaType = "application/json", schema = Schema(ref = ERROR_SCHEMA_REF))],
+            ),
+        ],
+    )
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @DeleteMapping("/me")
+    fun withdraw(
+        @AuthenticationPrincipal principal: AlignerPrincipal,
+    ) {
+        memberCommandService.withdraw(MemberIdentity.of(principal.memberId))
+    }
 }
 
 /**

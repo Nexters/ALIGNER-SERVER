@@ -167,14 +167,15 @@ interface CourseProgressContract {          // 초안 — §7-8 확정 전까지
 | 항목 | 내용 |
 | --- | --- |
 | 애그리거트 | `Member` (루트) |
-| Command | 카카오 가입, 프로필 수정 |
+| Command | 카카오 가입, 프로필 수정, 탈퇴 |
 | Query | 프로필 조회 |
 | 모듈 | 기본 6 + `contract` + `adapter-auth` = **8** |
 
 ```text
-member.member    member_id, kakao_id(uk), nickname, profile_image_url,
+member.member    member_id, kakao_id(uk, null), nickname, profile_image_url,
                  height_cm(null), weight_kg(null), experience_level(null),
-                 created_at, updated_at
+                 reinforcement_body_part_code(null), reinforcement_level(null),
+                 withdrawn_at(null), created_at, updated_at
 ```
 
 카카오 로그인의 웹 계층은 `support-web`, 회원 조회·가입은 `member`가 갖는다
@@ -187,6 +188,24 @@ member.member    member_id, kakao_id(uk), nickname, profile_image_url,
 
 진단 시점의 몸을 보존할 필요가 있으면 `screening_result`에 스냅샷으로 복사한다. `member`의
 현재 값을 거슬러 올라가 읽지 않는다.
+
+**강화 부위와 난이도도 `member`가 갖는다.** 회원은 진단 결과를 본 뒤 강화할 부위와 난이도를
+고르는데(§4-2), 이것이 코스 처방 시점의 일회성 입력이 아니라 **지속되는 설정**이다 —
+마이페이지가 "등근육을 난이도 하로 강화하고 있어요"를 보여주고 "난이도 조정하기"로 언제든
+바꾼다. 신체 정보를 `member`에 둔 것과 같은 이유다.
+
+`reinforcement_body_part_code`는 `screening` 소유 어휘를 값으로 받고 FK를 걸지 않는다(§6).
+값 집합을 검증하려면 `member → screening` 의존이 생기는데 그 방향은 §3에 없다.
+`reinforcement_level`(1·2·3)이 `catalog.target_pose.level`과 같은 축인지는 **미확정**이다.
+
+**탈퇴는 행을 지우지 않는다.** 운동 기록을 보존하기로 했고 그 기록이 `member_id`로 붙어 있다.
+남는 개인정보가 카카오 식별자뿐이라 `kakao_id`만 `NULL`로 만들고 `withdrawn_at`을 남긴다.
+그래서 `kakao_id`가 nullable이다. UNIQUE는 유지된다 — PostgreSQL은 `NULL`을 서로 다른 값으로
+보므로 탈퇴 회원이 여럿이어도 충돌하지 않는다.
+
+탈퇴 회원은 모든 조회에서 걸러진다. 리프레시 토큰이 없어 발급된 JWT를 회수할 수단이 없으므로,
+아직 만료되지 않은 토큰으로 들어와도 조회 단계에서 없는 것으로 취급돼야 한다. 같은 카카오
+계정이 다시 가입하면 **새 `member_id`**를 받고 이전 기록은 이어지지 않는다.
 
 ### 4-2. `screening`
 

@@ -3,6 +3,7 @@ package team.aligner.member.repository.jdbc
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
@@ -15,9 +16,12 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import team.aligner.member.infrastructure.MemberQueryRepository
 import team.aligner.member.infrastructure.MemberRepository
+import team.aligner.member.model.ExperienceLevel
 import team.aligner.member.model.Member
 import team.aligner.member.model.MemberIdentity
+import team.aligner.member.model.ReinforcementSetting
 import team.aligner.member.repository.jdbc.bootstrap.MemberRepositoryTestApplication
+import java.time.Instant
 
 /**
  * 러너는 Kotest 가 아니라 JUnit5 다. kotest-extensions-spring 이 버전 카탈로그에 없다.
@@ -131,7 +135,140 @@ class MemberRepositoryIntegrationTest {
     fun `changelog 가 적용됐다`() {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id IN (:ids)")
-            .param("ids", listOf("member-0001-create-schema", "member-0002-create-member"))
+            .param(
+                "ids",
+                listOf(
+                    "member-0001-create-schema",
+                    "member-0002-create-member",
+                    "member-0003-add-onboarding-and-withdrawal",
+                ),
+            ).query(Int::class.java)
+            .single() shouldBe 3
+    }
+
+    @Test
+    fun `온보딩 입력값이 그대로 되읽힌다`() {
+        val saved = memberRepository.save(newMember(kakaoId = "1008"))
+        val identity = saved.memberIdentity.shouldNotBeNull()
+
+        memberRepository.save(
+            saved.changeProfile(
+                heightCm = 170,
+                weightKg = 60,
+                experienceLevel = ExperienceLevel.ONE_TO_THREE_YEARS,
+                reinforcement = ReinforcementSetting("BACK", 1),
+            ),
+        )
+
+        val found = memberRepository.findByMemberIdentity(identity).shouldNotBeNull()
+        found.heightCm shouldBe 170
+        found.weightKg shouldBe 60
+        // VARCHAR 로 저장한 뒤 enum 으로 되돌아와야 한다.
+        found.experienceLevel shouldBe ExperienceLevel.ONE_TO_THREE_YEARS
+        found.reinforcement shouldBe ReinforcementSetting("BACK", 1)
+    }
+
+    /**
+     * SMALLINT 컬럼이 NULL 일 때 getInt 가 0 을 돌려주면 "입력 안 함" 과 0 이 같아진다.
+     * 프론트가 이 null 로 온보딩 완료 여부를 판단하므로 조회 모델에서도 구분돼야 한다.
+     */
+    @Test
+    fun `온보딩 전이면 조회 모델의 신체 정보가 0 이 아니라 null 이다`() {
+        val saved = memberRepository.save(newMember(kakaoId = "1009"))
+        val identity = saved.memberIdentity.shouldNotBeNull()
+
+        val profile = memberQueryRepository.findProfile(identity).shouldNotBeNull()
+
+        profile.heightCm.shouldBeNull()
+        profile.weightKg.shouldBeNull()
+        profile.experienceLevel.shouldBeNull()
+        profile.reinforcementBodyPartCode.shouldBeNull()
+        profile.reinforcementLevel.shouldBeNull()
+    }
+
+    @Test
+    fun `범위를 벗어난 신체 정보는 DB 가 막는다`() {
+        val saved = memberRepository.save(newMember(kakaoId = "1010"))
+
+        // 애그리거트를 우회해도 CHECK 이 남는다. copy 로 검증을 건너뛰고 직접 넣는다.
+        assertThrows<DataIntegrityViolationException> {
+            memberRepository.save(saved.copy(heightCm = 300))
+        }
+    }
+
+    /**
+     * 부위와 난이도는 한 화면에서 같이 고른다. 한쪽만 있는 상태를 ck_member_reinforcement_pair 가 막는다.
+     */
+    @Test
+    fun `강화 부위만 있고 난이도가 없으면 DB 가 막는다`() {
+        val saved = memberRepository.save(newMember(kakaoId = "1011"))
+
+        assertThrows<DataIntegrityViolationException> {
+            jdbcClient
+                .sql(
+                    """
+                    UPDATE member.member SET reinforcement_body_part_code = 'BACK'
+                    WHERE member_id = :memberId
+                    """.trimIndent(),
+                ).param("memberId", saved.memberIdentity.shouldNotBeNull().value)
+                .update()
+        }
+    }
+
+    @Test
+    fun `탈퇴하면 행은 남고 카카오 식별자만 비워진다`() {
+        val saved = memberRepository.save(newMember(kakaoId = "1012"))
+        val identity = saved.memberIdentity.shouldNotBeNull()
+
+        memberRepository.save(saved.withdraw(at = Instant.parse("2026-08-08T00:00:00Z")))
+
+        // 행은 그대로다 — 운동 기록이 member_id 로 붙어 있어 지우지 않는다.
+        jdbcClient
+            .sql("SELECT count(*) FROM member.member WHERE member_id = :memberId")
+            .param("memberId", identity.value)
+            .query(Int::class.java)
+            .single() shouldBe 1
+
+        // 그러나 모든 조회에서는 사라진다.
+        memberRepository.findByMemberIdentity(identity).shouldBeNull()
+        memberRepository.findByKakaoId("1012").shouldBeNull()
+        memberQueryRepository.findProfile(identity).shouldBeNull()
+    }
+
+    /**
+     * kakao_id 가 NULL 이 되면 UNIQUE 자리가 풀린다. 같은 계정이 다시 가입할 수 있어야 하고,
+     * 그때는 새 member_id 를 받아 이전 기록이 이어지지 않아야 한다.
+     */
+    @Test
+    fun `탈퇴한 계정으로 다시 가입하면 새 회원이 된다`() {
+        val first = memberRepository.save(newMember(kakaoId = "1013"))
+        val firstIdentity = first.memberIdentity.shouldNotBeNull()
+        memberRepository.save(first.withdraw(at = Instant.parse("2026-08-08T00:00:00Z")))
+
+        val second = memberRepository.save(newMember(kakaoId = "1013"))
+
+        second.memberIdentity.shouldNotBeNull() shouldNotBe firstIdentity
+    }
+
+    /**
+     * 탈퇴 회원이 둘 이상이어도 kakao_id NULL 끼리는 UNIQUE 에 걸리지 않아야 한다.
+     * PostgreSQL 이 NULL 을 서로 다른 값으로 보는 것에 기대는 설계라 실제로 확인한다.
+     */
+    @Test
+    fun `탈퇴 회원이 여럿이어도 유니크 제약에 걸리지 않는다`() {
+        val at = Instant.parse("2026-08-08T00:00:00Z")
+        val one = memberRepository.save(newMember(kakaoId = "1014"))
+        val two = memberRepository.save(newMember(kakaoId = "1015"))
+
+        memberRepository.save(one.withdraw(at = at))
+        memberRepository.save(two.withdraw(at = at))
+
+        // 이 클래스는 테스트 사이에 테이블을 비우지 않는다. 다른 테스트가 남긴 탈퇴 회원이
+        // 같이 세어지지 않도록 방금 만든 두 행으로 좁힌다.
+        val identities = listOf(one, two).map { it.memberIdentity.shouldNotBeNull().value }
+        jdbcClient
+            .sql("SELECT count(*) FROM member.member WHERE kakao_id IS NULL AND member_id IN (:ids)")
+            .param("ids", identities)
             .query(Int::class.java)
             .single() shouldBe 2
     }

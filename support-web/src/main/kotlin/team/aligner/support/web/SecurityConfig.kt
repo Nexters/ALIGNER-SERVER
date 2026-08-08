@@ -110,8 +110,18 @@ class SecurityConfig {
                 // 잡았는지까지 우리가 보증해야 한다.
                 allowedOrigins = corsProperties.allowedOrigins
                 // 현재 서버가 실제로 제공하는 메서드만 적는다. PublicPaths 의 permitAll 을 메서드까지
-                // 한정한 것과 같은 이유다 — DELETE 가 생기면 그때 같이 검토한다.
-                allowedMethods = listOf(HttpMethod.GET.name(), HttpMethod.POST.name(), HttpMethod.PATCH.name())
+                // 한정한 것과 같은 이유다.
+                //
+                // DELETE 는 회원탈퇴(DELETE /members/me) 하나 때문에 열었다. 그 요청도 Authorization
+                // 헤더로 인증하고 allowCredentials 가 꺼져 있어, 브라우저가 제3자 사이트에서 쿠키를
+                // 실어 보내 탈퇴를 유발하는 경로는 없다. PUT 은 제공하는 엔드포인트가 없어 닫아둔다.
+                allowedMethods =
+                    listOf(
+                        HttpMethod.GET.name(),
+                        HttpMethod.POST.name(),
+                        HttpMethod.PATCH.name(),
+                        HttpMethod.DELETE.name(),
+                    )
                 // 프론트가 실어 보내는 헤더도 둘뿐이다. 보호 API 는 Authorization, 로그인은
                 // Content-Type 때문에 preflight 를 탄다. 여기 빠진 헤더를 프론트가 붙이면
                 // 그 요청은 preflight 단계에서 403 으로 끊긴다.

@@ -115,12 +115,28 @@ class CorsConfigurationTest {
 
     @Test
     fun `허용 목록에 없는 메서드는 preflight 에서 막는다`() {
+        // PUT 은 제공하는 엔드포인트가 없어 닫아뒀다. 메서드 목록이 실제 API 를 따라간다는 확인이다.
+        mockMvc
+            .perform(
+                options(PROTECTED_PATH)
+                    .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                    .header(ACCESS_CONTROL_REQUEST_METHOD, "PUT"),
+            ).andExpect(status().isForbidden)
+    }
+
+    /**
+     * 회원탈퇴(DELETE /members/me)가 브라우저에서 실제로 나가려면 preflight 가 통과해야 한다.
+     * 메서드 목록에서 DELETE 가 빠지면 서버 로직이 멀쩡해도 프론트에서는 호출 자체가 막힌다.
+     */
+    @Test
+    fun `회원탈퇴를 위해 DELETE preflight 가 통과한다`() {
         mockMvc
             .perform(
                 options(PROTECTED_PATH)
                     .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
                     .header(ACCESS_CONTROL_REQUEST_METHOD, "DELETE"),
-            ).andExpect(status().isForbidden)
+            ).andExpect(status().isOk)
+            .andExpect(header().string(ACCESS_CONTROL_ALLOW_ORIGIN, ALLOWED_ORIGIN))
     }
 
     @Test

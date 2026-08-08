@@ -15,4 +15,7 @@ enum class MemberErrorCode(
 ) : ErrorCode {
     MEMBER_NOT_FOUND(404, "MEMBER_NOT_FOUND", "회원을 찾을 수 없습니다"),
     INVALID_NICKNAME(400, "INVALID_NICKNAME", "닉네임은 1자 이상 50자 이하여야 합니다"),
+    INVALID_HEIGHT(400, "INVALID_HEIGHT", "키는 100cm 이상 250cm 이하여야 합니다"),
+    INVALID_WEIGHT(400, "INVALID_WEIGHT", "몸무게는 20kg 이상 300kg 이하여야 합니다"),
+    INVALID_REINFORCEMENT_SETTING(400, "INVALID_REINFORCEMENT_SETTING", "강화 난이도는 1 이상 3 이하여야 합니다"),
 }
