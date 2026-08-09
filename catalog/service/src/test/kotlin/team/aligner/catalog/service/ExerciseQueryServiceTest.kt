@@ -37,11 +37,12 @@ class ExerciseQueryServiceTest :
                         defaultDurationSeconds = 120,
                         metValue = BigDecimal("3.00"),
                         difficulty = "하",
+                        category = "핀포즈",
                         cautionNote = "목을 뒤로 완전히 젖히지 마세요",
                         muscles =
                             listOf(
-                                MuscleView("ERECTOR_SPINAE", "척추기립근", "BACK", "erector-spinae", MuscleRole.STRENGTHEN, 1),
-                                MuscleView("ILIOPSOAS", "장요근", "PELVIS", "iliopsoas", MuscleRole.STRETCH, 2),
+                                MuscleView("ERECTOR_SPINAE", "척추기립근", "BACK", null, "erector-spinae-back", MuscleRole.STRENGTHEN, 1),
+                                MuscleView("ILIOPSOAS", "장요근", "PELVIS", "iliopsoas-front", null, MuscleRole.STRETCH, 2),
                             ),
                         voiceCues =
                             listOf(
@@ -54,6 +55,11 @@ class ExerciseQueryServiceTest :
 
                 detail.name shouldBe "낙타자세"
                 detail.muscles.map { it.role } shouldBe listOf(MuscleRole.STRENGTHEN, MuscleRole.STRETCH)
+                detail.category shouldBe "핀포즈"
+                // 척추기립근은 뒤에만, 장요근은 앞에만 보인다. 세션 플레이어가 앞·뒤 그림을
+                // 따로 칠하므로 반대쪽은 null 로 남아야 한다.
+                detail.muscles.map { it.frontHighlightAssetKey } shouldBe listOf(null, "iliopsoas-front")
+                detail.muscles.map { it.backHighlightAssetKey } shouldBe listOf("erector-spinae-back", null)
                 detail.voiceCues.map { it.startOffsetSeconds } shouldBe listOf(null, 35)
                 detail.voiceCues.map { it.endOffsetSeconds } shouldBe listOf(null, 75)
             }

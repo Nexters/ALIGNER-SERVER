@@ -57,8 +57,9 @@ class CatalogRepositoryIntegrationTest {
                 """.trimIndent(),
             ).update()
 
-        insertMuscle("ERECTOR_SPINAE", "척추기립근", "BACK")
-        insertMuscle("ILIOPSOAS", "장요근", "PELVIS")
+        // 척추기립근은 뒤에만, 장요근은 앞에만 보인다.
+        insertMuscle("ERECTOR_SPINAE", "척추기립근", "BACK", backKey = "erector-spinae-back")
+        insertMuscle("ILIOPSOAS", "장요근", "PELVIS", frontKey = "iliopsoas-front")
 
         insertExercise(1L, "camel-pose", "낙타자세")
         insertExerciseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRENGTHEN, 1)
@@ -84,7 +85,7 @@ class CatalogRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'catalog-%'")
             .query(Int::class.java)
-            .single() shouldBe 7
+            .single() shouldBe 8
     }
 
     @Test
@@ -104,7 +105,11 @@ class CatalogRepositoryIntegrationTest {
         val detail = exerciseQueryRepository.findDetail(ExerciseIdentity.of(1L)).shouldNotBeNull()
 
         detail.name shouldBe "낙타자세"
+        detail.category shouldBe "가동성 웜업"
         detail.muscles.map { it.name } shouldBe listOf("척추기립근", "장요근")
+        // RENAME 한 컬럼과 새로 넣은 컬럼이 각각 제 자리로 매핑돼야 한다.
+        detail.muscles.map { it.frontHighlightAssetKey } shouldBe listOf(null, "iliopsoas-front")
+        detail.muscles.map { it.backHighlightAssetKey } shouldBe listOf("erector-spinae-back", null)
         // role 문자열이 MuscleRole 로 매핑돼야 한다.
         detail.muscles.map { it.role } shouldBe listOf(MuscleRole.STRENGTHEN, MuscleRole.STRETCH)
         detail.voiceCues.map { it.displayOrder } shouldBe listOf(1, 2)
@@ -198,6 +203,10 @@ class CatalogRepositoryIntegrationTest {
         detail.imageAssetKey shouldBe "camel-pose"
         detail.level shouldBe 2
         detail.muscles.map { it.name } shouldBe listOf("척추기립근")
+        // 자세 상세는 운동 상세와 다른 SQL 이다. 여기서도 앞·뒤 컬럼을 각각 단언하지 않으면
+        // 이 쿼리에서만 두 컬럼이 뒤바뀌어도 테스트가 통과한다.
+        detail.muscles.map { it.frontHighlightAssetKey } shouldBe listOf(null)
+        detail.muscles.map { it.backHighlightAssetKey } shouldBe listOf("erector-spinae-back")
     }
 
     @Test
@@ -340,16 +349,30 @@ class CatalogRepositoryIntegrationTest {
         }
     }
 
+    /**
+     * 컬럼을 명시한다. VALUES 만 나열하면 컬럼이 늘어날 때마다 조용히 깨진다.
+     *
+     * frontKey·backKey 를 따로 받는 것은 근육이 앞·뒤 중 한쪽에만 보이는 경우를 픽스처로
+     * 재현하기 위해서다.
+     */
     private fun insertMuscle(
         code: String,
         name: String,
         bodyPartCode: String,
+        frontKey: String? = null,
+        backKey: String? = null,
     ) = jdbcClient
-        .sql("INSERT INTO catalog.muscle VALUES (:code, :name, :bodyPartCode, :assetKey)")
-        .param("code", code)
+        .sql(
+            """
+            INSERT INTO catalog.muscle (muscle_code, name, body_part_code,
+                                        front_highlight_asset_key, back_highlight_asset_key)
+            VALUES (:code, :name, :bodyPartCode, :frontKey, :backKey)
+            """.trimIndent(),
+        ).param("code", code)
         .param("name", name)
         .param("bodyPartCode", bodyPartCode)
-        .param("assetKey", code.lowercase())
+        .param("frontKey", frontKey)
+        .param("backKey", backKey)
         .update()
 
     private fun insertExercise(
@@ -358,18 +381,20 @@ class CatalogRepositoryIntegrationTest {
         name: String,
         setCount: Int? = 3,
         repCount: Int? = null,
+        category: String? = "가동성 웜업",
     ) = jdbcClient
         .sql(
             """
             INSERT INTO catalog.exercise (exercise_id, ymove_slug, name, default_set_count, default_rep_count,
-                                          default_duration_seconds, met_value, difficulty, caution_note)
-            VALUES (:id, :slug, :name, :setCount, :repCount, 120, 2.30, '하', '통증이 오면 중단하세요')
+                                          default_duration_seconds, met_value, difficulty, category, caution_note)
+            VALUES (:id, :slug, :name, :setCount, :repCount, 120, 2.30, '하', :category, '통증이 오면 중단하세요')
             """.trimIndent(),
         ).param("id", id)
         .param("slug", slug)
         .param("name", name)
         .param("setCount", setCount)
         .param("repCount", repCount)
+        .param("category", category)
         .update()
 
     private fun insertTargetPose(

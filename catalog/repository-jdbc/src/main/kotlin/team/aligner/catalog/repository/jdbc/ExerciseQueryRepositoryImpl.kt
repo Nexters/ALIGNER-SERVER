@@ -32,7 +32,7 @@ internal class ExerciseQueryRepositoryImpl(
                 .sql(
                     """
                     SELECT exercise_id, name, default_set_count, default_rep_count,
-                           default_duration_seconds, met_value, difficulty, caution_note
+                           default_duration_seconds, met_value, difficulty, category, caution_note
                     FROM catalog.exercise
                     WHERE exercise_id = :exerciseId
                     """.trimIndent(),
@@ -46,6 +46,7 @@ internal class ExerciseQueryRepositoryImpl(
                         defaultDurationSeconds = rs.getIntOrNull("default_duration_seconds"),
                         metValue = rs.getBigDecimal("met_value"),
                         difficulty = rs.getString("difficulty"),
+                        category = rs.getString("category"),
                         cautionNote = rs.getString("caution_note"),
                         muscles = emptyList(),
                         voiceCues = emptyList(),
@@ -86,7 +87,8 @@ internal class ExerciseQueryRepositoryImpl(
         jdbcClient
             .sql(
                 """
-                SELECT m.muscle_code, m.name, m.body_part_code, m.highlight_asset_key,
+                SELECT m.muscle_code, m.name, m.body_part_code,
+                       m.front_highlight_asset_key, m.back_highlight_asset_key,
                        em.role, em.display_order
                 FROM catalog.exercise_muscle em
                 JOIN catalog.muscle m ON m.muscle_code = em.muscle_code

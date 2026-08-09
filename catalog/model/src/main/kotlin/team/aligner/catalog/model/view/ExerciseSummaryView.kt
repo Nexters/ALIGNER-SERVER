@@ -9,6 +9,10 @@ import java.math.BigDecimal
  * 목록 1 회 조회에 조인이 스텝 수만큼 붙고 응답도 그만큼 커진다 (docs/domains.md §4-3-1).
  *
  * default* 는 course.course_step_exercise 가 비어 있을 때 쓰는 기본값이다 (§4-4).
+ *
+ * category 를 싣지 않는다. 코스 개요가 스텝마다 분류를 그리지만 그것을 소비할 course 가
+ * 아직 없다. 계약 형태가 정해지는 course adapter 구현 시점에 함께 넣는다
+ * (docs/architecture.md §3 "미리 만들지 않는다", §7 "계약은 좁게").
  */
 data class ExerciseSummaryView(
     val exerciseId: Long,

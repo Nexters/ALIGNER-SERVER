@@ -389,7 +389,8 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
       "muscleCode": "muscle-example",
       "name": "예시 근육",
       "bodyPartCode": "{code}",
-      "highlightAssetKey": "muscle/example",
+      "frontHighlightAssetKey": null,
+      "backHighlightAssetKey": "muscle/example-back",
       "role": "STRETCH",
       "displayOrder": 1
     }
@@ -399,6 +400,12 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
 
 `role`은 현재 `STRETCH`(신장)와 `STRENGTHEN`(강화)만 사용한다. 근육 배열은
 `displayOrder` 순서로 표시한다.
+
+**하이라이트 키가 앞·뒤 두 개다.** 세션 플레이어의 근육맵이 인체 앞면과 뒷면을 토글로
+보여주고 각각 근육을 칠하므로, 앞면 그림에는 `frontHighlightAssetKey`가 있는 근육만,
+뒷면 그림에는 `backHighlightAssetKey`가 있는 근육만 얹는다. 척추기립근처럼 뒤에만 보이는
+근육은 `frontHighlightAssetKey`가 `null`이다. **둘 다 `null`인 경우도 정상이다** — 자산 키가
+아직 감수 전이라 그렇고, 그때는 그 근육을 칠하지 않는다.
 
 ### `GET /catalog/exercises/{exerciseId}`
 
@@ -413,6 +420,7 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
   "defaultDurationSeconds": 40,
   "metValue": 3.5,
   "difficulty": "beginner",
+  "category": "가동성 웜업",
   "cautionNote": "허리에 불편함이 있으면 범위를 줄입니다.",
   "muscles": [],
   "voiceCues": [
@@ -429,7 +437,10 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
 주의할 점:
 
 - `defaultSetCount`, `defaultRepCount`, `defaultDurationSeconds`, `metValue`,
-  `difficulty`, `cautionNote`는 null일 수 있다. null을 0이나 빈 문자열로 바꾸지 않는다.
+  `difficulty`, `category`, `cautionNote`는 null일 수 있다. null을 0이나 빈 문자열로 바꾸지 않는다.
+- `category`는 코스 스텝 행에 운동 이름 아래로 그리는 분류다(`가동성 웜업` · `핀포즈`).
+  **값 집합이 아직 고정되지 않았다** — seed가 들어올 때 확정되므로 프론트에서 값을 열거해
+  분기하지 말고 문자열을 그대로 표시한다. `difficulty`도 같다.
 - `metValue`는 kcal이 아니다. 현재 회원 몸무게를 함께 조회해 kcal을 계산하는 API도 없다.
 - 음성 큐는 `displayOrder` 순서다. `startOffsetSeconds`가 null이면 타임코드가 확정되지
   않은 상태이므로 순차 재생으로 처리한다. `endOffsetSeconds`가 null인 큐는 유지 구간이
@@ -440,7 +451,7 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
 
 ## 이미지 자산 처리
 
-`imageAssetKey`와 `highlightAssetKey`는 URL이 아니다. 서버가 반환하는 키를 프론트의
+`imageAssetKey`와 `frontHighlightAssetKey`·`backHighlightAssetKey`는 URL이 아니다. 서버가 반환하는 키를 프론트의
 정적 파일 매핑에 사용한다.
 
 예를 들면 다음처럼 API 클라이언트와 자산 resolver를 분리하는 것을 권장한다.
