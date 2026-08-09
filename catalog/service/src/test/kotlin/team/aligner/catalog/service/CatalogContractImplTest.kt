@@ -27,7 +27,7 @@ class CatalogContractImplTest :
         describe("ExerciseContractImpl.findAllByIds") {
             it("모든 필드를 빠짐없이 옮긴다") {
                 every { exerciseQueryService.getAll(listOf(ExerciseIdentity.of(1L))) } returns
-                    listOf(ExerciseSummaryView(1L, "캣카우", 1, 12, 120, BigDecimal("2.30"), "하", "가동성 웜업"))
+                    listOf(ExerciseSummaryView(1L, "캣카우", 1, 12, 120, BigDecimal("2.30"), "하"))
 
                 val response = exerciseContract.findAllByIds(listOf(1L)).single()
 
@@ -38,7 +38,6 @@ class CatalogContractImplTest :
                 response.defaultDurationSeconds shouldBe 120
                 response.metValue shouldBe BigDecimal("2.30")
                 response.difficulty shouldBe "하"
-                response.category shouldBe "가동성 웜업"
             }
 
             it("빈 목록을 그대로 흘려보낸다") {

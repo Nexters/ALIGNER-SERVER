@@ -77,7 +77,7 @@ class ExerciseQueryServiceTest :
             it("찾은 것만 돌려준다") {
                 val identities = listOf(ExerciseIdentity.of(1L), ExerciseIdentity.of(99L))
                 every { exerciseQueryRepository.findAllByIdentities(identities) } returns
-                    listOf(ExerciseSummaryView(1L, "낙타자세", 3, null, 120, BigDecimal("3.00"), "하", "핀포즈"))
+                    listOf(ExerciseSummaryView(1L, "낙타자세", 3, null, 120, BigDecimal("3.00"), "하"))
 
                 val summaries = exerciseQueryService.getAll(identities)
 

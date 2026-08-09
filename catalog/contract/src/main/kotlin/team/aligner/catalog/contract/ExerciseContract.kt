@@ -23,10 +23,7 @@ interface ExerciseContract {
  * metValue 를 싣고 kcal 은 싣지 않는다. 칼로리는 회원 몸무게의 함수라 catalog 가 계산할 수
  * 없고, 코스 칼로리는 스텝 합으로 course 가 계산한다 (§4-3).
  *
- * category 는 코스 개요가 스텝마다 운동 이름 아래에 그리는 분류다("가동성 웜업"·"핀포즈").
- * difficulty 와 같은 행에 표시되는 값이라 같이 싣는다.
- *
- * 근육·음성 큐·주의사항을 넣지 않는다. 전부 운동 가이드 화면에 그리는 값이고 그 화면은
+ * 근육·음성 큐·주의사항·분류를 넣지 않는다. 전부 운동 가이드 화면에 그리는 값이고 그 화면은
  * catalog API 가 직접 응답한다. course·training 이 필요로 한다는 근거가 §4-4·4-5 에 없다.
  * 필요해지면 그때 늘린다 (docs/architecture.md §3 "미리 만들지 않는다").
  */
@@ -38,5 +35,4 @@ data class ExerciseResponse(
     val defaultDurationSeconds: Int?,
     val metValue: BigDecimal?,
     val difficulty: String?,
-    val category: String?,
 )

@@ -24,7 +24,6 @@ internal class ExerciseContractImpl(
                     defaultDurationSeconds = it.defaultDurationSeconds,
                     metValue = it.metValue,
                     difficulty = it.difficulty,
-                    category = it.category,
                 )
             }
 }
