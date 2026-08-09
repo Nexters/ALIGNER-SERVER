@@ -21,3 +21,12 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/001-create-member.sql
             relativeToChangelogFile: true
+
+  - changeSet:
+      id: member-0003-add-onboarding-and-withdrawal
+      author: aligner
+      comment: 온보딩 입력값(신체·경력·강화 설정)과 탈퇴 표시 추가
+      changes:
+        - sqlFile:
+            path: ddl/002-add-onboarding-and-withdrawal.sql
+            relativeToChangelogFile: true

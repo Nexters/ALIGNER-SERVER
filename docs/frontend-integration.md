@@ -11,7 +11,7 @@
 | 범위 | 상태 | 프론트에서 할 수 있는 일 |
 | --- | --- | --- |
 | `support-web` 인증 | 구현됨 | 카카오 인가 코드로 Aligner JWT 발급 |
-| `member` | 구현됨 | 내 프로필 조회·닉네임 수정 |
+| `member` | 구현됨 | 프로필 조회, 온보딩 입력(경력·키·몸무게·강화 부위/난이도) 수정, 회원탈퇴 |
 | `catalog` | 구현됨 | 목표 자세 목록·상세, 운동 상세 조회 |
 | `screening` | 구현됨 | 부위 목록, 자세 체감 제출·원인 판별, 최신 결과 조회 |
 | `course` | 미구현 | 맞춤 코스·스텝·진행도 API 없음 |
@@ -73,6 +73,7 @@ Authorization: Bearer {alignerAccessToken}
         │
         ├── GET   /members/me
         ├── PATCH /members/me
+        ├── DELETE /members/me
         ├── GET   /screening/body-parts
         ├── POST  /screening/results
         ├── GET   /screening/results/latest
@@ -101,8 +102,11 @@ POST /screening/results                          제출 → 판별 → 결과가
 GET  /screening/body-parts                       강화할 부위 선택지
         │  회원이 강화할 부위와 난이도를 고른다
         ▼
-(부위·난이도 저장 API는 아직 없다 — member 확장 이슈)
+PATCH /members/me                                부위·난이도 저장
 ```
+
+경력·키·몸무게를 받는 화면들도 같은 `PATCH /members/me` 를 쓴다. 화면별로 무엇을 보낼지는
+「회원 API」의 표에 정리해 뒀다.
 
 **부위를 먼저 묻지 않는다.** 자세를 먼저 받아 원인을 판별하고, 그 결과를 본 뒤에 강화할 부위를
 고르는 순서다. `POST /screening/results` 요청에 `bodyPartCode`를 넣지 않는다.
@@ -177,29 +181,79 @@ Content-Type: application/json
 {
   "memberId": 1,
   "nickname": "요가하는 사람",
-  "profileImageUrl": "https://..."
+  "heightCm": 170,
+  "weightKg": 60,
+  "experienceLevel": "ONE_TO_THREE_YEARS",
+  "reinforcementBodyPartCode": "BACK",
+  "reinforcementLevel": 1
 }
 ```
 
-`nickname`과 `profileImageUrl`은 `null`일 수 있다. 카카오 프로필 제공에 동의하지 않은
-회원에게 서버가 기본 닉네임이나 기본 이미지를 만들어 주지 않는다.
+`nickname`은 `null`일 수 있다. 카카오 프로필 제공에 동의하지 않은 회원에게 서버가 기본
+닉네임을 만들어 주지 않는다.
+
+**`profileImageUrl`은 내려가지 않는다.** 서버가 저장은 하지만 응답에서 뺐다 — 카카오 CDN
+링크의 수명을 우리가 보장할 수 없어서다.
+
+**나머지 필드가 전부 `null`이면 온보딩을 끝내지 않은 회원이다.** 홈 진입 시 이 값들로
+온보딩으로 보낼지 판단한다.
+
+`experienceLevel`은 `UNDER_ONE_YEAR`(1년 미만) · `ONE_TO_THREE_YEARS`(1~3년) ·
+`OVER_THREE_YEARS`(3년 이상) 셋 중 하나다. 표시 문구는 프론트가 그린다.
+
+`reinforcementLevel`은 `1`(하) · `2`(중) · `3`(상)이다.
 
 ### `PATCH /members/me`
 
-닉네임만 수정한다. 프로필 이미지는 현재 수정할 수 없다.
+**온보딩과 프로필 편집이 이 API 하나를 같이 쓴다.** 온보딩 전용 API는 없다.
 
-요청:
+**보낸 필드만 바뀐다.** 보내지 않은 필드는 그대로 유지되며, `null`을 보내도 값이 지워지지
+않는다. 온보딩이 화면마다 조각을 나눠 보내는 구조라 이렇게 잡았다 — 값을 비우는 수단은
+현재 없다.
 
 ```http
 PATCH /members/me
 Authorization: Bearer {alignerAccessToken}
 Content-Type: application/json
 
-{"nickname":"새 닉네임"}
+{"heightCm":170,"weightKg":60}
 ```
 
-닉네임은 서버에서 앞뒤 공백을 제거한 뒤 검사한다. 공백만 있는 값과 50자를 초과하는
-값은 400 `INVALID_NICKNAME`이며, 성공 응답에는 trim된 값이 들어간다.
+화면별로는 이렇게 나눠 보내면 된다.
+
+| 화면 | 보낼 필드 |
+| --- | --- |
+| 온보딩 — 운동 경력 | `experienceLevel` |
+| 온보딩 — 키·몸무게 | `heightCm`, `weightKg` |
+| 온보딩 — 강화 부위·난이도 / 마이 "난이도 조정하기" | `reinforcementBodyPartCode` + `reinforcementLevel` |
+| 프로필 편집 | 바꾼 필드만 |
+
+**`reinforcementBodyPartCode`와 `reinforcementLevel`은 함께 보내야 한다.** 한쪽만 보내면
+400 `INVALID_REINFORCEMENT_SETTING`이다. 한 화면에서 같이 고르는 값이라 서버가 짝을 강제한다.
+
+검증 규칙이다. 어기면 400이므로 프론트에서 먼저 막는 편이 낫다.
+
+- 닉네임은 앞뒤 공백을 제거한 뒤 1자 이상 50자 이하 — `INVALID_NICKNAME`. 성공 응답에는 trim된 값이 들어간다
+- 키는 100 이상 250 이하 — `INVALID_HEIGHT`
+- 몸무게는 20 이상 300 이하 — `INVALID_WEIGHT`
+- 강화 부위 코드는 1자 이상 40자 이하, 난이도는 1 이상 3 이하 — `INVALID_REINFORCEMENT_SETTING`
+
+### `DELETE /members/me`
+
+회원탈퇴다. 성공하면 **204이고 본문이 없다.**
+
+**서버는 회원 행을 지우지 않는다.** 운동 기록을 보존하기로 했고 그 기록이 회원 식별자로
+붙어 있어서, 남는 개인정보인 카카오 식별자만 지우고 탈퇴 표시를 남긴다.
+
+프론트가 알아야 할 것은 둘이다.
+
+- 탈퇴 뒤에는 **가지고 있던 토큰이 무효**나 다름없다. 만료 전이어도 모든 API가 404
+  `MEMBER_NOT_FOUND`를 낸다. 탈퇴 성공 시 저장한 JWT를 즉시 지우고 로그인 화면으로 보낸다
+- 같은 카카오 계정으로 **다시 가입할 수 있지만 새 회원**이 된다. 이전 기록은 이어지지 않으므로
+  "복구" 안내를 하면 안 된다
+
+이미 탈퇴한 회원이 다시 호출하면 404다. 첫 요청으로 목적이 이미 달성된 상태이므로 화면은
+성공과 같게 다뤄도 된다.
 
 ## 스크리닝 API
 
@@ -422,6 +476,9 @@ function resolveTargetPoseImage(key: string | null): string | null {
 | 400 | `BAD_REQUEST` | JSON 형식·필수 필드 등 요청 자체를 수정 |
 | 400 | `INVALID_NICKNAME` | 닉네임을 1~50자로 다시 입력 |
 | 400 | `EMPTY_SCREENING_ANSWER` | 자세를 하나도 고르지 않음. 제출 버튼을 먼저 막는다 |
+| 400 | `INVALID_HEIGHT` | 키가 100~250cm 밖. 입력 UI에서 먼저 막는다 |
+| 400 | `INVALID_WEIGHT` | 몸무게가 20~300kg 밖. 입력 UI에서 먼저 막는다 |
+| 400 | `INVALID_REINFORCEMENT_SETTING` | 강화 부위·난이도를 한쪽만 보냈거나, 부위 코드가 1~40자 밖이거나, 난이도가 1~3 밖 |
 | 400 | `TOO_MANY_SCREENING_ANSWERS` | 한 체감에 4개를 넘김. 선택 UI에서 먼저 막는다 |
 | 400 | `DUPLICATE_SCREENING_ANSWER` | 같은 자세를 두 번 넣음. `EASY`·`HARD`에 나눠 넣은 경우도 포함 |
 | 401 | `UNAUTHORIZED` | 토큰이 없거나 만료됨. `Kakao.Auth.authorize()`부터 다시 수행 |
@@ -466,7 +523,7 @@ HTTP 상태만 보지 말고 가능하면 `code`를 기준으로 화면 동작�
 | 항목 | 값 |
 | --- | --- |
 | 허용 오리진 | 서버 설정값. 로컬 기본값은 `http://localhost:5173` |
-| 허용 메서드 | `GET` `POST` `PATCH` |
+| 허용 메서드 | `GET` `POST` `PATCH` `DELETE` |
 | 허용 요청 헤더 | `Authorization` `Content-Type` |
 | 자격 증명(`credentials`) | **열지 않음** |
 
@@ -490,7 +547,7 @@ HTTP 상태만 보지 말고 가능하면 `code`를 기준으로 화면 동작�
 | 프론트 요구 | 현재 코드 위치 | 현재 상태 |
 | --- | --- | --- |
 | 카카오 로그인·JWT·공통 오류 | `support-web/src/main/kotlin/team/aligner/support/web` | 구현됨 |
-| 내 프로필 API·닉네임 규칙 | `member/api`, `member/service`, `member/model` | 구현됨 |
+| 프로필·온보딩 입력·탈퇴 API | `member/api`, `member/service`, `member/model` | 구현됨 |
 | 목표 자세·운동 API 응답 DTO | `catalog/api/src/main/kotlin/team/aligner/catalog/api/dto` | 구현됨 |
 | 목표 자세·운동 조회 SQL | `catalog/repository-jdbc` | 구현됨 |
 | catalog 콘텐츠 추가·수정 | `catalog/schema`의 Liquibase seed | 현재 seed 미구현 |

@@ -2,6 +2,7 @@ package team.aligner.member.service
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.DescribeSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.clearMocks
 import io.mockk.every
@@ -9,9 +10,13 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import team.aligner.member.infrastructure.MemberRepository
+import team.aligner.member.model.ExperienceLevel
 import team.aligner.member.model.Member
 import team.aligner.member.model.MemberIdentity
+import team.aligner.member.model.ReinforcementSetting
+import team.aligner.member.model.exception.InvalidHeightException
 import team.aligner.member.model.exception.InvalidNicknameException
+import team.aligner.member.model.exception.InvalidWeightException
 import team.aligner.member.model.exception.MemberNotFoundException
 import java.time.Instant
 
@@ -147,9 +152,105 @@ class MemberCommandServiceTest :
                 shouldThrow<InvalidNicknameException> {
                     memberCommandService.updateProfile(
                         MEMBER_IDENTITY,
-                        UpdateMemberProfileCommand("가".repeat(Member.NICKNAME_MAX_LENGTH + 1)),
+                        UpdateMemberProfileCommand(nickname = "가".repeat(Member.NICKNAME_MAX_LENGTH + 1)),
                     )
                 }
+
+                verify(exactly = 0) { memberRepository.save(any()) }
+            }
+        }
+        describe("updateProfile 부분 수정") {
+            /**
+             * 온보딩이 경력 화면, 키·몸무게 화면, 강화 설정 화면으로 나뉘어 있어 한 번에 한
+             * 조각씩 PATCH 한다. 앞 화면에서 채운 값이 뒤 화면 요청에 지워지면 안 된다.
+             */
+            it("보내지 않은 필드는 그대로 둔다") {
+                val existing = existingMember(nickname = "강혁", heightCm = 170, weightKg = 60)
+                every { memberRepository.findByMemberIdentity(MEMBER_IDENTITY) } returns existing
+                val saved = slot<Member>()
+                every { memberRepository.save(capture(saved)) } answers { saved.captured }
+
+                memberCommandService.updateProfile(
+                    MEMBER_IDENTITY,
+                    UpdateMemberProfileCommand(experienceLevel = ExperienceLevel.UNDER_ONE_YEAR),
+                )
+
+                saved.captured.experienceLevel shouldBe ExperienceLevel.UNDER_ONE_YEAR
+                saved.captured.nickname shouldBe "강혁"
+                saved.captured.heightCm shouldBe 170
+                saved.captured.weightKg shouldBe 60
+            }
+
+            it("강화 부위와 난이도를 함께 저장한다") {
+                every { memberRepository.findByMemberIdentity(MEMBER_IDENTITY) } returns existingMember()
+                val saved = slot<Member>()
+                every { memberRepository.save(capture(saved)) } answers { saved.captured }
+
+                memberCommandService.updateProfile(
+                    MEMBER_IDENTITY,
+                    UpdateMemberProfileCommand(reinforcement = ReinforcementSetting("BACK", 1)),
+                )
+
+                saved.captured.reinforcement shouldBe ReinforcementSetting("BACK", 1)
+            }
+
+            it("난이도를 다시 고르면 덮어쓴다") {
+                every { memberRepository.findByMemberIdentity(MEMBER_IDENTITY) } returns
+                    existingMember(reinforcement = ReinforcementSetting("BACK", 1))
+                val saved = slot<Member>()
+                every { memberRepository.save(capture(saved)) } answers { saved.captured }
+
+                memberCommandService.updateProfile(
+                    MEMBER_IDENTITY,
+                    UpdateMemberProfileCommand(reinforcement = ReinforcementSetting("BACK", 3)),
+                )
+
+                saved.captured.reinforcement shouldBe ReinforcementSetting("BACK", 3)
+            }
+
+            it("키가 범위를 벗어나면 막고 저장하지 않는다") {
+                every { memberRepository.findByMemberIdentity(MEMBER_IDENTITY) } returns existingMember()
+
+                shouldThrow<InvalidHeightException> {
+                    memberCommandService.updateProfile(MEMBER_IDENTITY, UpdateMemberProfileCommand(heightCm = 99))
+                }
+
+                verify(exactly = 0) { memberRepository.save(any()) }
+            }
+
+            it("몸무게가 범위를 벗어나면 막고 저장하지 않는다") {
+                every { memberRepository.findByMemberIdentity(MEMBER_IDENTITY) } returns existingMember()
+
+                shouldThrow<InvalidWeightException> {
+                    memberCommandService.updateProfile(MEMBER_IDENTITY, UpdateMemberProfileCommand(weightKg = 19))
+                }
+
+                verify(exactly = 0) { memberRepository.save(any()) }
+            }
+        }
+
+        describe("withdraw") {
+            /**
+             * 기록 보존이라 행을 지우지 않는다. 남는 개인정보인 카카오 식별자만 지운다.
+             */
+            it("행을 지우지 않고 카카오 식별자만 비운 뒤 탈퇴 시각을 남긴다") {
+                every { memberRepository.findByMemberIdentity(MEMBER_IDENTITY) } returns existingMember()
+                val saved = slot<Member>()
+                every { memberRepository.save(capture(saved)) } answers { saved.captured }
+
+                memberCommandService.withdraw(MEMBER_IDENTITY)
+
+                saved.captured.kakaoId shouldBe null
+                saved.captured.withdrawnAt.shouldNotBeNull()
+                // 식별자와 가입 시각은 남는다 — 기록이 member_id 로 붙어 있다.
+                saved.captured.memberIdentity shouldBe MEMBER_IDENTITY
+                saved.captured.createdAt shouldBe CREATED_AT
+            }
+
+            it("이미 탈퇴했거나 없는 회원이면 404 이고 저장하지 않는다") {
+                every { memberRepository.findByMemberIdentity(MEMBER_IDENTITY) } returns null
+
+                shouldThrow<MemberNotFoundException> { memberCommandService.withdraw(MEMBER_IDENTITY) }
 
                 verify(exactly = 0) { memberRepository.save(any()) }
             }
@@ -162,12 +263,23 @@ class MemberCommandServiceTest :
         val MEMBER_IDENTITY = MemberIdentity.of(MEMBER_ID)
         val CREATED_AT: Instant = Instant.parse("2026-07-01T00:00:00Z")
 
-        fun existingMember(nickname: String? = "강혁"): Member =
+        fun existingMember(
+            nickname: String? = "강혁",
+            heightCm: Int? = null,
+            weightKg: Int? = null,
+            experienceLevel: ExperienceLevel? = null,
+            reinforcement: ReinforcementSetting? = null,
+        ): Member =
             Member(
                 memberIdentity = MEMBER_IDENTITY,
                 kakaoId = KAKAO_ID,
                 nickname = nickname,
                 profileImageUrl = PROFILE_IMAGE_URL,
+                heightCm = heightCm,
+                weightKg = weightKg,
+                experienceLevel = experienceLevel,
+                reinforcement = reinforcement,
+                withdrawnAt = null,
                 createdAt = CREATED_AT,
             )
     }

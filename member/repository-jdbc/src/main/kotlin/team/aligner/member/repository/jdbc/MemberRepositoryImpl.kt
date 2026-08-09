@@ -1,8 +1,10 @@
 package team.aligner.member.repository.jdbc
 
 import team.aligner.member.infrastructure.MemberRepository
+import team.aligner.member.model.ExperienceLevel
 import team.aligner.member.model.Member
 import team.aligner.member.model.MemberIdentity
+import team.aligner.member.model.ReinforcementSetting
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -29,6 +31,14 @@ internal class MemberRepositoryImpl(
                     kakaoId = member.kakaoId,
                     nickname = member.nickname,
                     profileImageUrl = member.profileImageUrl,
+                    heightCm = member.heightCm,
+                    weightKg = member.weightKg,
+                    experienceLevel = member.experienceLevel?.name,
+                    reinforcementBodyPartCode = member.reinforcement?.bodyPartCode,
+                    reinforcementLevel = member.reinforcement?.level,
+                    // 탈퇴 시각도 같은 이유로 잘라 담는다. 호출부가 Instant.now() 를 그대로
+                    // 넘기므로 여기서 맞추지 않으면 돌려준 모델과 DB 값이 어긋난다.
+                    withdrawnAt = member.withdrawnAt?.truncatedTo(ChronoUnit.MICROS),
                     // 신규는 지금, 기존은 원래 가입 시각을 그대로 둔다.
                     createdAt = member.createdAt ?: now,
                     updatedAt = now,
@@ -37,10 +47,10 @@ internal class MemberRepositoryImpl(
         return saved.toModel()
     }
 
-    override fun findByKakaoId(kakaoId: String): Member? = memberJdbcRepository.findByKakaoId(kakaoId)?.toModel()
+    override fun findByKakaoId(kakaoId: String): Member? = memberJdbcRepository.findByKakaoIdAndWithdrawnAtIsNull(kakaoId)?.toModel()
 
     override fun findByMemberIdentity(memberIdentity: MemberIdentity): Member? =
-        memberJdbcRepository.findById(memberIdentity.value).orElse(null)?.toModel()
+        memberJdbcRepository.findByMemberIdAndWithdrawnAtIsNull(memberIdentity.value)?.toModel()
 }
 
 private fun MemberEntity.toModel(): Member =
@@ -49,5 +59,15 @@ private fun MemberEntity.toModel(): Member =
         kakaoId = kakaoId,
         nickname = nickname,
         profileImageUrl = profileImageUrl,
+        heightCm = heightCm,
+        weightKg = weightKg,
+        // DDL 의 CHECK 이 값 집합을 강제하므로 valueOf 가 실패하면 스키마가 어긋난 것이다.
+        experienceLevel = experienceLevel?.let { ExperienceLevel.valueOf(it) },
+        // ck_member_reinforcement_pair 가 한쪽만 있는 상태를 막는다. 둘 다 있을 때만 만든다.
+        reinforcement =
+            reinforcementBodyPartCode?.let { code ->
+                reinforcementLevel?.let { level -> ReinforcementSetting(bodyPartCode = code, level = level) }
+            },
+        withdrawnAt = withdrawnAt,
         createdAt = createdAt,
     )

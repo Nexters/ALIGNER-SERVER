@@ -17,7 +17,7 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 | --- | --- |
 | 도메인 수 | **5개** — `member` `screening` `catalog` `course` `training` |
 | PostgreSQL schema | 도메인명과 동일 (`member` `screening` `catalog` `course` `training`) |
-| 도메인 간 의존 | **단방향** — `catalog` ← `course` ← `training`, `screening` ← `course` |
+| 도메인 간 의존 | **단방향** — `catalog` ← `course` ← `training`, `screening` ← `course`, `member` ← `course` |
 | 마스터 데이터 소유 | 운동·자세·근육은 `catalog`, 자세 체감 → 원인 분기 규칙은 `screening`, 처방 규칙은 `course` |
 | 도장(`Stamp`) | `course` 소유 (달성 판단은 `course`, 수행 기록은 `training`). **판정 기준 미정** (§7-8) |
 | 자세 포인트(`PoseCheckpoint`) | **만들지 않는다.** 완료 판정은 "운동 수행 + 시간 종료"다 (§4-3) |
@@ -96,12 +96,17 @@ support-web ──→ member:contract           (adapter-auth, §9)
 
 course   ──→ screening:contract           최신 원인 조회
 course   ──→ catalog:contract             운동·자세 조회, 존재 검증
+course   ──→ member:contract              몸무게 조회 (칼로리 계산)
 catalog  ──→ YMove (외부 HTTP)            videoUrl·thumbnailUrl, 48시간 만료 (§4-3-1)
 training ──→ course:contract              스텝 구성 조회 / 세션 완료 push
 training ──→ catalog:contract             세션 중 운동 상세 조회
 ```
 
-순환이 없다. `training` → `course` → `screening`·`catalog` 한 방향으로만 흐른다.
+순환이 없다. `training` → `course` → `screening`·`catalog`·`member` 한 방향으로만 흐른다.
+
+**`course → member` 를 뒤늦게 허용했다.** 초판 지도에는 없었는데, 홈 카드가 코스 칼로리를
+보여주고 `kcal = MET × 3.5 × 체중 ÷ 200 × 분` 이라 **몸무게 없이는 계산이 성립하지 않는다**(§4-3).
+`member` 는 아무 도메인도 의존하지 않으므로 순환은 생기지 않는다. 계약은 몸무게 하나로 좁게 둔다.
 
 ### 계약 시그니처 초안
 
@@ -112,6 +117,9 @@ training ──→ catalog:contract             세션 중 운동 상세 조회
 // member/contract
 interface MemberAuthContract {
     fun findOrRegisterByKakao(command: KakaoMemberCommand): AuthenticatedMemberResponse
+}
+interface MemberBodyContract {
+    fun findBody(memberId: Long): MemberBodyResponse?   // 몸무게만. 칼로리 계산용
 }
 
 // screening/contract
@@ -154,6 +162,7 @@ interface CourseProgressContract {          // 초안 — §7-8 확정 전까지
 | `course` — `ExerciseCatalogPort` `TargetPoseCatalogPort` | `course/adapter-catalog` | `catalog:contract` |
 | `training` — `CourseStepPort` `CourseProgressPort` | `training/adapter-course` | `course:contract` |
 | `training` — `ExerciseDetailPort` | `training/adapter-catalog` | `catalog:contract` |
+| `course` — `MemberBodyPort` | `course/adapter-member` | `member:contract` |
 | `support-web` — `AuthMemberPort` | `member/adapter-auth` | `member:contract` |
 
 `training`은 아무도 읽지 않으므로 **`contract`를 만들지 않는다.** 미리 만들지 않는 원칙(§3)이다.
@@ -167,14 +176,15 @@ interface CourseProgressContract {          // 초안 — §7-8 확정 전까지
 | 항목 | 내용 |
 | --- | --- |
 | 애그리거트 | `Member` (루트) |
-| Command | 카카오 가입, 프로필 수정 |
+| Command | 카카오 가입, 프로필 수정, 탈퇴 |
 | Query | 프로필 조회 |
 | 모듈 | 기본 6 + `contract` + `adapter-auth` = **8** |
 
 ```text
-member.member    member_id, kakao_id(uk), nickname, profile_image_url,
+member.member    member_id, kakao_id(uk, null), nickname, profile_image_url,
                  height_cm(null), weight_kg(null), experience_level(null),
-                 created_at, updated_at
+                 reinforcement_body_part_code(null), reinforcement_level(null),
+                 withdrawn_at(null), created_at, updated_at
 ```
 
 카카오 로그인의 웹 계층은 `support-web`, 회원 조회·가입은 `member`가 갖는다
@@ -187,6 +197,24 @@ member.member    member_id, kakao_id(uk), nickname, profile_image_url,
 
 진단 시점의 몸을 보존할 필요가 있으면 `screening_result`에 스냅샷으로 복사한다. `member`의
 현재 값을 거슬러 올라가 읽지 않는다.
+
+**강화 부위와 난이도도 `member`가 갖는다.** 회원은 진단 결과를 본 뒤 강화할 부위와 난이도를
+고르는데(§4-2), 이것이 코스 처방 시점의 일회성 입력이 아니라 **지속되는 설정**이다 —
+마이페이지가 "등근육을 난이도 하로 강화하고 있어요"를 보여주고 "난이도 조정하기"로 언제든
+바꾼다. 신체 정보를 `member`에 둔 것과 같은 이유다.
+
+`reinforcement_body_part_code`는 `screening` 소유 어휘를 값으로 받고 FK를 걸지 않는다(§6).
+값 집합을 검증하려면 `member → screening` 의존이 생기는데 그 방향은 §3에 없다.
+`reinforcement_level`(1·2·3)이 `catalog.target_pose.level`과 같은 축인지는 **미확정**이다.
+
+**탈퇴는 행을 지우지 않는다.** 운동 기록을 보존하기로 했고 그 기록이 `member_id`로 붙어 있다.
+남는 개인정보가 카카오 식별자뿐이라 `kakao_id`만 `NULL`로 만들고 `withdrawn_at`을 남긴다.
+그래서 `kakao_id`가 nullable이다. UNIQUE는 유지된다 — PostgreSQL은 `NULL`을 서로 다른 값으로
+보므로 탈퇴 회원이 여럿이어도 충돌하지 않는다.
+
+탈퇴 회원은 모든 조회에서 걸러진다. 리프레시 토큰이 없어 발급된 JWT를 회수할 수단이 없으므로,
+아직 만료되지 않은 토큰으로 들어와도 조회 단계에서 없는 것으로 취급돼야 한다. 같은 카카오
+계정이 다시 가입하면 **새 `member_id`**를 받고 이전 기록은 이어지지 않는다.
 
 ### 4-2. `screening`
 

@@ -3,6 +3,7 @@ package team.aligner.member.service
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.context.annotation.Bean
 import team.aligner.member.contract.MemberAuthContract
+import team.aligner.member.contract.MemberBodyContract
 import team.aligner.member.infrastructure.MemberQueryRepository
 import team.aligner.member.infrastructure.MemberRepository
 
@@ -21,4 +22,7 @@ class MemberServiceAutoConfiguration {
 
     @Bean
     fun memberAuthContract(memberCommandService: MemberCommandService): MemberAuthContract = MemberAuthContractImpl(memberCommandService)
+
+    @Bean
+    fun memberBodyContract(memberQueryService: MemberQueryService): MemberBodyContract = MemberBodyContractImpl(memberQueryService)
 }
