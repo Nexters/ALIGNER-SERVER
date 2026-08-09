@@ -164,15 +164,31 @@ class CatalogRepositoryIntegrationTest {
 
     @Test
     fun `자세 그리드는 부위로 걸러 레벨 순으로 돌려준다`() {
-        val poses = targetPoseQueryRepository.findAllByBodyPartCode("BACK")
+        val poses = targetPoseQueryRepository.findAll("BACK")
 
         poses.map { it.name } shouldBe listOf("업독", "낙타자세")
         poses.map { it.level } shouldBe listOf(1, 2)
     }
 
+    /**
+     * 온보딩 그리드가 부위를 먼저 묻지 않고 핀포즈 전체를 펼친다 (docs/domains.md §4-2).
+     *
+     * null 파라미터는 `CAST(:bodyPartCode AS VARCHAR) IS NULL` 로 끊는데, 캐스팅이 빠지면
+     * PostgreSQL 이 파라미터 타입을 못 정해 여기서만 터진다. 그래서 컨테이너 테스트가 필요하다.
+     */
+    @Test
+    fun `부위를 생략하면 전체 자세가 부위와 레벨 순으로 돌아온다`() {
+        val poses = targetPoseQueryRepository.findAll(null)
+
+        // ORDER BY body_part_code, level, target_pose_id — BACK 이 PELVIS 보다 앞이고,
+        // BACK 안에서는 레벨 1 인 업독이 레벨 2 인 낙타자세보다 앞이다.
+        poses.map { it.name } shouldBe listOf("업독", "낙타자세", "브릿지")
+        poses.map { it.bodyPartCode }.distinct() shouldBe listOf("BACK", "PELVIS")
+    }
+
     @Test
     fun `자세가 없는 부위는 빈 목록이다`() {
-        targetPoseQueryRepository.findAllByBodyPartCode("NECK") shouldBe emptyList()
+        targetPoseQueryRepository.findAll("NECK") shouldBe emptyList()
     }
 
     @Test
@@ -306,7 +322,7 @@ class CatalogRepositoryIntegrationTest {
         insertTargetPose(50L, "pose-a", "먼저", "ABDOMEN", 1)
 
         targetPoseQueryRepository
-            .findAllByBodyPartCode("ABDOMEN")
+            .findAll("ABDOMEN")
             .map { it.targetPoseId } shouldBe listOf(50L, 51L)
     }
 

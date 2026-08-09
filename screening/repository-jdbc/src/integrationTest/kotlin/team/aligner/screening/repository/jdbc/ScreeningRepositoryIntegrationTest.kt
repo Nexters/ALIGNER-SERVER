@@ -88,7 +88,7 @@ class ScreeningRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'screening-%'")
             .query(Int::class.java)
-            .single() shouldBe 7
+            .single() shouldBe 8
     }
 
     @Test
@@ -156,14 +156,13 @@ class ScreeningRepositoryIntegrationTest {
 
         val view = screeningQueryRepository.findLatestByMemberId(MEMBER_ID).shouldNotBeNull()
 
-        view.perceivedBodyPartCode shouldBe "NECK_SHOULDER"
         // (10,HARD)+(11,HARD) 로 THORACIC_STIFFNESS 가 3+2=5, SHOULDER_ROLL 이 4 다.
         // (10,EASY) 규칙은 체감이 달라 매칭되지 않는다.
         view.causes.map { it.causeCode } shouldBe listOf("THORACIC_STIFFNESS", "SHOULDER_ROLL")
         view.causes.map { it.rank } shouldBe listOf(1, 2)
         view.causes.map { it.score } shouldBe listOf(5, 4)
-        // **회원은 목·어깨를 골랐는데 1 순위 원인은 등·허리다.** "느끼는 부위가 아니라 원인
-        // 부위를 처방한다"(AGENTS.md §1)가 데이터로 드러나는 자리다.
+        // **회원은 자세만 골랐는데 서로 다른 부위의 원인이 순위로 나온다.** 진단 결과 화면이
+        // 이 부위들을 늘어놓고, 회원은 그다음 화면에서 강화할 부위를 고른다 (docs/domains.md §4-2).
         view.causes.map { it.bodyPartCode } shouldBe listOf("UPPER_BACK", "NECK_SHOULDER")
         view.causes.first().name shouldBe "굳은 흉추"
         view.causes.first().description shouldBe "흉추가 굳으면 목이 앞으로 나온다"
@@ -177,7 +176,7 @@ class ScreeningRepositoryIntegrationTest {
     @Test
     fun `여러 번 진단하면 가장 최근 것을 돌려준다`() {
         screeningResultRepository.save(determinedResult())
-        val second = screeningResultRepository.save(determinedResult(bodyPartCode = "UPPER_BACK"))
+        val second = screeningResultRepository.save(determinedResult())
 
         screeningQueryRepository
             .findLatestByMemberId(MEMBER_ID)
@@ -232,18 +231,27 @@ class ScreeningRepositoryIntegrationTest {
         assertThrows<DataIntegrityViolationException> { insertCauseRow(resultId, "SHOULDER_ROLL", 1, 0) }
     }
 
+    /**
+     * perceived_body_part_code 는 changeset 007 로 NULL 허용이 됐고 저장 경로가 채우지 않는다.
+     * 컬럼이 아직 남아 있다는 것과, 값을 넣지 않아도 저장이 되는 것을 함께 고정한다.
+     */
     @Test
-    fun `없는 부위로는 진단을 저장하지 못한다`() {
-        assertThrows<DataIntegrityViolationException> {
-            screeningResultRepository.save(determinedResult(bodyPartCode = "NOT_EXIST"))
-        }
+    fun `부위 없이 저장되고 컬럼은 NULL 로 남는다`() {
+        val saved = screeningResultRepository.save(determinedResult())
+
+        // NULL 여부를 SQL 안에서 판정한다. 컬럼을 그대로 꺼내면 매핑 단계의 null 처리에
+        // 결과가 좌우돼 무엇을 검증하는지가 흐려진다.
+        jdbcClient
+            .sql("SELECT perceived_body_part_code IS NULL FROM screening.screening_result WHERE result_id = :resultId")
+            .param("resultId", saved.identity.shouldNotBeNull().value)
+            .query(Boolean::class.java)
+            .single() shouldBe true
     }
 
-    private fun determinedResult(bodyPartCode: String = "NECK_SHOULDER"): ScreeningResult =
+    private fun determinedResult(): ScreeningResult =
         ScreeningResult
             .submit(
                 memberId = MEMBER_ID,
-                perceivedBodyPartCode = bodyPartCode,
                 answers =
                     listOf(
                         ScreeningAnswer(targetPoseId = 10L, perceivedDifficulty = PerceivedDifficulty.HARD),

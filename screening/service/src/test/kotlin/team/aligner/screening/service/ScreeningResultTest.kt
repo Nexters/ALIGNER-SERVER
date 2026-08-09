@@ -37,8 +37,8 @@ class ScreeningResultTest :
             weight = weight,
         )
 
-        fun submit(answers: List<ScreeningAnswer>) =
-            ScreeningResult.submit(memberId = 1L, perceivedBodyPartCode = "NECK_SHOULDER", answers = answers)
+        // 부위를 받지 않는다. 온보딩이 자세 체감만 묻는다 (docs/domains.md §4-2).
+        fun submit(answers: List<ScreeningAnswer>) = ScreeningResult.submit(memberId = 1L, answers = answers)
 
         describe("submit") {
             it("응답이 비어 있으면 막는다") {

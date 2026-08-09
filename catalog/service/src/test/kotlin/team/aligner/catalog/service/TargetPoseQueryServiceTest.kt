@@ -53,24 +53,38 @@ class TargetPoseQueryServiceTest :
             }
         }
 
-        describe("getAllByBodyPartCode") {
-            it("부위의 자세를 돌려준다") {
-                every { targetPoseQueryRepository.findAllByBodyPartCode("BACK") } returns
+        describe("getAll") {
+            it("부위를 주면 그 부위의 자세를 돌려준다") {
+                every { targetPoseQueryRepository.findAll("BACK") } returns
                     listOf(
                         TargetPoseSummaryView(1L, "업독", "upward-facing-dog-pose", "BACK", 1),
                         TargetPoseSummaryView(2L, "낙타자세", "camel-pose", "BACK", 2),
                     )
 
-                targetPoseQueryService.getAllByBodyPartCode("BACK").map { it.level } shouldBe listOf(1, 2)
+                targetPoseQueryService.getAll("BACK").map { it.level } shouldBe listOf(1, 2)
+            }
+
+            /**
+             * 온보딩 그리드가 부위를 먼저 묻지 않고 핀포즈 전체를 펼친다 (docs/domains.md §4-2).
+             * null 을 그대로 port 에 넘겨야 전체 조회가 성립한다.
+             */
+            it("부위를 생략하면 null 을 그대로 넘겨 전체를 돌려준다") {
+                every { targetPoseQueryRepository.findAll(null) } returns
+                    listOf(
+                        TargetPoseSummaryView(1L, "낙타자세", "camel-pose", "BACK", 2),
+                        TargetPoseSummaryView(2L, "보트자세", "boat-pose", "ABDOMEN", 1),
+                    )
+
+                targetPoseQueryService.getAll(null).map { it.bodyPartCode } shouldBe listOf("BACK", "ABDOMEN")
             }
 
             /**
              * bodyPartCode 는 screening 소유 어휘라 catalog 가 값 집합을 검증하지 않는다.
              */
             it("자세가 없는 부위면 빈 목록이고 예외가 아니다") {
-                every { targetPoseQueryRepository.findAllByBodyPartCode("NECK") } returns emptyList()
+                every { targetPoseQueryRepository.findAll("NECK") } returns emptyList()
 
-                targetPoseQueryService.getAllByBodyPartCode("NECK") shouldBe emptyList()
+                targetPoseQueryService.getAll("NECK") shouldBe emptyList()
             }
         }
     })

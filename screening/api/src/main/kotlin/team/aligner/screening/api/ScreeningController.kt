@@ -30,7 +30,7 @@ import team.aligner.support.web.AlignerPrincipal
  * 401·500 은 문서에 적지 않는다. 모든 엔드포인트가 똑같이 내므로 OpenApiConfig 가 전역으로
  * 붙인다. 여기에는 이 도메인이 정하는 실패만 적는다.
  */
-@Tag(name = "자가 스크리닝", description = "부위 선택과 자세 체감으로 원인을 판별한다")
+@Tag(name = "자가 스크리닝", description = "자세 체감으로 원인을 판별한다")
 @RestController
 @RequestMapping("/screening")
 class ScreeningController(
@@ -39,7 +39,10 @@ class ScreeningController(
 ) {
     @Operation(
         summary = "부위 목록 조회",
-        description = "온보딩 첫 화면의 선택지다. 진단 제출에 넣을 bodyPartCode 를 여기서 받는다.",
+        description =
+            "진단 결과를 본 뒤 **강화할 부위를 고르는 화면**의 선택지다. 판별된 원인의 부위만이 아니라 " +
+                "전체 부위를 내린다 — 회원은 분석 결과에 없는 부위도 고를 수 있다. " +
+                "진단 제출(`POST /screening/results`)에는 부위를 넣지 않는다.",
     )
     @ApiResponses(value = [ApiResponse(responseCode = "200", description = "조회 성공. 화면 노출 순서로 정렬된다")])
     @GetMapping("/body-parts")
@@ -50,7 +53,8 @@ class ScreeningController(
         description =
             "고른 자세와 체감을 넘기면 서버가 분기 규칙으로 원인을 판별해 저장하고 결과를 그대로 돌려준다. " +
                 "**제출과 판별이 한 요청에서 끝난다.** 쉬웠던 자세와 어려웠던 자세를 각각 최대 4 개까지 담을 수 있고, " +
-                "같은 자세를 두 번 넣을 수 없다.",
+                "같은 자세를 두 번 넣을 수 없다. " +
+                "**부위를 넣지 않는다** — 강화할 부위는 이 응답의 원인을 보고 다음 화면에서 고른다.",
     )
     @ApiResponses(
         value = [
@@ -61,11 +65,6 @@ class ScreeningController(
                     "`EMPTY_SCREENING_ANSWER` — 자세를 하나도 고르지 않았다 / " +
                         "`TOO_MANY_SCREENING_ANSWERS` — 한 체감에 4 개를 넘겼다 / " +
                         "`DUPLICATE_SCREENING_ANSWER` — 같은 자세를 두 번 넣었다",
-                content = [Content(mediaType = "application/json", schema = Schema(ref = ERROR_SCHEMA_REF))],
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "`BODY_PART_NOT_FOUND` — 존재하지 않는 부위 코드다",
                 content = [Content(mediaType = "application/json", schema = Schema(ref = ERROR_SCHEMA_REF))],
             ),
             ApiResponse(
@@ -83,11 +82,7 @@ class ScreeningController(
         val identity =
             screeningCommandService.submit(
                 memberId = principal.memberId,
-                command =
-                    SubmitScreeningCommand(
-                        perceivedBodyPartCode = request.bodyPartCode,
-                        answers = request.toAnswers(),
-                    ),
+                command = SubmitScreeningCommand(answers = request.toAnswers()),
             )
         // Command 는 식별자만 돌려준다. 화면이 필요로 하는 원인 이름·설명은 마스터 seed 와의
         // 조인이라 Query 쪽 모델이다 (docs/architecture.md §4).

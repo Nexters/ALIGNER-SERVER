@@ -9,8 +9,10 @@ import java.time.Instant
 /**
  * 진단 1 회. 애그리거트 루트다.
  *
- * `perceivedBodyPartCode` 는 회원이 고른 **느끼는 부위**이고, `causes` 는 판별된 **원인 부위**다.
- * 둘이 다르다는 것이 이 도메인의 요점이다 (`AGENTS.md` §1).
+ * **부위를 입력으로 받지 않는다.** 온보딩이 자세 체감만 받고 부위는 판별 결과 이후에 고르는
+ * 순서라, 이 애그리거트에 들어오는 것은 `answers` 뿐이다 (docs/domains.md §4-2). 판별된
+ * **원인 부위**는 `causes` 가 갖는다 — "느끼는 부위가 아니라 원인 부위를 처방한다"(`AGENTS.md` §1)는
+ * 이제 회원이 고른 부위와의 대비가 아니라 원인 판별 자체로 성립한다.
  *
  * Spring Data JDBC 에는 더티체킹이 없다. [determineCauses] 는 새 인스턴스를 반환하고 호출부가
  * save 를 명시한다 (docs/architecture.md §4).
@@ -18,7 +20,6 @@ import java.time.Instant
 data class ScreeningResult(
     val identity: ScreeningResultIdentity?,
     val memberId: Long,
-    val perceivedBodyPartCode: String,
     val answers: List<ScreeningAnswer>,
     val causes: List<ScreeningCause>,
     val createdAt: Instant?,
@@ -78,7 +79,6 @@ data class ScreeningResult(
          */
         fun submit(
             memberId: Long,
-            perceivedBodyPartCode: String,
             answers: List<ScreeningAnswer>,
         ): ScreeningResult {
             // 검사 도중에도 바뀔 수 있으므로 먼저 스냅샷을 뜨고, 그 스냅샷만 본다.
@@ -98,7 +98,6 @@ data class ScreeningResult(
             return ScreeningResult(
                 identity = null,
                 memberId = memberId,
-                perceivedBodyPartCode = perceivedBodyPartCode,
                 answers = submitted,
                 causes = emptyList(),
                 createdAt = null,

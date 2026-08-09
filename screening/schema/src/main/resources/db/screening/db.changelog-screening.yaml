@@ -69,3 +69,12 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/006-create-screening-cause.sql
             relativeToChangelogFile: true
+
+  - changeSet:
+      id: screening-0008-relax-screening-result-body-part
+      author: aligner
+      comment: 느끼는 부위 선입력 제거 — perceived_body_part_code NULL 허용
+      changes:
+        - sqlFile:
+            path: ddl/007-relax-screening-result-body-part.sql
+            relativeToChangelogFile: true

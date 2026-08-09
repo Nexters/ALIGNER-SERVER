@@ -8,9 +8,9 @@ import team.aligner.screening.model.view.ScreeningCauseView
 import team.aligner.screening.model.view.ScreeningResultView
 import java.time.Instant
 
-@Schema(description = "신경 쓰이는 부위")
+@Schema(description = "부위")
 data class BodyPartResponse(
-    @field:Schema(description = "부위 코드. 진단 제출에 그대로 넣는다", example = "NECK_SHOULDER")
+    @field:Schema(description = "부위 코드. 진단 결과 뒤 강화 부위 선택 화면의 선택지다", example = "NECK_SHOULDER")
     val bodyPartCode: String,
     @field:Schema(description = "표시용 이름", example = "목·어깨")
     val name: String,
@@ -20,14 +20,12 @@ data class BodyPartResponse(
     }
 }
 
+/**
+ * **부위를 받지 않는다.** 온보딩이 부위를 먼저 묻지 않고 자세 체감만 받는다
+ * (docs/domains.md §4-2).
+ */
 @Schema(description = "자세 체감 선택 제출")
 data class SubmitScreeningRequest(
-    @field:Schema(
-        description = "회원이 고른 부위 코드. 부위 목록 API 의 값이다",
-        example = "NECK_SHOULDER",
-        requiredMode = Schema.RequiredMode.REQUIRED,
-    )
-    val bodyPartCode: String,
     @field:Schema(
         description = "고른 자세와 체감. 쉬웠던 자세와 어려웠던 자세를 각각 최대 4 개까지 담는다",
         requiredMode = Schema.RequiredMode.REQUIRED,
@@ -50,8 +48,6 @@ data class ScreeningAnswerRequest(
 data class ScreeningResultResponse(
     @field:Schema(description = "이 진단의 식별자", example = "3")
     val resultId: Long,
-    @field:Schema(description = "회원이 고른 부위. 판별된 원인의 부위와 다를 수 있다", example = "NECK_SHOULDER")
-    val perceivedBodyPartCode: String,
     @field:Schema(description = "판별된 원인. rank 오름차순이다")
     val causes: List<ScreeningCauseResponse>,
     @field:Schema(description = "진단 시각")
@@ -61,7 +57,6 @@ data class ScreeningResultResponse(
         fun from(view: ScreeningResultView) =
             ScreeningResultResponse(
                 resultId = view.resultId,
-                perceivedBodyPartCode = view.perceivedBodyPartCode,
                 causes = view.causes.map(ScreeningCauseResponse::from),
                 createdAt = view.createdAt,
             )

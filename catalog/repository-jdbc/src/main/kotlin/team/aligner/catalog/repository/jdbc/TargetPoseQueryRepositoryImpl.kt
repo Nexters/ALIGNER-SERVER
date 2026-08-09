@@ -41,15 +41,24 @@ internal class TargetPoseQueryRepositoryImpl(
         return base.copy(muscles = findMuscles(targetPoseId))
     }
 
-    /** 온보딩 자세 그리드. 근육을 싣지 않아 1 쿼리다. */
-    override fun findAllByBodyPartCode(bodyPartCode: String): List<TargetPoseSummaryView> =
+    /**
+     * 온보딩 자세 그리드. 근육을 싣지 않아 1 쿼리다.
+     *
+     * 필터를 문자열 결합으로 붙이지 않고 SQL 안에서 끈다. 쿼리가 하나로 유지되고 파라미터
+     * 바인딩이 그대로라 주입 여지가 없다.
+     *
+     * `CAST(... AS VARCHAR)` 가 필요하다. 이름 파라미터는 결국 `?` 로 바뀌는데, PostgreSQL 은
+     * `? IS NULL` 처럼 타입 단서가 없는 자리에서 "could not determine data type" 으로 거절한다.
+     * null 을 넘기는 순간에만 터지므로 전체 조회에서만 드러난다.
+     */
+    override fun findAll(bodyPartCode: String?): List<TargetPoseSummaryView> =
         jdbcClient
             .sql(
                 """
                 SELECT target_pose_id, name, image_asset_key, body_part_code, level
                 FROM catalog.target_pose
-                WHERE body_part_code = :bodyPartCode
-                ORDER BY level, target_pose_id
+                WHERE (CAST(:bodyPartCode AS VARCHAR) IS NULL OR body_part_code = CAST(:bodyPartCode AS VARCHAR))
+                ORDER BY body_part_code, level, target_pose_id
                 """.trimIndent(),
             ).param("bodyPartCode", bodyPartCode)
             .query { rs, _ ->

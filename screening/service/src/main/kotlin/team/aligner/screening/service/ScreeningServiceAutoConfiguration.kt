@@ -3,7 +3,6 @@ package team.aligner.screening.service
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.context.annotation.Bean
 import team.aligner.screening.contract.ScreeningResultContract
-import team.aligner.screening.infrastructure.BodyPartRepository
 import team.aligner.screening.infrastructure.CauseRuleRepository
 import team.aligner.screening.infrastructure.ScreeningQueryRepository
 import team.aligner.screening.infrastructure.ScreeningResultRepository
@@ -18,9 +17,8 @@ class ScreeningServiceAutoConfiguration {
     @Bean
     fun screeningCommandService(
         screeningResultRepository: ScreeningResultRepository,
-        bodyPartRepository: BodyPartRepository,
         causeRuleRepository: CauseRuleRepository,
-    ): ScreeningCommandService = ScreeningCommandServiceImpl(screeningResultRepository, bodyPartRepository, causeRuleRepository)
+    ): ScreeningCommandService = ScreeningCommandServiceImpl(screeningResultRepository, causeRuleRepository)
 
     @Bean
     fun screeningQueryService(screeningQueryRepository: ScreeningQueryRepository): ScreeningQueryService =
