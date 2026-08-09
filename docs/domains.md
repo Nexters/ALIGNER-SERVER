@@ -17,7 +17,7 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 | --- | --- |
 | 도메인 수 | **5개** — `member` `screening` `catalog` `course` `training` |
 | PostgreSQL schema | 도메인명과 동일 (`member` `screening` `catalog` `course` `training`) |
-| 도메인 간 의존 | **단방향** — `catalog` ← `course` ← `training`, `screening` ← `course` |
+| 도메인 간 의존 | **단방향** — `catalog` ← `course` ← `training`, `screening` ← `course`, `member` ← `course` |
 | 마스터 데이터 소유 | 운동·자세·근육은 `catalog`, 자세 체감 → 원인 분기 규칙은 `screening`, 처방 규칙은 `course` |
 | 도장(`Stamp`) | `course` 소유 (달성 판단은 `course`, 수행 기록은 `training`). **판정 기준 미정** (§7-8) |
 | 자세 포인트(`PoseCheckpoint`) | **만들지 않는다.** 완료 판정은 "운동 수행 + 시간 종료"다 (§4-3) |
@@ -96,12 +96,17 @@ support-web ──→ member:contract           (adapter-auth, §9)
 
 course   ──→ screening:contract           최신 원인 조회
 course   ──→ catalog:contract             운동·자세 조회, 존재 검증
+course   ──→ member:contract              몸무게 조회 (칼로리 계산)
 catalog  ──→ YMove (외부 HTTP)            videoUrl·thumbnailUrl, 48시간 만료 (§4-3-1)
 training ──→ course:contract              스텝 구성 조회 / 세션 완료 push
 training ──→ catalog:contract             세션 중 운동 상세 조회
 ```
 
-순환이 없다. `training` → `course` → `screening`·`catalog` 한 방향으로만 흐른다.
+순환이 없다. `training` → `course` → `screening`·`catalog`·`member` 한 방향으로만 흐른다.
+
+**`course → member` 를 뒤늦게 허용했다.** 초판 지도에는 없었는데, 홈 카드가 코스 칼로리를
+보여주고 `kcal = MET × 3.5 × 체중 ÷ 200 × 분` 이라 **몸무게 없이는 계산이 성립하지 않는다**(§4-3).
+`member` 는 아무 도메인도 의존하지 않으므로 순환은 생기지 않는다. 계약은 몸무게 하나로 좁게 둔다.
 
 ### 계약 시그니처 초안
 
@@ -112,6 +117,9 @@ training ──→ catalog:contract             세션 중 운동 상세 조회
 // member/contract
 interface MemberAuthContract {
     fun findOrRegisterByKakao(command: KakaoMemberCommand): AuthenticatedMemberResponse
+}
+interface MemberBodyContract {
+    fun findBody(memberId: Long): MemberBodyResponse?   // 몸무게만. 칼로리 계산용
 }
 
 // screening/contract
@@ -154,6 +162,7 @@ interface CourseProgressContract {          // 초안 — §7-8 확정 전까지
 | `course` — `ExerciseCatalogPort` `TargetPoseCatalogPort` | `course/adapter-catalog` | `catalog:contract` |
 | `training` — `CourseStepPort` `CourseProgressPort` | `training/adapter-course` | `course:contract` |
 | `training` — `ExerciseDetailPort` | `training/adapter-catalog` | `catalog:contract` |
+| `course` — `MemberBodyPort` | `course/adapter-member` | `member:contract` |
 | `support-web` — `AuthMemberPort` | `member/adapter-auth` | `member:contract` |
 
 `training`은 아무도 읽지 않으므로 **`contract`를 만들지 않는다.** 미리 만들지 않는 원칙(§3)이다.
