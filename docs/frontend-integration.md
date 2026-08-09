@@ -102,8 +102,11 @@ POST /screening/results                          제출 → 판별 → 결과가
 GET  /screening/body-parts                       강화할 부위 선택지
         │  회원이 강화할 부위와 난이도를 고른다
         ▼
-(부위·난이도 저장 API는 아직 없다 — member 확장 이슈)
+PATCH /members/me                                부위·난이도 저장
 ```
+
+경력·키·몸무게를 받는 화면들도 같은 `PATCH /members/me` 를 쓴다. 화면별로 무엇을 보낼지는
+「회원 API」의 표에 정리해 뒀다.
 
 **부위를 먼저 묻지 않는다.** 자세를 먼저 받아 원인을 판별하고, 그 결과를 본 뒤에 강화할 부위를
 고르는 순서다. `POST /screening/results` 요청에 `bodyPartCode`를 넣지 않는다.
