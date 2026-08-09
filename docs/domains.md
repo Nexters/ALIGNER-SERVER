@@ -298,11 +298,12 @@ seed의 `weight`로 조절**한다 — 감수 결과가 바뀌어도 changeset�
 catalog.exercise            exercise_id(pk), ymove_slug(uk), name,
                             default_set_count, default_rep_count,
                             default_duration_seconds, met_value, difficulty,
-                            caution_note                                         [seed]
+                            category, caution_note                               [seed]
 catalog.target_pose         target_pose_id(pk), ymove_slug(uk), name,
                             image_asset_key, body_part_code, level               [seed]
 catalog.muscle              muscle_code(pk), name, body_part_code,
-                            highlight_asset_key                                  [seed]
+                            front_highlight_asset_key,
+                            back_highlight_asset_key                             [seed]
 catalog.pose_muscle         pose_muscle_id(pk), target_pose_id, muscle_code,
                             role, display_order                                  [seed]
 catalog.exercise_muscle     exercise_muscle_id(pk), exercise_id, muscle_code,
@@ -352,6 +353,11 @@ slug 정도이고 둘 다 seed라 changeset을 같이 쌓으면 된다.
 근육은 운동 가이드의 부위 탭과 근육맵에 쓰인다. "어떤 운동이 어느 근육을 쓰는가"는 카탈로그
 성격이므로 `catalog`가 소유한다.
 
+**근육맵 하이라이트 키가 앞·뒤 두 개다.** 세션 플레이어의 근육맵이 인체 앞면과 뒷면을
+토글로 보여주고 각각 근육을 칠하므로, 어느 쪽 그림에 얹을 키인지가 구분돼야 한다. 척추기립근처럼
+뒤에만 보이는 근육은 `front_highlight_asset_key`가 `NULL`이고 그 반대도 마찬가지다. 둘 다
+비는 상태도 정상이라 "하나는 있어야 한다"는 제약을 걸지 않는다 — 자산 키 자체가 감수 전이다.
+
 `role`은 **`STRETCH`(신장) | `STRENGTHEN`(강화)** 다. 같은 자세가 어떤 근육은 늘리고 어떤
 근육은 쓰므로 구분이 필요하다. 콘텐츠 정본이 주동근을 "장요근(신장)"처럼 표기하는 그 구분이다.
 
@@ -359,6 +365,14 @@ slug 정도이고 둘 다 seed라 changeset을 같이 쌓으면 된다.
 `(target_pose_id, muscle_code)`와 `(exercise_id, muscle_code)`다. 현재 정본에는 한 자세에서 같은 근육이 두 역할을 갖는 사례가 없어 `role`을 키에서 뺐지만,
 후굴에서 척추기립근이 수축과 신장을 겸하는 식의 감수 결과가 나올 수 있다. 그때 PK를 바꾸는
 것보다 UNIQUE 제약만 재정의하는 편이 가볍다.
+
+#### 운동 분류 — `category`
+
+코스 개요가 스텝마다 운동 이름 아래에 `가동성 웜업` · `핀포즈` 같은 분류를 그린다.
+
+**`CHECK`을 걸지 않고 코드에 enum 도 두지 않는다.** 값 집합이 감수 대상이라 확정되지 않았다 —
+`difficulty`와 같은 이유다. `MuscleRole`(`STRETCH`·`STRENGTHEN`)은 이 문서가 값 집합을 확정해
+enum 이지만 분류는 그렇지 않다. 확정되면 그때 `CHECK`을 새 changeset 으로 얹는다.
 
 #### 주의사항은 문구 한 덩어리다 — `caution_note`
 

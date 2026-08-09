@@ -33,6 +33,12 @@ data class ExerciseDetailResponse(
     val metValue: BigDecimal?,
     @field:Schema(description = "난이도. 감수 전 데이터라 아직 값 집합을 고정하지 않았다", example = "EASY", nullable = true)
     val difficulty: String?,
+    @field:Schema(
+        description = "코스 스텝에 표시하는 분류. 감수 전 데이터라 아직 값 집합을 고정하지 않았다",
+        example = "가동성 웜업",
+        nullable = true,
+    )
+    val category: String?,
     @field:Schema(description = "수행 시 주의사항", example = "목에 통증이 오면 즉시 멈춘다", nullable = true)
     val cautionNote: String?,
     @field:Schema(description = "근육맵 탭에 쓰는 근육 목록")
@@ -50,6 +56,7 @@ data class ExerciseDetailResponse(
                 defaultDurationSeconds = view.defaultDurationSeconds,
                 metValue = view.metValue,
                 difficulty = view.difficulty,
+                category = view.category,
                 cautionNote = view.cautionNote,
                 muscles = view.muscles.map(MuscleResponse::from),
                 voiceCues = view.voiceCues.map(VoiceCueResponse::from),

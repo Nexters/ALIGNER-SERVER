@@ -10,6 +10,9 @@ import java.math.BigDecimal
  * metValue 만 실어 보내고 계산은 조회하는 쪽이 한다.
  *
  * ymoveSlug 를 싣지 않는다. 외부 시스템 식별자가 화면 계층까지 새어 나갈 이유가 없다.
+ *
+ * category 는 코스 스텝에 붙는 분류다("가동성 웜업"·"핀포즈"). 값 집합이 감수 대상이라
+ * enum 이 아니라 문자열이다 — difficulty 와 같은 이유다.
  */
 data class ExerciseDetailView(
     val exerciseId: Long,
@@ -19,6 +22,7 @@ data class ExerciseDetailView(
     val defaultDurationSeconds: Int?,
     val metValue: BigDecimal?,
     val difficulty: String?,
+    val category: String?,
     val cautionNote: String?,
     val muscles: List<MuscleView>,
     val voiceCues: List<ExerciseVoiceCueView>,

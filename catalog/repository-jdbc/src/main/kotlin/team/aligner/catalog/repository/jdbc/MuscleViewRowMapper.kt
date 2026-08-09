@@ -20,7 +20,8 @@ internal object MuscleViewRowMapper : RowMapper<MuscleView> {
             muscleCode = rs.getString("muscle_code"),
             name = rs.getString("name"),
             bodyPartCode = rs.getString("body_part_code"),
-            highlightAssetKey = rs.getString("highlight_asset_key"),
+            frontHighlightAssetKey = rs.getString("front_highlight_asset_key"),
+            backHighlightAssetKey = rs.getString("back_highlight_asset_key"),
             role = MuscleRole.valueOf(rs.getString("role")),
             displayOrder = rs.getInt("display_order"),
         )

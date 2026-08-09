@@ -75,7 +75,8 @@ internal class TargetPoseQueryRepositoryImpl(
         jdbcClient
             .sql(
                 """
-                SELECT m.muscle_code, m.name, m.body_part_code, m.highlight_asset_key,
+                SELECT m.muscle_code, m.name, m.body_part_code,
+                       m.front_highlight_asset_key, m.back_highlight_asset_key,
                        pm.role, pm.display_order
                 FROM catalog.pose_muscle pm
                 JOIN catalog.muscle m ON m.muscle_code = pm.muscle_code

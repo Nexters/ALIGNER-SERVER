@@ -69,3 +69,12 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/006-create-exercise-voice-cue.sql
             relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0008-split-muscle-highlight-and-add-exercise-category
+      author: aligner
+      comment: 근육맵 하이라이트를 앞·뒤로 분리하고 운동 분류 추가
+      changes:
+        - sqlFile:
+            path: ddl/007-split-muscle-highlight-and-add-exercise-category.sql
+            relativeToChangelogFile: true
