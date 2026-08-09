@@ -19,12 +19,24 @@ data class ReinforcementSetting(
     val level: Int,
 ) {
     init {
-        if (bodyPartCode.isBlank() || level !in MIN_LEVEL..MAX_LEVEL) {
+        if (
+            bodyPartCode.isBlank() ||
+            bodyPartCode.length > BODY_PART_CODE_MAX_LENGTH ||
+            level !in MIN_LEVEL..MAX_LEVEL
+        ) {
             throw InvalidReinforcementSettingException()
         }
     }
 
     companion object {
+        /**
+         * member.member.reinforcement_body_part_code 가 VARCHAR(40) 이다.
+         *
+         * 길이를 여기서 막지 않으면 DB 가 거부해 회원 입력 문제가 500 으로 나간다.
+         * Member.NICKNAME_MAX_LENGTH 가 있는 이유와 같다.
+         */
+        const val BODY_PART_CODE_MAX_LENGTH = 40
+
         /** 하 */
         const val MIN_LEVEL = 1
 

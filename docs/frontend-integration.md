@@ -236,7 +236,7 @@ Content-Type: application/json
 - 닉네임은 앞뒤 공백을 제거한 뒤 1자 이상 50자 이하 — `INVALID_NICKNAME`. 성공 응답에는 trim된 값이 들어간다
 - 키는 100 이상 250 이하 — `INVALID_HEIGHT`
 - 몸무게는 20 이상 300 이하 — `INVALID_WEIGHT`
-- 강화 난이도는 1 이상 3 이하 — `INVALID_REINFORCEMENT_SETTING`
+- 강화 부위 코드는 1자 이상 40자 이하, 난이도는 1 이상 3 이하 — `INVALID_REINFORCEMENT_SETTING`
 
 ### `DELETE /members/me`
 
@@ -478,7 +478,7 @@ function resolveTargetPoseImage(key: string | null): string | null {
 | 400 | `EMPTY_SCREENING_ANSWER` | 자세를 하나도 고르지 않음. 제출 버튼을 먼저 막는다 |
 | 400 | `INVALID_HEIGHT` | 키가 100~250cm 밖. 입력 UI에서 먼저 막는다 |
 | 400 | `INVALID_WEIGHT` | 몸무게가 20~300kg 밖. 입력 UI에서 먼저 막는다 |
-| 400 | `INVALID_REINFORCEMENT_SETTING` | 강화 부위·난이도를 한쪽만 보냈거나 난이도가 1~3 밖 |
+| 400 | `INVALID_REINFORCEMENT_SETTING` | 강화 부위·난이도를 한쪽만 보냈거나, 부위 코드가 1~40자 밖이거나, 난이도가 1~3 밖 |
 | 400 | `TOO_MANY_SCREENING_ANSWERS` | 한 체감에 4개를 넘김. 선택 UI에서 먼저 막는다 |
 | 400 | `DUPLICATE_SCREENING_ANSWER` | 같은 자세를 두 번 넣음. `EASY`·`HARD`에 나눠 넣은 경우도 포함 |
 | 401 | `UNAUTHORIZED` | 토큰이 없거나 만료됨. `Kakao.Auth.authorize()`부터 다시 수행 |

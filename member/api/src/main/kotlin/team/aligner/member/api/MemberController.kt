@@ -79,7 +79,7 @@ class MemberController(
                     "`INVALID_NICKNAME` — 닉네임은 1자 이상 50자 이하여야 합니다 / " +
                         "`INVALID_HEIGHT` — 키는 100cm 이상 250cm 이하여야 합니다 / " +
                         "`INVALID_WEIGHT` — 몸무게는 20kg 이상 300kg 이하여야 합니다 / " +
-                        "`INVALID_REINFORCEMENT_SETTING` — 강화 부위와 난이도를 함께 보내야 하고 난이도는 1~3 이다",
+                        "`INVALID_REINFORCEMENT_SETTING` — 강화 부위와 난이도를 함께 보내야 하고, 부위 코드는 1~40자, 난이도는 1~3 이다",
                 content = [Content(mediaType = "application/json", schema = Schema(ref = ERROR_SCHEMA_REF))],
             ),
             ApiResponse(
