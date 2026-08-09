@@ -65,7 +65,7 @@ internal class ExerciseQueryRepositoryImpl(
             .sql(
                 """
                 SELECT exercise_id, name, default_set_count, default_rep_count,
-                       default_duration_seconds, met_value, difficulty
+                       default_duration_seconds, met_value, difficulty, category
                 FROM catalog.exercise
                 WHERE exercise_id IN (:exerciseIds)
                 ORDER BY exercise_id
@@ -80,6 +80,7 @@ internal class ExerciseQueryRepositoryImpl(
                     defaultDurationSeconds = rs.getIntOrNull("default_duration_seconds"),
                     metValue = rs.getBigDecimal("met_value"),
                     difficulty = rs.getString("difficulty"),
+                    category = rs.getString("category"),
                 )
             }.list()
 

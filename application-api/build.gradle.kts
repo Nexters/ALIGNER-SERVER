@@ -39,4 +39,20 @@ dependencies {
 
     // catalog:adapter-ymove 가 없다. 영상 연동은 docs/domains.md §7-4·5·6 이 정해진 뒤
     // 후속 이슈로 붙인다.
+
+    // course — 코스 처방·오늘의 코스·진행도·도장 (docs/architecture.md §10 8 단계).
+    implementation(project(":course:api"))
+    implementation(project(":course:repository-jdbc"))
+    implementation(project(":course:schema"))
+    // adapter 셋을 명시한다. 하나라도 빠지면 그 port 의 Bean 이 없어 **기동이 실패해야
+    // 정상이다** (§9 의 adapter-auth 와 같다).
+    implementation(project(":course:adapter-screening"))
+    implementation(project(":course:adapter-catalog"))
+    implementation(project(":course:adapter-member"))
+    // adapter 가 의존하는 상대 도메인 contract 를 함께 선언한다. 런타임 전이에 기대지 않고
+    // 조립을 빌드 선언이 결정하게 한다 (§5).
+    implementation(project(":screening:contract"))
+    implementation(project(":catalog:contract"))
+    // course:contract 를 넣지 않는다. 소비자인 training/adapter-course 가 아직 없고, 계약
+    // 구현체 Bean 은 course:api → course:service 로 런타임 전이돼 등록된다.
 }

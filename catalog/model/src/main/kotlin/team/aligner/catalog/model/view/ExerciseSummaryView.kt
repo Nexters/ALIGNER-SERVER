@@ -10,9 +10,8 @@ import java.math.BigDecimal
  *
  * default* 는 course.course_step_exercise 가 비어 있을 때 쓰는 기본값이다 (§4-4).
  *
- * category 를 싣지 않는다. 코스 개요가 스텝마다 분류를 그리지만 그것을 소비할 course 가
- * 아직 없다. 계약 형태가 정해지는 course adapter 구현 시점에 함께 넣는다
- * (docs/architecture.md §3 "미리 만들지 않는다", §7 "계약은 좁게").
+ * category 는 코스 개요가 스텝마다 운동 이름 아래에 그리는 분류다. course 가 소비하게 되어
+ * 요약에도 싣는다 — 상세 조회를 스텝 수만큼 다시 하지 않기 위해서다.
  */
 data class ExerciseSummaryView(
     val exerciseId: Long,
@@ -22,4 +21,5 @@ data class ExerciseSummaryView(
     val defaultDurationSeconds: Int?,
     val metValue: BigDecimal?,
     val difficulty: String?,
+    val category: String?,
 )
