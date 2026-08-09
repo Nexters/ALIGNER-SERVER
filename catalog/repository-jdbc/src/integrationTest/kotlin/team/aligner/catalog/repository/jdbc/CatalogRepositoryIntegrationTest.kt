@@ -203,6 +203,10 @@ class CatalogRepositoryIntegrationTest {
         detail.imageAssetKey shouldBe "camel-pose"
         detail.level shouldBe 2
         detail.muscles.map { it.name } shouldBe listOf("척추기립근")
+        // 자세 상세는 운동 상세와 다른 SQL 이다. 여기서도 앞·뒤 컬럼을 각각 단언하지 않으면
+        // 이 쿼리에서만 두 컬럼이 뒤바뀌어도 테스트가 통과한다.
+        detail.muscles.map { it.frontHighlightAssetKey } shouldBe listOf(null)
+        detail.muscles.map { it.backHighlightAssetKey } shouldBe listOf("erector-spinae-back")
     }
 
     @Test
