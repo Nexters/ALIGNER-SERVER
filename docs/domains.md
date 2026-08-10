@@ -632,18 +632,34 @@ course.stamp                    stamp_id(pk), member_id, target_pose_id, course_
 | --- | --- |
 | 애그리거트 | `Session`(루트) + `SessionExerciseRecord` |
 | Command | 세션 시작, 세션 완료 |
-| Query | 세션 기록 조회 |
+| Query | 세션 조회(복구) |
 | 모듈 | 기본 6 + `adapter-course` + `adapter-catalog` = **8** |
 
 ```text
-training.session                 session_id(pk), member_id, course_id, step_order,
-                                 started_at, completed_at, status
-training.session_exercise_record  record_id(pk), session_id, exercise_id,
-                                 completed, performed_duration_seconds
+training.session                  session_id(pk), member_id, course_id, step_order,
+                                  status, started_at, completed_at
+training.session_exercise_record  record_id(pk), session_id, course_step_exercise_id,
+                                  exercise_id, display_order,
+                                  completed, performed_duration_seconds
+                                  UNIQUE (session_id, course_step_exercise_id)
 ```
 
 세션 완료 이후 `CourseProgressPort`로 `course`에 밀어넣는다.
-**`training`에는 도장·해금 판단이 없다.** 그 로직이 여기 생기면 잘못 나눈 것이다.
+**`training`에는 도장·진행도 판단이 없다.** 그 로직이 여기 생기면 잘못 나눈 것이다.
+
+- 세션 시작 시 **코스 스텝 구성을 복사**해 `completed = false`로 만들어 두고 완료 요청이 값을
+  채운다. 복사하는 이유는 세션 중 코스가 바뀌어도 이 세션이 무엇을 수행했는지가 흔들리면 안
+  되기 때문이다.
+- `course_step_exercise_id`를 함께 두는 것은 `exercise_id`만으로는 같은 운동이 한 스텝에 두 번
+  편성된 경우를 가릴 수 없어서다. `exercise_id`도 남기는 것은 catalog 조회에 코스를 다시 읽지
+  않기 위해서다.
+- **완료는 멱등하다.** 이미 완료된 세션은 기록을 덮어쓰지 않고, `course`로의 push 는 다시 하되
+  `course` 애그리거트가 흡수해 진행도가 두 번 오르지 않는다(§7-8).
+- **요청에 없는 운동은 수행하지 않은 것으로 남는다.** 부분 완료가 정상이다.
+- 경로는 `/sessions` 아래다. 이 저장소가 경로 앞부분으로 도메인을 가르고 있어
+  `POST /courses/{courseId}/sessions`는 그 규칙과 어긋난다.
+- **휴식 타이머·±10초·이전/다음·음성 재생 전환에 API 를 두지 않는다.** 전부 클라이언트
+  동작이고 휴식 타이머는 와이어프레임에서 deprecated 처리됐다.
 
 `checkpoint_result`와 `checkpoint_result_item`은 **없다.** 자세 포인트 체크를 하지
 않는다(§4-3).
@@ -670,8 +686,9 @@ training:    model infrastructure service repository-jdbc api schema
 패키지 루트는 `team.aligner.{domain}`이다(§10).
 
 현재 `settings.gradle.kts`는 루트 3개에 더해 `member` 8개, `catalog` 7개, `screening` 7개,
-`course` 10개를 include 한다. `build-logic`은 `includeBuild` 대상이다. `training`은 아직 없고,
-`catalog`의 `adapter-ymove`도 §7-4·5·6이 정해진 뒤 후속으로 붙인다.
+`course` 10개, `training` 8개를 include 한다. `build-logic`은 `includeBuild` 대상이다.
+**도메인 5개가 모두 들어왔다.** `catalog`의 `adapter-ymove`만 §7-4·5·6이 정해진 뒤 후속으로
+붙인다.
 
 `course`의 adapter 가 셋인 것은 처방에 원인 검증(`screening`), 자세·운동 조회(`catalog`),
 칼로리 계산용 몸무게(`member`)가 모두 필요하기 때문이다(§3).
