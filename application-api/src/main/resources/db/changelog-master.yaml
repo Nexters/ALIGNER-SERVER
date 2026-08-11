@@ -13,3 +13,5 @@ databaseChangeLog:
       file: db/screening/db.changelog-screening.yaml
   - include:
       file: db/course/db.changelog-course.yaml
+  - include:
+      file: db/training/db.changelog-training.yaml

@@ -15,7 +15,7 @@
 | `catalog` | 구현됨 | 목표 자세 목록·상세, 운동 상세 조회 |
 | `screening` | 구현됨 | 부위 목록, 자세 체감 제출·원인 판별, 최신 결과 조회 |
 | `course` | 구현됨 | 코스 처방, 오늘의 코스, 코스 개요, 자세 도전 현황 |
-| `training` | 미구현 | 세션 시작·완료·수행 기록 API 없음 |
+| `training` | 구현됨 | 세션 시작·복구·완료. 완료가 코스 진행도에 반영된다 |
 
 현재 Liquibase changelog는 다섯 도메인의 **테이블만 생성**한다. 감수 콘텐츠
 seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 빈 배열이고, 존재하지 않는 ID의
@@ -84,7 +84,10 @@ Authorization: Bearer {alignerAccessToken}
         ├── POST  /courses
         ├── GET   /courses/today
         ├── GET   /courses/{courseId}
-        └── GET   /courses/progress/target-poses
+        ├── GET   /courses/progress/target-poses
+        ├── POST  /sessions
+        ├── GET   /sessions/{sessionId}
+        └── POST  /sessions/{sessionId}/complete
 ```
 
 로그인 API만 인증 없이 열려 있고, 나머지 현재 API는 모두 Aligner JWT가 필요하다.
@@ -510,6 +513,10 @@ function resolveTargetPoseImage(key: string | null): string | null {
 | 422 | `COURSE_TEMPLATE_NOT_FOUND` | 그 부위·난이도의 코스 seed가 없음 |
 | 422 | `EMPTY_COURSE_TEMPLATE` | 코스 템플릿에 스텝이 없음 |
 | 404 | `COURSE_NOT_FOUND` | 없는 코스이거나 남의 코스 |
+| 404 | `SESSION_NOT_FOUND` | 없는 세션이거나 남의 세션 |
+| 404 | `COURSE_STEP_NOT_FOUND` | 세션을 시작하려는 코스 스텝이 없음 |
+| 422 | `EMPTY_COURSE_STEP` | 스텝에 운동이 편성돼 있지 않음 |
+| 400 | `UNKNOWN_EXERCISE_RECORD` | 완료 요청에 이 세션에 없는 운동이 섞임 |
 | 404 | `IN_PROGRESS_COURSE_NOT_FOUND` | 진행 중인 코스가 없음. **코스 처방으로 보낸다** |
 | 404 | `SCREENING_RESULT_NOT_FOUND` | 아직 진단한 적이 없음. **온보딩으로 보낸다** |
 | 404 | `TARGET_POSE_NOT_FOUND` | 존재하지 않는 목표 자세 ID |
@@ -582,7 +589,7 @@ HTTP 상태만 보지 말고 가능하면 `code`를 기준으로 화면 동작�
 | CORS 허용 오리진 | `support-web`의 `SecurityConfig`·`CorsProperties` | 구현됨 |
 | 코스 처방·진행도·도장 | `course/api`, `course/service`, `course/model` | 구현됨 |
 | 코스 템플릿·스텝 데이터 | `course/schema`의 Liquibase seed | 현재 seed 미구현 |
-| 세션 수행·기록 | `training` 도메인 | 도메인 미구현 |
+| 세션 수행·기록 | `training/api`, `training/service`, `training/model` | 구현됨 |
 
 예를 들어 프론트가 “코스 상세에서 운동 목록을 받고 싶다”고 요청하면,
 `GET /catalog/exercises`를 임시로 만들어 쓰는 것이 아니라 `course`의 코스 계약과
@@ -784,5 +791,117 @@ Content-Type: application/json
 
 ### 아직 없는 것
 
-**세션 수행 API가 없다.** 코스 스텝을 실제로 수행하고 완료를 기록하는 것은 `training` 도메인이고
-아직 구현되지 않았다. 그래서 **지금은 진행도를 올릴 방법이 없다** — 처방과 조회까지만 가능하다.
+세션 수행은 `training` 도메인이 맡는다. 아래 「세션 API」를 참고한다.
+
+## 세션 API
+
+코스 스텝 하나를 실제로 수행하는 흐름이다. **세션 완료가 코스 진행도를 올리는 유일한 경로**다.
+
+```text
+POST /sessions                        코스 스텝으로 세션 시작
+        │  플레이어가 운동을 순서대로 재생한다
+        ▼
+POST /sessions/{sessionId}/complete   수행 결과 저장 → 코스 진행도 반영
+        │
+        ▼
+courseProgress 로 진행도·도장 확인
+```
+
+앱이 죽었다 돌아오면 `GET /sessions/{sessionId}`로 상태를 다시 그린다.
+
+### 응답 형태가 셋 다 같다
+
+시작·조회·완료가 모두 `SessionResponse`를 돌려준다. 화면이 세 경로에서 같은 것을 그리므로
+형태를 하나로 뒀다. **`courseProgress`만 완료 응답에서 채워지고 나머지에서는 `null`이다.**
+
+### `POST /sessions`
+
+```http
+POST /sessions
+Authorization: Bearer {alignerAccessToken}
+Content-Type: application/json
+
+{"courseId":20,"stepOrder":1}
+```
+
+성공하면 **201**이고, 수행 기록이 전부 `completed:false`로 실려 온다.
+
+```json
+{
+  "sessionId": 100,
+  "courseId": 20,
+  "stepOrder": 1,
+  "status": "IN_PROGRESS",
+  "startedAt": "2026-08-10T12:00:00Z",
+  "completedAt": null,
+  "exerciseRecords": [
+    {
+      "courseStepExerciseId": 51,
+      "exerciseId": 7,
+      "name": "캣카우",
+      "category": "가동성 웜업",
+      "displayOrder": 1,
+      "durationSeconds": 120,
+      "setCount": 1,
+      "completed": false,
+      "performedDurationSeconds": null
+    }
+  ],
+  "courseProgress": null
+}
+```
+
+**이미 완료한 스텝으로도 다시 시작할 수 있다.** 회원이 같은 스텝을 반복 수행하는 것을 막지
+않는다. `durationSeconds`와 `setCount`는 코스 override와 catalog 기본값이 이미 해석된 값이다.
+
+음성 큐·근육맵·주의사항은 여기 없다. `exerciseId`로 `GET /catalog/exercises/{exerciseId}`를
+부른다 — 운동 가이드 화면이 이미 쓰는 API다.
+
+### `GET /sessions/{sessionId}`
+
+세션 복구용이다. 응답은 위와 같다. 없는 세션과 남의 세션은 똑같이 404 `SESSION_NOT_FOUND`다.
+
+### `POST /sessions/{sessionId}/complete`
+
+```http
+POST /sessions/100/complete
+Authorization: Bearer {alignerAccessToken}
+Content-Type: application/json
+
+{
+  "exerciseRecords": [
+    { "courseStepExerciseId": 51, "completed": true, "performedDurationSeconds": 120 }
+  ]
+}
+```
+
+응답은 `SessionResponse`이고 `courseProgress`가 채워진다.
+
+```json
+{
+  "sessionId": 100,
+  "status": "COMPLETED",
+  "completedAt": "2026-08-10T12:15:00Z",
+  "exerciseRecords": [ "..." ],
+  "courseProgress": {
+    "completedStepCount": 2,
+    "totalStepCount": 6,
+    "courseCompleted": false,
+    "stampAcquired": false
+  }
+}
+```
+
+지켜야 할 것이 셋이다.
+
+1. **`courseStepExerciseId`는 세션 응답의 값을 그대로 쓴다.** 이 세션에 없는 값이 섞이면
+   400 `UNKNOWN_EXERCISE_RECORD`다
+2. **요청에 없는 운동은 수행하지 않은 것으로 남는다.** 부분 완료가 정상이므로 중간에 그만둔
+   세션도 그대로 보내면 된다
+3. **멱등하다.** 같은 요청을 재시도해도 진행도가 두 번 오르지 않고 도장도 한 번만 붙는다.
+   재시도로 들어온 호출에서는 `stampAcquired`가 `false`다 — 네트워크 오류 후 재시도를
+   안전하게 해도 된다
+
+`courseCompleted`가 `true`이고 `stampAcquired`가 `true`면 그 자세를 처음 완성한 것이다.
+축하 화면을 띄운다면 이 조합을 신호로 쓴다. 이후 `GET /courses/progress/target-poses`에서
+그 자세가 `completed:true`로 바뀐다.

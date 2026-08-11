@@ -83,3 +83,16 @@ include(
     "course:adapter-catalog",
     "course:adapter-member",
 )
+
+// training — 세션 시작·수행 기록·완료 push (docs/domains.md §4-5, §5).
+// 기본 6 개 + adapter 2 개. **contract 를 만들지 않는다** — training 을 읽는 도메인이 없다 (§3).
+include(
+    "training:model",
+    "training:infrastructure",
+    "training:schema",
+    "training:service",
+    "training:repository-jdbc",
+    "training:api",
+    "training:adapter-course",
+    "training:adapter-catalog",
+)
