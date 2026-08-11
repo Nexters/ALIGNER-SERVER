@@ -38,23 +38,26 @@ aligner:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
       max-age-seconds: ${CORS_MAX_AGE_SECONDS:3600}
   auth:
+    # **환경변수를 요구하지 않는다.** 프론트가 bootRun 하나로 띄울 수 있어야 한다.
+    #
+    # 운영은 시크릿에 기본값을 두지 않지만(CONTRIBUTING.md 8), 여기 값들은 시크릿이 아니다 —
+    # 목 서버 밖에서 아무 의미가 없고 이 모듈은 곧 지운다. 그래도 실제 키처럼 보이지 않도록
+    # dummy 임을 이름에 박아 둔다.
     jwt:
-      # 기본값을 두지 않는다. 목이라도 규칙은 같다 — 기본값을 박으면 그 값이 그대로
-      # 커밋되고, 나중에 운영 설정을 복사할 때 함께 따라간다 (CONTRIBUTING.md 8).
-      # 어차피 카카오 키도 환경변수로 받아야 하므로 한 줄이 늘 뿐이다.
-      secret: ${JWT_SECRET}
+      # HS256 이라 32 바이트 이상이어야 한다.
+      secret: ${JWT_SECRET:dummy-mock-signing-key-not-a-real-secret-value}
       expiration-seconds: ${JWT_EXPIRATION_SECONDS:1209600}
       issuer: aligner
     kakao:
-      # **카카오 왕복은 진짜다.** 인증을 걸기로 했으므로 프론트가 실제 로그인을 태운다.
-      # 회원 저장만 MockAuthMemberAdapter 가 대신한다.
-      token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
-      user-info-uri: ${KAKAO_USER_INFO_URI:https://kapi.kakao.com/v2/user/me}
-      client-id: ${KAKAO_CLIENT_ID}
-      client-secret: ${KAKAO_CLIENT_SECRET}
-      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao}
-      connect-timeout-millis: ${KAKAO_CONNECT_TIMEOUT_MILLIS:2000}
-      read-timeout-millis: ${KAKAO_READ_TIMEOUT_MILLIS:3000}
+      # 카카오를 치지 않으므로 이 값들은 쓰이지 않는다 (MockKakaoUserClient).
+      # AuthProperties 가 non-null 이라 바인딩만 되게 채운다.
+      token-uri: dummy-unused
+      user-info-uri: dummy-unused
+      client-id: dummy-unused
+      client-secret: dummy-unused
+      redirect-uri: dummy-unused
+      connect-timeout-millis: 2000
+      read-timeout-millis: 3000
 
 # 목도 문서를 띄운다. 프론트가 스키마를 여기서 확인한다.
 springdoc:

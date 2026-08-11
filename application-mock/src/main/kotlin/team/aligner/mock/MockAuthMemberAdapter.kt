@@ -5,13 +5,12 @@ import team.aligner.support.web.AuthenticatedMember
 import team.aligner.support.web.KakaoLoginCommand
 
 /**
- * 회원 조회·가입만 고정으로 대신한다. **인증 자체는 진짜다.**
+ * **현재 Bean 으로 등록하지 않는다.** 이 port 를 요구하던 실제 `KakaoAuthController` 를 목이
+ * 쓰지 않기 때문이다 (MockAuthController 가 카카오를 치지 않고 토큰만 낸다).
  *
- * 카카오 왕복도, JWT 발급·검증도 support-web 의 실제 코드가 그대로 돈다. DB 가 없어
- * 회원을 저장할 수 없으므로 이 자리만 갈아끼운다 — `member:adapter-auth` 를 대신한다
- * (docs/architecture.md §9).
- *
- * 어떤 카카오 계정으로 로그인해도 같은 회원이 된다. 목에서 회원을 구분할 이유가 없다.
+ * 지우지 않고 남기는 이유는, 프론트가 **실제 카카오 로그인 왕복까지 확인**하고 싶어질 때
+ * `SupportWebAutoConfiguration` 의 exclude 를 풀고 이것만 Bean 으로 올리면 되기 때문이다.
+ * 그때는 카카오 앱 키가 필요하다.
  */
 internal class MockAuthMemberAdapter : AuthMemberPort {
     override fun findOrRegisterByKakao(command: KakaoLoginCommand): AuthenticatedMember =
