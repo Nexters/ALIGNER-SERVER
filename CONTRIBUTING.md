@@ -269,6 +269,9 @@ Gradle 파일을 추가하면서 wrapper를 누락하면 CI가 실패합니다. 
   - Variables: `GABIA_SSH_PORT`, `GABIA_DEPLOY_PATH`, `DEPLOY_SMOKE_URL`
 - 서버의 `GABIA_DEPLOY_PATH/.env`는 `.env.example`의 키를 기준으로 한 번 생성하고 권한을
   `600`으로 제한합니다. 값 변경도 서버에서만 수행합니다.
+- 개발 환경은 API와 PostgreSQL만 같은 Compose로 실행합니다. PostgreSQL은 호스트 포트를
+  공개하지 않고 `postgres-data` 볼륨에 데이터를 보존합니다. 현재 코드에 사용처가 없는
+  Valkey·메시지 큐·오브젝트 스토리지는 추가하지 않습니다.
 - 향후 k3s 전환 시 Gabia `.env`의 운영 값은 K8s Secret으로 옮기고, 같은 GHCR SHA 이미지를
   배포합니다.
 

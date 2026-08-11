@@ -192,6 +192,13 @@ jobs:
           cd "$deploy_path"
 
           test -f .env
+          required_env=(DB_URL DB_USERNAME DB_PASSWORD JWT_SECRET KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET)
+          for name in "${required_env[@]}"; do
+            if ! grep -Eq "^${name}=.+" .env; then
+              echo "필수 애플리케이션 환경값 ${name}이 비어 있습니다." >&2
+              exit 1
+            fi
+          done
           ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml.next config --quiet
           mv compose.deploy.yml.next compose.deploy.yml
 
@@ -199,9 +206,10 @@ jobs:
           printf '%s\n' "$previous_image" > .previous-image
 
           DOCKER_CONFIG="$deploy_path/.docker-ci" ALIGNER_IMAGE="$image_reference" \
-            docker compose -f compose.deploy.yml pull api
-          ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml down
-          ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml up -d --remove-orphans
+            docker compose -f compose.deploy.yml pull
+          ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml up -d --wait postgres
+          ALIGNER_IMAGE="$image_reference" \
+            docker compose -f compose.deploy.yml up -d --no-deps api
           REMOTE
 
           if curl --fail --silent --show-error --retry 12 --retry-delay 5 \
@@ -218,9 +226,12 @@ jobs:
           cd "$deploy_path"
           previous_image=$(cat .previous-image)
 
-          ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml down
           if [[ -n "$previous_image" ]]; then
-            ALIGNER_IMAGE="$previous_image" docker compose -f compose.deploy.yml up -d --remove-orphans
+            ALIGNER_IMAGE="$previous_image" \
+              docker compose -f compose.deploy.yml up -d --no-deps api
+          else
+            ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml stop api
+            ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml rm -f api
           fi
           REMOTE
           exit 1
