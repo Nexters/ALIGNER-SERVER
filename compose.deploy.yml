@@ -1,0 +1,51 @@
+services:
+  traefik:
+    image: traefik:v3.7.5
+    user: "65532:65532"
+    command:
+      - --api.dashboard=false
+      - --providers.file.filename=/etc/traefik/dynamic.yml
+      - --entrypoints.web.address=:8080
+    ports:
+      - "80:8080"
+    volumes:
+      - ${TRAEFIK_DYNAMIC_FILE:-./traefik.dynamic.yml}:/etc/traefik/dynamic.yml:ro
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  api:
+    image: ${ALIGNER_IMAGE:?ALIGNER_IMAGE가 필요합니다}
+    container_name: aligner-api
+    env_file:
+      - ${ALIGNER_ENV_FILE:-.env}
+    expose:
+      - "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  postgres:
+    image: postgres:18.4-alpine
+    environment:
+      POSTGRES_DB: aligner
+      POSTGRES_USER: aligner
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aligner -d aligner"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
