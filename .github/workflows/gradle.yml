@@ -191,6 +191,8 @@ jobs:
             "mkdir -p -- '$GABIA_DEPLOY_PATH'"
           scp -P "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" compose.deploy.yml \
             "$GABIA_USER@$GABIA_HOST:$GABIA_DEPLOY_PATH/compose.deploy.yml.next"
+          scp -P "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" traefik.dynamic.yml \
+            "$GABIA_USER@$GABIA_HOST:$GABIA_DEPLOY_PATH/traefik.dynamic.yml.next"
 
       - name: Gabia에서 GHCR 로그인
         shell: bash
@@ -219,25 +221,69 @@ jobs:
               exit 1
             fi
           done
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
             docker compose --env-file .env.next -f compose.deploy.yml.next config --quiet
-          mv compose.deploy.yml.next compose.deploy.yml
 
           previous_image=$(docker inspect --format '{{.Config.Image}}' aligner-api 2>/dev/null || true)
           printf '%s\n' "$previous_image" > .previous-image
 
-          DOCKER_CONFIG="$deploy_path/.docker-ci" ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
-            docker compose --env-file .env.next -f compose.deploy.yml pull
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
-            docker compose --env-file .env.next -f compose.deploy.yml up -d --wait postgres
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
-            docker compose --env-file .env.next -f compose.deploy.yml up -d --no-deps api
+          rollback_rollout() {
+            failed_status=$?
+            trap - ERR
+            set +e
+            if [[ -n "$previous_image" && -f compose.deploy.yml ]]; then
+              ALIGNER_IMAGE="$previous_image" docker compose -f compose.deploy.yml up -d --no-deps api
+            else
+              ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+                docker compose --env-file .env.next -f compose.deploy.yml.next stop api
+              ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+                docker compose --env-file .env.next -f compose.deploy.yml.next rm -f api
+            fi
+            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+              docker compose --env-file .env.next -f compose.deploy.yml.next stop traefik
+            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+              docker compose --env-file .env.next -f compose.deploy.yml.next rm -f traefik
+            if [[ -f compose.deploy.yml ]] && \
+              ALIGNER_IMAGE="${previous_image:-$image_reference}" docker compose -f compose.deploy.yml config --services | grep -qx traefik; then
+              ALIGNER_IMAGE="${previous_image:-$image_reference}" \
+                docker compose -f compose.deploy.yml up -d --no-deps --force-recreate traefik
+            fi
+            rm -f .env.next compose.deploy.yml.next traefik.dynamic.yml.next
+            exit "$failed_status"
+          }
+          trap rollback_rollout ERR
+
+          DOCKER_CONFIG="$deploy_path/.docker-ci" ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+            docker compose --env-file .env.next -f compose.deploy.yml.next pull
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+            docker compose --env-file .env.next -f compose.deploy.yml.next up -d --wait postgres
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+            docker compose --env-file .env.next -f compose.deploy.yml.next up -d --no-deps api
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+            docker compose --env-file .env.next -f compose.deploy.yml.next up -d --no-deps --force-recreate traefik
+          trap - ERR
           REMOTE
 
           if curl --fail --silent --show-error --retry 12 --retry-delay 5 \
             --retry-all-errors --max-time 10 "$DEPLOY_SMOKE_URL" > /dev/null; then
             ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" "$GABIA_USER@$GABIA_HOST" \
-              "mv '$GABIA_DEPLOY_PATH/.env.next' '$GABIA_DEPLOY_PATH/.env'"
+              bash -s -- "$GABIA_DEPLOY_PATH" "$IMAGE_REFERENCE" <<'REMOTE'
+          set -euo pipefail
+          deploy_path=$1
+          image_reference=$2
+          cd "$deploy_path"
+
+          install -m 600 .env.next .env
+          install -m 644 compose.deploy.yml.next compose.deploy.yml
+          install -m 644 traefik.dynamic.yml.next traefik.dynamic.yml
+          if ! ALIGNER_IMAGE="$image_reference" \
+            docker compose -f compose.deploy.yml up -d --no-deps --force-recreate traefik; then
+            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+              docker compose --env-file .env.next -f compose.deploy.yml.next up -d --no-deps --force-recreate traefik
+            exit 1
+          fi
+          rm -f .env.next compose.deploy.yml.next traefik.dynamic.yml.next
+          REMOTE
             exit 0
           fi
 
@@ -254,12 +300,21 @@ jobs:
             ALIGNER_IMAGE="$previous_image" \
               docker compose -f compose.deploy.yml up -d --no-deps api
           else
-            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
-              docker compose --env-file .env.next -f compose.deploy.yml stop api
-            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
-              docker compose --env-file .env.next -f compose.deploy.yml rm -f api
+            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+              docker compose --env-file .env.next -f compose.deploy.yml.next stop api
+            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+              docker compose --env-file .env.next -f compose.deploy.yml.next rm -f api
           fi
-          rm -f .env.next
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+            docker compose --env-file .env.next -f compose.deploy.yml.next stop traefik
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+            docker compose --env-file .env.next -f compose.deploy.yml.next rm -f traefik
+          if [[ -f compose.deploy.yml ]] && \
+            ALIGNER_IMAGE="${previous_image:-$image_reference}" docker compose -f compose.deploy.yml config --services | grep -qx traefik; then
+            ALIGNER_IMAGE="${previous_image:-$image_reference}" \
+              docker compose -f compose.deploy.yml up -d --no-deps --force-recreate traefik
+          fi
+          rm -f .env.next compose.deploy.yml.next traefik.dynamic.yml.next
           REMOTE
           exit 1
 
