@@ -135,9 +135,20 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: 배포 설정 검증
+        env:
+          APPLICATION_ENV: ${{ secrets.APPLICATION_ENV }}
         shell: bash
         run: |
-          required=(IMAGE_REFERENCE GABIA_HOST GABIA_USER GABIA_SSH_PRIVATE_KEY GABIA_KNOWN_HOSTS GABIA_DEPLOY_PATH DEPLOY_SMOKE_URL GHCR_TOKEN)
+          while IFS= read -r line; do
+            for name in DB_PASSWORD JWT_SECRET KAKAO_CLIENT_SECRET; do
+              if [[ "$line" == "$name="* ]]; then
+                value=${line#*=}
+                [[ -n "$value" ]] && printf '::add-mask::%s\n' "$value"
+              fi
+            done
+          done <<< "$APPLICATION_ENV"
+
+          required=(IMAGE_REFERENCE GABIA_HOST GABIA_USER GABIA_SSH_PRIVATE_KEY GABIA_KNOWN_HOSTS APPLICATION_ENV GABIA_DEPLOY_PATH DEPLOY_SMOKE_URL GHCR_TOKEN)
           for name in "${required[@]}"; do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::${name} 설정이 비어 있습니다."
@@ -164,11 +175,20 @@ jobs:
           chmod 600 "$HOME/.ssh/gabia_deploy"
           printf '%s\n' "$GABIA_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
 
+      - name: 런타임 환경 파일 전송
+        env:
+          APPLICATION_ENV: ${{ secrets.APPLICATION_ENV }}
+        shell: bash
+        run: |
+          printf '%s' "$APPLICATION_ENV" | ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" \
+            "$GABIA_USER@$GABIA_HOST" \
+            "umask 077; mkdir -p -- '$GABIA_DEPLOY_PATH'; cat > '$GABIA_DEPLOY_PATH/.env.next'; chmod 600 '$GABIA_DEPLOY_PATH/.env.next'; test -s '$GABIA_DEPLOY_PATH/.env.next'"
+
       - name: Compose 파일 전송
         shell: bash
         run: |
           ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" "$GABIA_USER@$GABIA_HOST" \
-            "mkdir -p -- '$GABIA_DEPLOY_PATH' && test -f '$GABIA_DEPLOY_PATH/.env'"
+            "mkdir -p -- '$GABIA_DEPLOY_PATH'"
           scp -P "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" compose.deploy.yml \
             "$GABIA_USER@$GABIA_HOST:$GABIA_DEPLOY_PATH/compose.deploy.yml.next"
 
@@ -191,29 +211,33 @@ jobs:
           image_reference=$2
           cd "$deploy_path"
 
-          test -f .env
+          test -f .env.next
           required_env=(DB_URL DB_USERNAME DB_PASSWORD JWT_SECRET KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET)
           for name in "${required_env[@]}"; do
-            if ! grep -Eq "^${name}=.+" .env; then
+            if ! grep -Eq "^${name}=.+" .env.next; then
               echo "필수 애플리케이션 환경값 ${name}이 비어 있습니다." >&2
               exit 1
             fi
           done
-          ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml.next config --quiet
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
+            docker compose --env-file .env.next -f compose.deploy.yml.next config --quiet
           mv compose.deploy.yml.next compose.deploy.yml
 
           previous_image=$(docker inspect --format '{{.Config.Image}}' aligner-api 2>/dev/null || true)
           printf '%s\n' "$previous_image" > .previous-image
 
-          DOCKER_CONFIG="$deploy_path/.docker-ci" ALIGNER_IMAGE="$image_reference" \
-            docker compose -f compose.deploy.yml pull
-          ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml up -d --wait postgres
-          ALIGNER_IMAGE="$image_reference" \
-            docker compose -f compose.deploy.yml up -d --no-deps api
+          DOCKER_CONFIG="$deploy_path/.docker-ci" ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
+            docker compose --env-file .env.next -f compose.deploy.yml pull
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
+            docker compose --env-file .env.next -f compose.deploy.yml up -d --wait postgres
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
+            docker compose --env-file .env.next -f compose.deploy.yml up -d --no-deps api
           REMOTE
 
           if curl --fail --silent --show-error --retry 12 --retry-delay 5 \
             --retry-all-errors --max-time 10 "$DEPLOY_SMOKE_URL" > /dev/null; then
+            ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" "$GABIA_USER@$GABIA_HOST" \
+              "mv '$GABIA_DEPLOY_PATH/.env.next' '$GABIA_DEPLOY_PATH/.env'"
             exit 0
           fi
 
@@ -230,9 +254,12 @@ jobs:
             ALIGNER_IMAGE="$previous_image" \
               docker compose -f compose.deploy.yml up -d --no-deps api
           else
-            ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml stop api
-            ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml rm -f api
+            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
+              docker compose --env-file .env.next -f compose.deploy.yml stop api
+            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next \
+              docker compose --env-file .env.next -f compose.deploy.yml rm -f api
           fi
+          rm -f .env.next
           REMOTE
           exit 1
 

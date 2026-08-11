@@ -3,7 +3,7 @@ services:
     image: ${ALIGNER_IMAGE:?ALIGNER_IMAGE가 필요합니다}
     container_name: aligner-api
     env_file:
-      - .env
+      - ${ALIGNER_ENV_FILE:-.env}
     ports:
       - "${HOST_PORT:-8080}:${SERVER_PORT:-8080}"
     depends_on:
