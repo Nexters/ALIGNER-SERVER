@@ -24,6 +24,9 @@ import team.aligner.course.api.dto.TodayCourseResponse
  * - 코스 21 — 완성 `6 / 6`
  *
  * 프론트가 두 화면을 모두 만들 수 있다. 세션을 완료해도 20 번 코스의 진행도는 그대로다.
+ *
+ * **진행도는 MockFixtures.COURSES 한 곳에서만 가져온다.** 도전 현황과 코스 개요가 각자 값을
+ * 들고 있으면 같은 코스의 진행도가 화면마다 달라진다.
  */
 @RestController
 @RequestMapping("/courses")
@@ -39,17 +42,18 @@ internal class MockCourseController {
 
     @GetMapping("/today")
     fun getTodayCourse(): TodayCourseResponse {
-        val pose = MockFixtures.TARGET_POSES.first()
+        val course = MockFixtures.COURSES.getValue(MockFixtures.IN_PROGRESS_COURSE_ID)
+        val pose = course.targetPose
         return TodayCourseResponse(
-            courseId = MockFixtures.IN_PROGRESS_COURSE_ID,
+            courseId = course.courseId,
             targetPoseId = pose.id,
             targetPoseName = pose.name,
             targetPoseImageAssetKey = pose.assetKey,
             targetPoseLevel = pose.level,
             name = "낙타자세 정복하기",
             recommendationReason = "등과 골반 근육 강화에 집중해 보세요",
-            currentStepOrder = MockFixtures.COMPLETED_STEP_COUNT + 1,
-            completedStepCount = MockFixtures.COMPLETED_STEP_COUNT,
+            currentStepOrder = course.completedSteps + 1,
+            completedStepCount = course.completedSteps,
             totalStepCount = MockFixtures.TOTAL_STEP_COUNT,
             exerciseCount = MockFixtures.TOTAL_STEP_COUNT,
             totalSetCount = MockFixtures.TOTAL_SET_COUNT,
@@ -58,30 +62,34 @@ internal class MockCourseController {
         )
     }
 
+    /**
+     * 도전 현황도 코스 개요와 **같은 픽스처에서 진행도를 가져온다.** 각자 값을 들고 있으면
+     * 현황에서 상세로 넘어갈 때 같은 코스의 진행도가 달라진다.
+     */
     @GetMapping("/progress/target-poses")
     fun getTargetPoseProgress(
         @RequestParam(required = false) completed: Boolean?,
     ): List<TargetPoseProgressResponse> {
-        val all =
-            listOf(
-                progress(MockFixtures.TARGET_POSES[0], MockFixtures.IN_PROGRESS_COURSE_ID, 3, 4, false),
-                progress(MockFixtures.TARGET_POSES[2], 22L, 2, 4, false),
-                progress(MockFixtures.TARGET_POSES[3], 23L, 1, 4, false),
-                progress(MockFixtures.TARGET_POSES[8], MockFixtures.COMPLETED_COURSE_ID, 4, 4, true),
-            )
+        val all = MockFixtures.COURSES.values.map(::progress)
         return if (completed == null) all else all.filter { it.completed == completed }
     }
 
+    /**
+     * **픽스처에 없는 식별자는 404 다.** 실제 서버와 같은 오류 계약을 내야 프론트가 오류
+     * 경로까지 목으로 만들 수 있다.
+     */
     @GetMapping("/{courseId}")
     fun getCourseDetail(
         @PathVariable courseId: Long,
     ): CourseDetailResponse {
-        val done = courseId == MockFixtures.COMPLETED_COURSE_ID
-        val completedSteps = if (done) MockFixtures.TOTAL_STEP_COUNT else MockFixtures.COMPLETED_STEP_COUNT
-        val pose = MockFixtures.TARGET_POSES.first()
+        val course =
+            MockFixtures.COURSES[courseId]
+                ?: throw MockNotFoundException("COURSE_NOT_FOUND", "코스를 찾을 수 없습니다")
+        val completedSteps = course.completedSteps
+        val pose = course.targetPose
 
         return CourseDetailResponse(
-            courseId = courseId,
+            courseId = course.courseId,
             targetPoseId = pose.id,
             targetPoseName = pose.name,
             name = "낙타자세 정복하기",
@@ -102,7 +110,7 @@ internal class MockCourseController {
                         exercises =
                             listOf(
                                 CourseStepExerciseResponse(
-                                    courseStepExerciseId = 50L + order,
+                                    courseStepExerciseId = MockFixtures.COURSE_STEP_EXERCISE_ID_BASE + order,
                                     exerciseId = exercise.id,
                                     name = exercise.name,
                                     category = exercise.category,
@@ -117,19 +125,14 @@ internal class MockCourseController {
         )
     }
 
-    private fun progress(
-        pose: MockFixtures.TargetPose,
-        courseId: Long,
-        completedSteps: Int,
-        totalSteps: Int,
-        done: Boolean,
-    ) = TargetPoseProgressResponse(
-        courseId = courseId,
-        targetPoseId = pose.id,
-        targetPoseName = pose.name,
-        targetPoseImageAssetKey = pose.assetKey,
-        completedStepCount = completedSteps,
-        totalStepCount = totalSteps,
-        completed = done,
-    )
+    private fun progress(course: MockFixtures.CourseState) =
+        TargetPoseProgressResponse(
+            courseId = course.courseId,
+            targetPoseId = course.targetPose.id,
+            targetPoseName = course.targetPose.name,
+            targetPoseImageAssetKey = course.targetPose.assetKey,
+            completedStepCount = course.completedSteps,
+            totalStepCount = MockFixtures.TOTAL_STEP_COUNT,
+            completed = course.completed,
+        )
 }

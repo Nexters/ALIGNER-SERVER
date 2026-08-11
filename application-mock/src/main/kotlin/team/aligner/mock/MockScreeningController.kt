@@ -9,6 +9,7 @@ import team.aligner.screening.api.dto.BodyPartResponse
 import team.aligner.screening.api.dto.ScreeningCauseResponse
 import team.aligner.screening.api.dto.ScreeningResultResponse
 import team.aligner.screening.api.dto.SubmitScreeningRequest
+import team.aligner.screening.model.ScreeningResult
 
 /**
  * 진단은 항상 같은 결과를 낸다 — **등·골반이 약한 회원**이다.
@@ -25,11 +26,17 @@ internal class MockScreeningController {
 
     /**
      * 제출한 자세와 무관하게 같은 원인을 돌려준다. 저장하지 않는다.
+     *
+     * 다만 **검증은 실제와 같이 태운다.** `toAnswers()` 를 지나 애그리거트 규칙까지 확인하므로
+     * 빈 응답·중복 자세·체감별 4 개 초과가 실제 서버와 같은 400 이 된다.
      */
     @PostMapping("/results")
     fun submit(
         @RequestBody request: SubmitScreeningRequest,
-    ): ScreeningResultResponse = result()
+    ): ScreeningResultResponse {
+        ScreeningResult.submit(memberId = MockFixtures.MEMBER_ID, answers = request.toAnswers())
+        return result()
+    }
 
     @GetMapping("/results/latest")
     fun getLatestResult(): ScreeningResultResponse = result()
@@ -38,24 +45,16 @@ internal class MockScreeningController {
         ScreeningResultResponse(
             resultId = 10L,
             causes =
-                listOf(
+                MockFixtures.CAUSES.map {
                     ScreeningCauseResponse(
-                        causeCode = "WEAK_BACK",
-                        name = "등 근육 약화",
-                        bodyPartCode = "BACK",
-                        description = "등과 골반 근육이 약한 것으로 분석돼요",
-                        rank = 1,
-                        score = 8,
-                    ),
-                    ScreeningCauseResponse(
-                        causeCode = "WEAK_PELVIS",
-                        name = "골반 불안정",
-                        bodyPartCode = "PELVIS",
-                        description = "골반을 잡아주는 근육이 약해요",
-                        rank = 2,
-                        score = 5,
-                    ),
-                ),
+                        causeCode = it.code,
+                        name = it.name,
+                        bodyPartCode = it.bodyPartCode,
+                        description = it.description,
+                        rank = it.rank,
+                        score = it.score,
+                    )
+                },
             createdAt = MockFixtures.NOW,
         )
 }

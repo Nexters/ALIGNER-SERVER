@@ -71,13 +71,12 @@ internal class MockCatalogController {
             metValue = BigDecimal("3.00"),
             difficulty = "하",
             category = exercise.category,
-            cautionNote = "목을 뒤로 완전히 젖히지 마세요. 허리에 날카로운 통증이 오면 즉시 중단하세요.",
+            cautionNote = MockFixtures.CAUTION_NOTE,
             muscles = muscles(),
             voiceCues =
-                listOf(
-                    VoiceCueResponse(1, null, null, "무릎을 골반 너비로 벌리고 손은 어깨 아래에 둡니다"),
-                    VoiceCueResponse(2, 35, 75, "명치를 천장을 향해 높게 끌어올리세요"),
-                ),
+                MockFixtures.VOICE_CUES.map {
+                    VoiceCueResponse(it.displayOrder, it.startOffsetSeconds, it.endOffsetSeconds, it.content)
+                },
         )
     }
 

@@ -12,6 +12,19 @@ plugins {
     id("aligner.boot-application")
 }
 
+/**
+ * **배포 가능한 산출물을 만들지 않는다.**
+ *
+ * `aligner.boot-application` 이 bootJar 를 켜므로 그대로 두면 CI 의 전체 build 에서
+ * 실행 가능한 jar 가 만들어지고, 배포 파이프라인이 실수로 집어갈 수 있다. 목은 개발자가
+ * `bootRun` 으로만 띄운다 — bootRun 은 클래스패스로 돌기 때문에 jar 가 없어도 된다.
+ *
+ * 이렇게 두면 "배포에서 제외한다" 는 약속을 파이프라인 설정이 아니라 **빌드가 강제한다.**
+ */
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    enabled = false
+}
+
 dependencies {
     // 인증·CORS·에러 포맷·OpenAPI 를 실제 그대로 쓴다. 목이 다르게 흉내내면 프론트가
     // 실제 서버로 옮길 때 그 차이만큼 다시 고쳐야 한다.
@@ -24,6 +37,11 @@ dependencies {
     implementation(project(":catalog:api"))
     implementation(project(":course:api"))
     implementation(project(":training:api"))
+
+    // 요청 DTO 의 toCommand()·toAnswers() 를 그대로 호출해 **실제와 같은 검증**을 태운다.
+    // 그 반환 타입이 service 모듈에 있어 컴파일에 필요하다. AutoConfiguration 은 꺼두므로
+    // 서비스 Bean 이 올라오지는 않는다.
+    implementation(project(":member:service"))
 
     // DTO 가 도메인 model 의 enum·View 를 노출한다.
     implementation(project(":member:model"))

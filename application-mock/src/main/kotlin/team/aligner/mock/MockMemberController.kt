@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController
 import team.aligner.member.api.dto.MemberProfileResponse
 import team.aligner.member.api.dto.UpdateMemberProfileRequest
 import team.aligner.member.model.ExperienceLevel
+import team.aligner.member.model.Member
 
 /**
  * 온보딩을 마친 회원을 흉내낸다.
@@ -24,11 +25,30 @@ internal class MockMemberController {
     @GetMapping("/me")
     fun getMyProfile(): MemberProfileResponse = profile()
 
+    /**
+     * **실제 컨트롤러와 같은 검증을 태운다.**
+     *
+     * `toCommand()` 만으로는 부족하다 — 그것은 강화 부위·난이도의 짝만 본다. 키·몸무게 범위와
+     * 닉네임 규칙은 `Member.changeProfile` 안에 있으므로 애그리거트까지 통과시킨다.
+     * 그러지 않으면 실제 서버가 400 으로 막을 요청을 목이 200 으로 받는다.
+     *
+     * 통과한 결과는 버린다. 목은 저장하지 않는다.
+     */
     @PatchMapping("/me")
     fun updateMyProfile(
         @RequestBody request: UpdateMemberProfileRequest,
-    ): MemberProfileResponse =
-        profile().copy(
+    ): MemberProfileResponse {
+        val command = request.toCommand()
+        Member
+            .register(kakaoId = "mock", nickname = null, profileImageUrl = null)
+            .changeProfile(
+                nickname = command.nickname,
+                heightCm = command.heightCm,
+                weightKg = command.weightKg,
+                experienceLevel = command.experienceLevel,
+                reinforcement = command.reinforcement,
+            )
+        return profile().copy(
             nickname = request.nickname ?: profile().nickname,
             heightCm = request.heightCm ?: profile().heightCm,
             weightKg = request.weightKg ?: profile().weightKg,
@@ -36,6 +56,7 @@ internal class MockMemberController {
             reinforcementBodyPartCode = request.reinforcementBodyPartCode ?: profile().reinforcementBodyPartCode,
             reinforcementLevel = request.reinforcementLevel ?: profile().reinforcementLevel,
         )
+    }
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/me")

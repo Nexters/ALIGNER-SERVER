@@ -18,10 +18,14 @@ import team.aligner.training.model.SessionStatus
 /**
  * 세션. 시작·조회는 진행 중, 완료는 완료 상태를 돌려준다.
  *
- * **완료가 코스 진행도를 실제로 올리지는 않는다.** 응답의 `courseProgress` 는 고정값이고,
- * 다음 `GET /courses/today` 에는 반영되지 않는다. 목의 한계다.
+ * **상태를 저장하지 않는 대신 요청에서 역산한다.** 완료 요청의 `courseStepExerciseId` 는
+ * `MockFixtures.COURSE_STEP_EXERCISE_ID_BASE + stepOrder` 규칙을 따르므로, 그것을 되돌리면
+ * 어느 스텝이었는지 알 수 있다. 요청을 무시하고 고정값을 내리면 화면 흐름이 끊긴다.
  *
- * 다만 `stampAcquired = true` 로 두어 **완성 축하 화면을 만들 수 있게** 한다.
+ * **마지막 스텝을 완료하면 `stampAcquired = true` 다.** 프론트가 완성 축하 화면을 만들 수 있다.
+ *
+ * 다만 **완료가 코스 진행도를 실제로 올리지는 않는다.** 다음 `GET /courses/today` 에는
+ * 반영되지 않는다. 목의 한계다.
  */
 @RestController
 @RequestMapping("/sessions")
@@ -32,16 +36,34 @@ internal class MockSessionController {
         @RequestBody request: StartSessionRequest,
     ): SessionResponse = session(request.courseId, request.stepOrder, completed = false)
 
+    /**
+     * 세션 식별자만으로는 어느 스텝이었는지 알 수 없다. 저장하지 않기 때문이다.
+     * 진행 중인 코스의 다음 스텝을 돌려준다 — `GET /courses/today` 의 `currentStepOrder` 와 같다.
+     */
     @GetMapping("/{sessionId}")
     fun getSession(
         @PathVariable sessionId: Long,
-    ): SessionResponse = session(MockFixtures.IN_PROGRESS_COURSE_ID, stepOrder = 2, completed = false)
+    ): SessionResponse = session(MockFixtures.IN_PROGRESS_COURSE_ID, stepOrder = currentStepOrder(), completed = false)
 
+    /**
+     * 요청에 실린 `courseStepExerciseId` 로 스텝을 역산한다. 마지막 스텝이면 도장이 붙는다.
+     */
     @PostMapping("/{sessionId}/complete")
     fun complete(
         @PathVariable sessionId: Long,
         @RequestBody request: CompleteSessionRequest,
-    ): SessionResponse = session(MockFixtures.IN_PROGRESS_COURSE_ID, stepOrder = 2, completed = true)
+    ): SessionResponse {
+        val stepOrder =
+            request.exerciseRecords
+                .minOfOrNull { it.courseStepExerciseId - MockFixtures.COURSE_STEP_EXERCISE_ID_BASE }
+                ?.toInt()
+                ?.takeIf { it in 1..MockFixtures.TOTAL_STEP_COUNT }
+                ?: currentStepOrder()
+
+        return session(MockFixtures.IN_PROGRESS_COURSE_ID, stepOrder = stepOrder, completed = true)
+    }
+
+    private fun currentStepOrder(): Int = MockFixtures.COURSES.getValue(MockFixtures.IN_PROGRESS_COURSE_ID).completedSteps + 1
 
     private fun session(
         courseId: Long,
@@ -59,7 +81,7 @@ internal class MockSessionController {
             exerciseRecords =
                 listOf(
                     SessionExerciseRecordResponse(
-                        courseStepExerciseId = 50L + stepOrder,
+                        courseStepExerciseId = MockFixtures.COURSE_STEP_EXERCISE_ID_BASE + stepOrder,
                         exerciseId = exercise.id,
                         name = exercise.name,
                         category = exercise.category,
