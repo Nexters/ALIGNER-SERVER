@@ -262,15 +262,14 @@ Gradle 파일을 추가하면서 wrapper를 누락하면 CI가 실패합니다. 
 발행하고, Gabia의 Docker Compose가 해당 커밋 SHA 이미지를 중단 배포합니다.
 
 - 운영 배포 기준은 계속 `main`입니다. 현재 Gabia 자동 배포는 개발 환경에만 해당합니다.
-- 애플리케이션 환경값은 Gabia 배포 경로의 `.env`가 소유합니다. GitHub Actions는 값을 전달하지
-  않고 이미지와 Compose 파일만 갱신합니다.
-- GitHub Environment `gabia-development`에는 Gabia SSH 접속 정보만 등록합니다.
-  - Secrets: `GABIA_HOST`, `GABIA_USER`, `GABIA_SSH_PRIVATE_KEY`, `GABIA_KNOWN_HOSTS`
+- 애플리케이션 환경값은 GitHub Environment `gabia-development`의 `APPLICATION_ENV`가 소유하고,
+  GitHub Actions가 배포 시 Gabia 경로의 `.env`로 전달합니다.
+- GitHub Environment `gabia-development`에는 애플리케이션 설정과 Gabia SSH 접속 정보를 등록합니다.
+  - Secrets: `APPLICATION_ENV`, `GABIA_HOST`, `GABIA_USER`, `GABIA_SSH_PRIVATE_KEY`, `GABIA_KNOWN_HOSTS`
   - Variables: `GABIA_SSH_PORT`, `GABIA_DEPLOY_PATH`, `DEPLOY_SMOKE_URL`
-- 서버의 `GABIA_DEPLOY_PATH/.env`는 `.env.example`의 키를 기준으로 한 번 생성하고 권한을
-  `600`으로 제한합니다. 값 변경도 서버에서만 수행합니다.
-- 개발 환경은 API와 PostgreSQL만 같은 Compose로 실행합니다. PostgreSQL은 호스트 포트를
-  공개하지 않고 `postgres-data` 볼륨에 데이터를 보존합니다. 현재 코드에 사용처가 없는
+- 서버의 `GABIA_DEPLOY_PATH/.env`는 배포 시 생성하고 권한을 `600`으로 제한합니다.
+- 개발 환경은 Traefik, API, PostgreSQL을 같은 Compose로 실행합니다. 외부에는 Traefik의 HTTP
+  포트만 공개하고 PostgreSQL은 `postgres-data` 볼륨에 데이터를 보존합니다. 현재 코드에 사용처가 없는
   Valkey·메시지 큐·오브젝트 스토리지는 추가하지 않습니다.
 - 향후 k3s 전환 시 Gabia `.env`의 운영 값은 K8s Secret으로 옮기고, 같은 GHCR SHA 이미지를
   배포합니다.
@@ -283,9 +282,8 @@ CI가 없는 동안에는 **PR 체크리스트의 "로컬에서 빌드와 테스
 ## 8. 하지 말 것
 
 - **시크릿을 커밋하지 않습니다.** DB 비밀번호, 카카오 앱 키, JWT 시크릿 전부 해당합니다.
-  - **로컬은 `.env`** — `.gitignore`에 넣고, 대신 **`.env.example`을 키 이름만 담아 커밋**합니다.
-    새로 클론한 사람이 무엇을 채워야 하는지 알 수 있어야 합니다.
-  - **Gabia 개발 배포는 서버의 `.env`** — GitHub Actions가 값을 소유하거나 전송하지 않습니다.
+  - **로컬은 `.env`** — `.gitignore`에 넣고 커밋하지 않습니다.
+  - **Gabia 개발 배포는 GitHub Environment Secret** — Actions가 서버의 `.env`를 생성합니다.
   - **k3s 배포는 K8s Secret** — 운영 값은 클러스터가 소유하고, 애플리케이션은 환경변수로만 받습니다.
   - 경계는 하나입니다. **값이 어디서 오는지는 환경이 정하고, 코드는 이름만 압니다.**
     `application.yml`에는 `${DB_PASSWORD}`처럼 참조만 두고 기본값을 박지 않습니다.
