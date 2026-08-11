@@ -1,0 +1,64 @@
+# 더미 목 서버. **임시 개발 도구이고 배포 대상이 아니다** (이슈 #29).
+#
+# DB 가 없다. 도메인 서비스·리포지토리를 아예 조립하지 않으므로 DataSource·Liquibase 설정이
+# 필요 없고, 프론트가 bootRun 하나로 띄운다.
+spring:
+  application:
+    name: aligner-mock
+
+  autoconfigure:
+    # 도메인 api 모듈을 의존하는 이유는 **응답 DTO 재사용**뿐이다. 그 모듈의 컨트롤러까지
+    # 올라오면 실제 서비스 Bean 이 없어 기동이 실패하므로 여기서 끈다.
+    #
+    # 운영 코드를 고치지 않고 목을 만드는 장치가 이 목록이다.
+    exclude:
+      # DB 를 쓰지 않는다. aligner.boot-application 이 JDBC·Liquibase starter 를 끌고 오므로
+      # 자동설정을 끄지 않으면 DataSource 를 만들려다 기동이 실패한다.
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.liquibase.autoconfigure.LiquibaseAutoConfiguration
+      - team.aligner.member.api.MemberApiAutoConfiguration
+      - team.aligner.screening.api.ScreeningApiAutoConfiguration
+      - team.aligner.catalog.api.CatalogApiAutoConfiguration
+      - team.aligner.course.api.CourseApiAutoConfiguration
+      - team.aligner.training.api.TrainingApiAutoConfiguration
+      # api 모듈이 service 를 끌고 오므로 그쪽 AutoConfiguration 도 함께 올라온다.
+      # 서비스는 리포지토리 port 를 요구하는데 목에는 그 구현이 없다.
+      - team.aligner.member.service.MemberServiceAutoConfiguration
+      - team.aligner.screening.service.ScreeningServiceAutoConfiguration
+      - team.aligner.catalog.service.CatalogServiceAutoConfiguration
+      - team.aligner.course.service.CourseServiceAutoConfiguration
+      - team.aligner.training.service.TrainingServiceAutoConfiguration
+
+server:
+  port: ${SERVER_PORT:8081}
+
+aligner:
+  web:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+      max-age-seconds: ${CORS_MAX_AGE_SECONDS:3600}
+  auth:
+    jwt:
+      # 기본값을 두지 않는다. 목이라도 규칙은 같다 — 기본값을 박으면 그 값이 그대로
+      # 커밋되고, 나중에 운영 설정을 복사할 때 함께 따라간다 (CONTRIBUTING.md 8).
+      # 어차피 카카오 키도 환경변수로 받아야 하므로 한 줄이 늘 뿐이다.
+      secret: ${JWT_SECRET}
+      expiration-seconds: ${JWT_EXPIRATION_SECONDS:1209600}
+      issuer: aligner
+    kakao:
+      # **카카오 왕복은 진짜다.** 인증을 걸기로 했으므로 프론트가 실제 로그인을 태운다.
+      # 회원 저장만 MockAuthMemberAdapter 가 대신한다.
+      token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
+      user-info-uri: ${KAKAO_USER_INFO_URI:https://kapi.kakao.com/v2/user/me}
+      client-id: ${KAKAO_CLIENT_ID}
+      client-secret: ${KAKAO_CLIENT_SECRET}
+      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao}
+      connect-timeout-millis: ${KAKAO_CONNECT_TIMEOUT_MILLIS:2000}
+      read-timeout-millis: ${KAKAO_READ_TIMEOUT_MILLIS:3000}
+
+# 목도 문서를 띄운다. 프론트가 스키마를 여기서 확인한다.
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
