@@ -28,6 +28,13 @@ data class Course(
     val steps: List<CourseStep>,
     val createdAt: Instant?,
     val completedAt: Instant?,
+    /**
+     * 낙관적 락 버전. 저장 어댑터가 쓰는 값이라 도메인 규칙에는 관여하지 않는다.
+     *
+     * 애그리거트에 두는 것은 저장 시점에 "어떤 버전을 읽고 고쳤는가" 를 알아야 하기 때문이다.
+     * 새로 처방된 코스는 null 이고, 저장 뒤 값이 채워진다.
+     */
+    val version: Long? = null,
 ) {
     /** 자세 도전 현황의 분모다. */
     val totalStepCount: Int get() = steps.size
@@ -126,6 +133,7 @@ data class Course(
                     },
                 createdAt = null,
                 completedAt = null,
+                version = null,
             )
         }
     }

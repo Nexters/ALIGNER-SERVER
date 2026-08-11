@@ -78,3 +78,12 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/007-create-stamp.sql
             relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0009-add-course-version
+      author: aligner
+      comment: 동시 세션 완료가 서로를 덮지 않도록 낙관적 락 추가
+      changes:
+        - sqlFile:
+            path: ddl/008-add-course-version.sql
+            relativeToChangelogFile: true

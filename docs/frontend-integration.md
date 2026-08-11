@@ -17,7 +17,7 @@
 | `course` | 구현됨 | 코스 처방, 오늘의 코스, 코스 개요, 자세 도전 현황 |
 | `training` | 미구현 | 세션 시작·완료·수행 기록 API 없음 |
 
-현재 Liquibase changelog는 `member`·`catalog`·`screening`의 **테이블만 생성**한다. 감수 콘텐츠
+현재 Liquibase changelog는 다섯 도메인의 **테이블만 생성**한다. 감수 콘텐츠
 seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 빈 배열이고, 존재하지 않는 ID의
 상세 조회는 404가 정상일 수 있다. 개발용 화면에서 임의 ID를 고정하지 말고 목록 응답의 ID를
 사용한다.
@@ -49,7 +49,7 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 �
 | `MuscleRole` | 근육을 늘리는지 강화하는지 | `STRETCH` 또는 `STRENGTHEN`으로 구분 |
 | `imageAssetKey` | 이미지 파일을 가리키는 안정적인 키 | URL로 바로 렌더링하지 말고 프론트 asset 매핑에 사용 |
 | `bodyPartCode` | 자세·근육이 속한 부위 코드 | `GET /screening/body-parts`가 소유하는 문자열 |
-| `metValue` | 운동 칼로리 계산에 쓰는 MET 값 | kcal 자체가 아니며 서버가 몸무게를 합쳐 계산하지 않음 |
+| `metValue` | 운동 칼로리 계산에 쓰는 MET 값 | catalog 응답에는 MET 만 실린다. kcal 은 **코스·세션 API가** 회원 몸무게와 합쳐 계산해 내려준다 |
 | `voiceCue` | 운동 중 보여줄 한글 큐잉 문장 | `displayOrder` 순서로 재생·표시 |
 | `BodyPart` | 부위 | 진단 결과 뒤 **강화할 부위**를 고르는 화면의 선택지 |
 | `PerceivedDifficulty` | 자세를 해보고 느낀 체감 | `EASY`(쉬웠다) 또는 `HARD`(어려웠다) |
@@ -704,9 +704,16 @@ Content-Type: application/json
 **진행 중인 코스가 없으면 404 `IN_PROGRESS_COURSE_NOT_FOUND`다.** 화면은 이 404를 "코스를
 처방받아야 한다"는 신호로 읽는다.
 
-**`estimatedKcal`이 `null`일 수 있다.** 회원이 몸무게를 아직 입력하지 않았거나 운동의 MET이
-비어 있으면 계산이 성립하지 않는다. **0이 아니다** — 0 kcal은 "운동량 없음"이라 "모름"과 다르다.
-`null`이면 칼로리 자리를 비우거나 몸무게 입력을 유도한다.
+**모르는 값에 서버가 0을 넣지 않는다.** `estimatedKcal` · `estimatedDurationSeconds` ·
+`targetPoseLevel`은 계산이나 조회가 성립하지 않으면 `null`이다.
+
+- `estimatedKcal` — 회원이 몸무게를 아직 입력하지 않았거나 운동의 MET이 비어 있을 때
+- `estimatedDurationSeconds` — 운동 하나라도 수행 시간을 모를 때. 아는 것만 더한 값을 내리면
+  화면이 그것을 코스 전체 시간으로 읽는다
+- `targetPoseLevel` — 자세 콘텐츠를 찾지 못했을 때
+
+0 kcal은 "운동량 없음", 0초는 "순식간", 레벨 0은 "0단계 코스"로 읽히므로 "모름"과 구분된다.
+`null`이면 그 자리를 비우거나(칼로리는 몸무게 입력을 유도) 대체 문구를 쓴다.
 
 `currentStepOrder`는 다음에 수행할 스텝이고 다 했으면 `null`이다.
 

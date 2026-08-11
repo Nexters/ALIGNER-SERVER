@@ -1,5 +1,7 @@
 package team.aligner.course.service
 
+import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.transaction.annotation.Transactional
 import team.aligner.course.infrastructure.CauseLookupPort
 import team.aligner.course.infrastructure.CourseRepository
@@ -67,19 +69,26 @@ internal class CourseCommandServiceImpl(
             targetPoseCatalogPort.findByBodyPartCodeAndLevel(command.bodyPartCode, command.level)
                 ?: throw CourseTemplateNotFoundException()
 
-        courseRepository.findByMemberIdAndTargetPoseId(memberId, targetPose.targetPoseId)?.let { existing ->
-            return checkNotNull(existing.identity) { "저장된 코스에 식별자가 없다" }
-        }
+        findExistingCourse(memberId, targetPose.targetPoseId)?.let { return it }
 
         val template =
             courseTemplateRepository.findByTargetPoseId(targetPose.targetPoseId)
                 ?: throw CourseTemplateNotFoundException()
 
-        val saved =
-            courseRepository.save(
-                Course.prescribe(memberId = memberId, template = template, causeCode = causeCode),
-            )
-        return checkNotNull(saved.identity) { "저장된 코스에 식별자가 없다" }
+        return try {
+            val saved =
+                courseRepository.save(
+                    Course.prescribe(memberId = memberId, template = template, causeCode = causeCode),
+                )
+            checkNotNull(saved.identity) { "저장된 코스에 식별자가 없다" }
+        } catch (e: DataIntegrityViolationException) {
+            // 조회와 저장 사이에 다른 요청이 같은 코스를 만들었다. 유니크 제약이 막아준
+            // 것이므로 실패가 아니라 **멱등 응답**이어야 한다 — 다시 읽어 그 코스를 돌려준다.
+            //
+            // 조회만으로 막으려 하면 이 틈이 남는다. 제약을 최종 방어선으로 두고 여기서
+            // 흡수하는 것이 순서다.
+            findExistingCourse(memberId, targetPose.targetPoseId) ?: throw e
+        }
     }
 
     /**
@@ -95,30 +104,21 @@ internal class CourseCommandServiceImpl(
         courseId: Long,
         stepOrder: Int,
     ): CourseProgressResult {
-        val course =
-            courseRepository
-                .findByIdentity(CourseIdentity.of(courseId))
-                // 남의 코스와 없는 코스를 같은 404 로 돌려준다. 구분해서 알려주면 존재 여부가
-                // 새어나간다 (screening 의 findByIdAndMemberId 와 같은 판단).
-                ?.takeIf { it.memberId == memberId }
-                ?: throw CourseNotFoundException()
+        val completed = saveCompletedStep(memberId, courseId, stepOrder)
 
-        val alreadyCompleted = course.status == CourseStatus.COMPLETED
-
-        val now = Instant.now()
-        val completed = courseRepository.save(course.completeStep(stepOrder = stepOrder, at = now))
-
-        val stampAcquired = completed.status == CourseStatus.COMPLETED && !alreadyCompleted
-        if (stampAcquired) {
-            stampRepository.saveIfAbsent(
-                Stamp.acquire(
-                    memberId = memberId,
-                    targetPoseId = completed.targetPoseId,
-                    courseId = courseId,
-                    at = now,
-                ),
-            )
-        }
+        // **도장 획득 여부를 서비스가 짐작하지 않는다.** "방금 코스가 완료됐나" 로 판단하면
+        // 두 요청이 동시에 마지막 스텝을 밀어넣을 때 둘 다 획득으로 볼 수 있다.
+        // 저장이 실제로 새 행을 넣었는지가 유일한 근거다.
+        val stampAcquired =
+            completed.status == CourseStatus.COMPLETED &&
+                stampRepository.saveIfAbsent(
+                    Stamp.acquire(
+                        memberId = memberId,
+                        targetPoseId = completed.targetPoseId,
+                        courseId = courseId,
+                        at = completed.completedAt ?: Instant.now(),
+                    ),
+                )
 
         return CourseProgressResult(
             courseId = courseId,
@@ -128,6 +128,47 @@ internal class CourseCommandServiceImpl(
             stampAcquired = stampAcquired,
         )
     }
+
+    /**
+     * 스텝 완료를 저장한다. 낙관적 락 충돌이면 **다시 읽어 한 번 재시도**한다.
+     *
+     * 애그리거트를 통째로 저장하므로 두 세션 완료가 동시에 들어오면 나중 저장이 앞선 완료를
+     * 덮는다. `version` 이 그것을 실패로 바꾸고, 여기서 최신 상태로 다시 적용한다.
+     *
+     * 완료는 멱등하므로 재시도가 안전하다. 두 번째도 충돌하면 그대로 올린다 — 계속 미루기보다
+     * 호출부(training)가 재시도하는 편이 낫다.
+     */
+    private fun saveCompletedStep(
+        memberId: Long,
+        courseId: Long,
+        stepOrder: Int,
+    ): Course =
+        try {
+            courseRepository.save(loadOwned(memberId, courseId).completeStep(stepOrder, Instant.now()))
+        } catch (_: OptimisticLockingFailureException) {
+            courseRepository.save(loadOwned(memberId, courseId).completeStep(stepOrder, Instant.now()))
+        }
+
+    /**
+     * 남의 코스와 없는 코스를 같은 404 로 돌려준다. 구분해서 알려주면 존재 여부가 새어나간다
+     * (screening 의 findByIdAndMemberId 와 같은 판단).
+     */
+    private fun loadOwned(
+        memberId: Long,
+        courseId: Long,
+    ): Course =
+        courseRepository
+            .findByIdentity(CourseIdentity.of(courseId))
+            ?.takeIf { it.memberId == memberId }
+            ?: throw CourseNotFoundException()
+
+    private fun findExistingCourse(
+        memberId: Long,
+        targetPoseId: Long,
+    ): CourseIdentity? =
+        courseRepository
+            .findByMemberIdAndTargetPoseId(memberId, targetPoseId)
+            ?.let { checkNotNull(it.identity) { "저장된 코스에 식별자가 없다" } }
 
     /**
      * 회원이 고른 부위가 자기 진단 결과에 있는지 확인하고, 그 부위의 원인 코드를 돌려준다.

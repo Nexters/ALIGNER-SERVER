@@ -55,8 +55,12 @@ data class TodayCourseResponse(
     val targetPoseName: String,
     @field:Schema(description = "목표 자세 이미지 asset 키. URL 이 아니다", nullable = true)
     val targetPoseImageAssetKey: String?,
-    @field:Schema(description = "목표 자세 레벨. 회원이 고른 난이도와 같다", example = "1")
-    val targetPoseLevel: Int,
+    @field:Schema(
+        description = "목표 자세 레벨. 회원이 고른 난이도와 같다. catalog 에서 자세를 찾지 못하면 null 이다",
+        example = "1",
+        nullable = true,
+    )
+    val targetPoseLevel: Int?,
     @field:Schema(description = "코스 이름", example = "낙타자세 정복하기")
     val name: String,
     @field:Schema(description = "코스 추천 이유. 감수 문구다", nullable = true)
@@ -71,8 +75,12 @@ data class TodayCourseResponse(
     val exerciseCount: Int,
     @field:Schema(description = "세트 합계", example = "6")
     val totalSetCount: Int,
-    @field:Schema(description = "예상 수행 시간(초)", example = "900")
-    val estimatedDurationSeconds: Int,
+    @field:Schema(
+        description = "예상 수행 시간(초). 운동 하나라도 시간을 모르면 null 이고 0 이 아니다",
+        example = "900",
+        nullable = true,
+    )
+    val estimatedDurationSeconds: Int?,
     @field:Schema(description = "예상 칼로리. 몸무게나 MET 이 없으면 null 이고 0 이 아니다", example = "69", nullable = true)
     val estimatedKcal: Int?,
 ) {
@@ -117,8 +125,12 @@ data class CourseDetailResponse(
     val exerciseCount: Int,
     @field:Schema(description = "세트 합계", example = "6")
     val totalSetCount: Int,
-    @field:Schema(description = "예상 수행 시간(초)", example = "900")
-    val estimatedDurationSeconds: Int,
+    @field:Schema(
+        description = "예상 수행 시간(초). 운동 하나라도 시간을 모르면 null 이고 0 이 아니다",
+        example = "900",
+        nullable = true,
+    )
+    val estimatedDurationSeconds: Int?,
     @field:Schema(description = "예상 칼로리. 계산할 수 없으면 null 이다", example = "69", nullable = true)
     val estimatedKcal: Int?,
     @field:Schema(description = "스텝. stepOrder 오름차순이다")

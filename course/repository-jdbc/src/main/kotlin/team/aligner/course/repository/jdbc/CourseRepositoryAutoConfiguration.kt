@@ -21,7 +21,7 @@ class CourseRepositoryAutoConfiguration {
     internal fun courseRepository(courseJdbcRepository: CourseJdbcRepository): CourseRepository = CourseRepositoryImpl(courseJdbcRepository)
 
     @Bean(name = ["stampRepository"])
-    internal fun stampRepository(stampJdbcRepository: StampJdbcRepository): StampRepository = StampRepositoryImpl(stampJdbcRepository)
+    internal fun stampRepository(jdbcClient: JdbcClient): StampRepository = StampRepositoryImpl(jdbcClient)
 
     @Bean(name = ["courseTemplateRepository"])
     internal fun courseTemplateRepository(jdbcClient: JdbcClient): CourseTemplateRepository = CourseTemplateRepositoryImpl(jdbcClient)

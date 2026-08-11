@@ -66,7 +66,7 @@ internal class CourseQueryServiceImpl(
             targetPoseId = skeleton.targetPoseId,
             targetPoseName = pose.displayName(),
             targetPoseImageAssetKey = pose?.imageAssetKey,
-            targetPoseLevel = pose?.level ?: 0,
+            targetPoseLevel = pose?.level,
             name = skeleton.templateName,
             recommendationReason = skeleton.recommendationReason,
             currentStepOrder = skeleton.currentStepOrder,
@@ -190,14 +190,14 @@ internal class CourseQueryServiceImpl(
         weightKg: Int?,
     ): CourseTotals {
         val rows = skeleton.steps.flatMap { it.exercises }
-        var duration = 0
+        val durations = mutableListOf<Int?>()
         val kcals = mutableListOf<Int?>()
         var setCount = 0
 
         rows.forEach { row ->
             val catalog = exercises[row.exerciseId]
             val seconds = row.durationSeconds ?: catalog?.defaultDurationSeconds
-            duration += seconds ?: 0
+            durations += seconds
             setCount += row.setCount ?: catalog?.defaultSetCount ?: 0
             kcals += CalorieCalculator.calculate(catalog?.metValue, weightKg, seconds)
         }
@@ -205,7 +205,9 @@ internal class CourseQueryServiceImpl(
         return CourseTotals(
             exerciseCount = rows.size,
             setCount = setCount,
-            durationSeconds = duration,
+            // 시간도 칼로리와 같은 판단이다. 모르는 운동을 0 으로 더하면 실제보다 짧은 합계가
+            // 나가고 화면은 그것을 코스 전체 시간으로 읽는다.
+            durationSeconds = CalorieCalculator.sum(durations),
             kcal = CalorieCalculator.sum(kcals),
         )
     }
@@ -213,7 +215,7 @@ internal class CourseQueryServiceImpl(
     private data class CourseTotals(
         val exerciseCount: Int,
         val setCount: Int,
-        val durationSeconds: Int,
+        val durationSeconds: Int?,
         val kcal: Int?,
     )
 

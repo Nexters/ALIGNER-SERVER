@@ -573,7 +573,7 @@ interface PoseVideoPort {
 | 마스터 | `CourseTemplate` + `TemplateStep`, 자세 사다리 — seed |
 | Command | 코스 처방, 스텝 완료, 세션 완료 반영(도장·해금) |
 | Query | 코스 상세(스텝+운동), 진행도, 획득한 도장 |
-| 모듈 | 기본 6 + `contract` + `adapter-screening` + `adapter-catalog` = **9** |
+| 모듈 | 기본 6 + `contract` + `adapter-screening` + `adapter-catalog` + `adapter-member` = **10** |
 
 ```text
 course.course_template          template_id(pk), target_pose_id(uk), name,
@@ -593,6 +593,10 @@ course.stamp                    stamp_id(pk), member_id, target_pose_id, course_
                                 UNIQUE (member_id, target_pose_id)
 ```
 
+`course.course`에 `version`이 있다. **동시 세션 완료가 서로를 덮지 않게 하는 낙관적 락**이다 —
+애그리거트를 통째로 저장하므로 버전이 없으면 나중 저장이 앞선 완료를 지운다. 충돌하면 서비스가
+다시 읽어 한 번 재시도한다.
+
 **하나의 핀포즈가 곧 하나의 코스다.** 회원이 고른 (강화 부위, 난이도)가 곧
 `catalog.target_pose`의 (부위, 레벨)이고 그 자세의 템플릿으로 코스가 만들어진다. 그래서
 `course_template`의 자연키가 `target_pose_id`다.
@@ -607,7 +611,13 @@ course.stamp                    stamp_id(pk), member_id, target_pose_id, course_
   원인은 `course.cause_code`에 스냅샷으로 남는다 — 재진단으로 원인이 바뀌어도 이 코스가 왜
   처방됐는지는 남아야 한다.
 - **`(member_id, target_pose_id)` 유니크가 처방 멱등성을 만든다.** 같은 요청이 재시도돼도 새
-  코스가 생기지 않고 이미 있는 코스가 돌아간다.
+  코스가 생기지 않고 이미 있는 코스가 돌아간다. 조회와 저장 사이의 틈은 제약 위반을 잡아
+  다시 읽는 것으로 메운다 — 조회만으로는 동시 요청을 막을 수 없다.
+- **도장은 `ON CONFLICT DO NOTHING` 한 문장으로 넣는다.** "있는지 보고 없으면 넣는다" 로
+  짜면 두 요청이 확인을 함께 통과해 유니크 제약에 걸린다. 새로 붙었는지는 저장 결과가 알려주고,
+  서비스가 "방금 완료됐나" 로 짐작하지 않는다.
+- **`IN_PROGRESS` 코스는 회원당 여럿일 수 있다.** 도전 현황 화면이 `도전 중 3`을 동시에
+  보여주므로 하나로 제한하지 않는다. 홈의 "오늘의 코스" 는 그중 **가장 최근에 처방된 것**이다.
 - **진행도는 `course_step`의 완료 개수 / 전체 개수**다. 자세 도전 현황의 `3 / 4`가 이 값이고,
   전부 완료하면 `Stamp`가 붙는다(§7-8 해소). 별도의 "필요 횟수" seed가 필요 없다.
 - `current_step_order` 컬럼을 두지 않는다. 스텝 상태에서 계산한다 — 컬럼으로 두면 스텝 완료와

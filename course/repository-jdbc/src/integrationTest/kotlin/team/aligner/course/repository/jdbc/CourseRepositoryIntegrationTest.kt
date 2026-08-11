@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
@@ -83,7 +84,7 @@ class CourseRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'course-%'")
             .query(Int::class.java)
-            .single() shouldBe 8
+            .single() shouldBe 9
     }
 
     @Test
@@ -203,21 +204,54 @@ class CourseRepositoryIntegrationTest {
         }
     }
 
+    /**
+     * 세션 완료 push 는 재시도되는 경로다. 두 번째 호출이 예외가 되면 정상 재시도가 500 이 된다.
+     *
+     * **새로 붙었는지를 반환값이 알려줘야 한다.** 서비스가 "방금 코스가 완료됐나" 로 짐작하면
+     * 두 요청이 겹칠 때 둘 다 획득으로 판단할 수 있다.
+     */
     @Test
-    fun `도장은 자세당 한 번만 붙는다`() {
+    fun `도장은 자세당 한 번만 붙고 두 번째 저장은 false 다`() {
         val saved = courseRepository.save(prescribed())
         val courseId = saved.identity.shouldNotBeNull().value
         val stamp = Stamp.acquire(MEMBER_ID, TARGET_POSE_ID, courseId, AT)
 
-        stampRepository.saveIfAbsent(stamp)
-        // 세션 완료 push 재시도를 흉내낸다. 예외가 아니라 조용히 무시돼야 한다.
-        stampRepository.saveIfAbsent(stamp)
+        stampRepository.saveIfAbsent(stamp) shouldBe true
+        // 재시도를 흉내낸다. 예외가 아니라 false 여야 한다.
+        stampRepository.saveIfAbsent(stamp) shouldBe false
 
         jdbcClient
             .sql("SELECT count(*) FROM course.stamp WHERE member_id = :memberId")
             .param("memberId", MEMBER_ID)
             .query(Int::class.java)
             .single() shouldBe 1
+    }
+
+    /**
+     * 애그리거트를 통째로 저장하므로 버전이 없으면 나중 저장이 앞선 완료를 지운다.
+     * training 이 세션 완료를 push 하고 재시도까지 하므로 실제로 겹칠 수 있다.
+     *
+     * 같은 시점에 읽은 두 사본으로 서로 다른 스텝을 완료해 그 상황을 재현한다.
+     */
+    @Test
+    fun `같은 버전을 읽은 두 저장 중 나중 것이 낙관적 락에 걸린다`() {
+        val saved = courseRepository.save(prescribed())
+        val identity = saved.identity.shouldNotBeNull()
+
+        val first = courseRepository.findByIdentity(identity).shouldNotBeNull()
+        val second = courseRepository.findByIdentity(identity).shouldNotBeNull()
+
+        courseRepository.save(first.completeStep(stepOrder = 1, at = AT))
+
+        assertThrows<OptimisticLockingFailureException> {
+            courseRepository.save(second.completeStep(stepOrder = 2, at = AT))
+        }
+
+        // 앞선 완료가 남아 있어야 한다. 버전이 없으면 여기서 0 이 된다.
+        courseRepository
+            .findByIdentity(identity)
+            .shouldNotBeNull()
+            .completedStepCount shouldBe 1
     }
 
     @Test

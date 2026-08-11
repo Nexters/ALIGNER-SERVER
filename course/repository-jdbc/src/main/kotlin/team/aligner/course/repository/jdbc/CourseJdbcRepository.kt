@@ -13,9 +13,5 @@ internal interface CourseJdbcRepository : CrudRepository<CourseEntity, Long> {
     ): CourseEntity?
 }
 
-internal interface StampJdbcRepository : CrudRepository<StampEntity, Long> {
-    fun existsByMemberIdAndTargetPoseId(
-        memberId: Long,
-        targetPoseId: Long,
-    ): Boolean
-}
+// StampJdbcRepository 를 두지 않는다. 도장 저장은 ON CONFLICT DO NOTHING 한 문장이라
+// CrudRepository 로는 표현할 수 없다 (StampRepositoryImpl).

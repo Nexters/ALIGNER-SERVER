@@ -1,6 +1,7 @@
 package team.aligner.course.repository.jdbc
 
 import org.springframework.data.annotation.Id
+import org.springframework.data.annotation.Version
 import org.springframework.data.relational.core.mapping.MappedCollection
 import org.springframework.data.relational.core.mapping.Table
 import java.time.Instant
@@ -31,6 +32,15 @@ internal data class CourseEntity(
     val status: String,
     val createdAt: Instant,
     val completedAt: Instant?,
+    /**
+     * 낙관적 락. **@Version 이 붙으면 Spring Data JDBC 가 "새 행인가" 를 식별자가 아니라 이
+     * 값으로 판단한다** — null 이면 insert, 값이 있으면 version 을 조건에 넣은 update 다.
+     *
+     * 두 세션 완료가 동시에 들어와 나중 저장이 앞선 완료를 덮는 것을 막는다. 충돌하면
+     * OptimisticLockingFailureException 이고 서비스가 다시 읽어 재시도한다.
+     */
+    @Version
+    val version: Long?,
     @MappedCollection(idColumn = "course_id")
     val steps: Set<CourseStepEntity>,
 )

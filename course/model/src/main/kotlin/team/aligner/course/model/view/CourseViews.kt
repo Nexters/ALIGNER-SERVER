@@ -8,16 +8,19 @@ import java.time.Instant
  * 목표 자세 이름·이미지와 운동 개수는 catalog 의 값이라 조회 시점에 port 로 붙인다.
  * 애그리거트에는 식별자만 있다 (docs/domains.md §6).
  *
- * `estimatedKcal` 이 **null 일 수 있다.** 회원이 아직 몸무게를 입력하지 않았거나 운동의
- * MET 이 비어 있으면 계산이 성립하지 않는다. **0 으로 만들지 않는다** — 0 kcal 은
- * "운동량 없음" 이라 "모름" 과 다르고 화면이 둘을 구분해야 한다.
+ * **모르는 값에 0 을 넣지 않는다.** `estimatedKcal` `estimatedDurationSeconds`
+ * `targetPoseLevel` 은 계산·조회가 성립하지 않으면 null 이다. 0 kcal 은 "운동량 없음",
+ * 0 초는 "순식간", 레벨 0 은 "0 단계 코스" 로 읽히므로 "모름" 과 구분돼야 한다.
+ *
+ * catalog 에서 자세나 운동을 찾지 못하는 경우가 실제로 있다 — 도메인 간 FK 가 없어
+ * course seed 가 catalog 보다 앞서갈 수 있다 (docs/domains.md §6).
  */
 data class TodayCourseView(
     val courseId: Long,
     val targetPoseId: Long,
     val targetPoseName: String,
     val targetPoseImageAssetKey: String?,
-    val targetPoseLevel: Int,
+    val targetPoseLevel: Int?,
     val name: String,
     val recommendationReason: String?,
     val currentStepOrder: Int?,
@@ -25,7 +28,7 @@ data class TodayCourseView(
     val totalStepCount: Int,
     val exerciseCount: Int,
     val totalSetCount: Int,
-    val estimatedDurationSeconds: Int,
+    val estimatedDurationSeconds: Int?,
     val estimatedKcal: Int?,
 )
 
@@ -42,7 +45,7 @@ data class CourseDetailView(
     val totalStepCount: Int,
     val exerciseCount: Int,
     val totalSetCount: Int,
-    val estimatedDurationSeconds: Int,
+    val estimatedDurationSeconds: Int?,
     val estimatedKcal: Int?,
     val steps: List<CourseStepView>,
 )

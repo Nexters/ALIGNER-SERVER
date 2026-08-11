@@ -45,8 +45,8 @@ internal object CalorieCalculator {
      * 코스 칼로리는 **스텝 합**이다. 레벨별 고정값을 쓰지 않는 이유는 구성이 회원마다
      * 달라질 수 있어서다 (docs/domains.md §4-3).
      *
-     * 하나라도 계산할 수 없으면 합계도 null 이다. 일부만 더한 값을 내리면 화면이 그것을
-     * 코스 전체 칼로리로 읽는다.
+     * **하나라도 모르면 합계도 null 이다.** 일부만 더한 값을 내리면 화면이 그것을 코스 전체로
+     * 읽는다. 수행 시간 합계도 같은 판단을 쓴다.
      */
     fun sum(values: List<Int?>): Int? = if (values.isEmpty() || values.any { it == null }) null else values.filterNotNull().sum()
 }
