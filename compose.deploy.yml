@@ -1,0 +1,11 @@
+services:
+  api:
+    image: ${ALIGNER_IMAGE:?ALIGNER_IMAGE가 필요합니다}
+    container_name: aligner-api
+    env_file:
+      - .env
+    ports:
+      - "${HOST_PORT:-8080}:${SERVER_PORT:-8080}"
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
