@@ -14,10 +14,10 @@
 | `member` | 구현됨 | 프로필 조회, 온보딩 입력(경력·키·몸무게·강화 부위/난이도) 수정, 회원탈퇴 |
 | `catalog` | 구현됨 | 목표 자세 목록·상세, 운동 상세 조회 |
 | `screening` | 구현됨 | 부위 목록, 자세 체감 제출·원인 판별, 최신 결과 조회 |
-| `course` | 미구현 | 맞춤 코스·스텝·진행도 API 없음 |
+| `course` | 구현됨 | 코스 처방, 오늘의 코스, 코스 개요, 자세 도전 현황 |
 | `training` | 미구현 | 세션 시작·완료·수행 기록 API 없음 |
 
-현재 Liquibase changelog는 `member`·`catalog`·`screening`의 **테이블만 생성**한다. 감수 콘텐츠
+현재 Liquibase changelog는 다섯 도메인의 **테이블만 생성**한다. 감수 콘텐츠
 seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 빈 배열이고, 존재하지 않는 ID의
 상세 조회는 404가 정상일 수 있다. 개발용 화면에서 임의 ID를 고정하지 말고 목록 응답의 ID를
 사용한다.
@@ -49,7 +49,7 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 �
 | `MuscleRole` | 근육을 늘리는지 강화하는지 | `STRETCH` 또는 `STRENGTHEN`으로 구분 |
 | `imageAssetKey` | 이미지 파일을 가리키는 안정적인 키 | URL로 바로 렌더링하지 말고 프론트 asset 매핑에 사용 |
 | `bodyPartCode` | 자세·근육이 속한 부위 코드 | `GET /screening/body-parts`가 소유하는 문자열 |
-| `metValue` | 운동 칼로리 계산에 쓰는 MET 값 | kcal 자체가 아니며 서버가 몸무게를 합쳐 계산하지 않음 |
+| `metValue` | 운동 칼로리 계산에 쓰는 MET 값 | catalog 응답에는 MET 만 실린다. kcal 은 **코스·세션 API가** 회원 몸무게와 합쳐 계산해 내려준다 |
 | `voiceCue` | 운동 중 보여줄 한글 큐잉 문장 | `displayOrder` 순서로 재생·표시 |
 | `BodyPart` | 부위 | 진단 결과 뒤 **강화할 부위**를 고르는 화면의 선택지 |
 | `PerceivedDifficulty` | 자세를 해보고 느낀 체감 | `EASY`(쉬웠다) 또는 `HARD`(어려웠다) |
@@ -57,8 +57,9 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 �
 | `ScreeningResult` | 제출 1회의 진단 결과 | 원인 목록을 담은 응답. `resultId`로 식별 |
 
 `TargetPose`는 목표 자세 콘텐츠의 이름이다. 예전 기획 용어인 `PoseCheckpoint`를 현재
-서버가 제공한다고 가정하면 안 된다. 현재 도메인 결정에서는 `PoseCheckpoint`를 만들지
-않으며, `course`·`training` 자체도 아직 구현되지 않았다.
+서버가 제공한다고 가정하면 안 된다. 현재 도메인 결정에서는 `PoseCheckpoint`를 만들지 않으며,
+**자세 도전 현황의 `3 / 4`는 자세 포인트 체크가 아니라 코스 안에서 완료한 스텝 개수**다.
+`training`(세션 기록)은 아직 구현되지 않았다.
 
 ## 기본 연동 흐름
 
@@ -79,7 +80,11 @@ Authorization: Bearer {alignerAccessToken}
         ├── GET   /screening/results/latest
         ├── GET   /catalog/target-poses[?bodyPartCode=...]   부위는 선택
         ├── GET   /catalog/target-poses/{targetPoseId}
-        └── GET   /catalog/exercises/{exerciseId}
+        ├── GET   /catalog/exercises/{exerciseId}
+        ├── POST  /courses
+        ├── GET   /courses/today
+        ├── GET   /courses/{courseId}
+        └── GET   /courses/progress/target-poses
 ```
 
 로그인 API만 인증 없이 열려 있고, 나머지 현재 API는 모두 Aligner JWT가 필요하다.
@@ -103,6 +108,9 @@ GET  /screening/body-parts                       강화할 부위 선택지
         │  회원이 강화할 부위와 난이도를 고른다
         ▼
 PATCH /members/me                                부위·난이도 저장
+        │
+        ▼
+POST /courses                                    같은 부위·난이도로 코스 처방
 ```
 
 경력·키·몸무게를 받는 화면들도 같은 `PATCH /members/me` 를 쓴다. 화면별로 무엇을 보낼지는
@@ -497,6 +505,12 @@ function resolveTargetPoseImage(key: string | null): string | null {
 | 401 | `KAKAO_TOKEN_INVALID` | 서버가 교환한 카카오 액세스 토큰이 사용자 조회에서 거부됨. 서버·카카오 쪽 문제이므로 재로그인으로 풀리지 않으면 서버팀에 알린다 |
 | 403 | `FORBIDDEN` | 현재 권한으로 접근할 수 없음 |
 | 404 | `MEMBER_NOT_FOUND` | 현재 토큰의 회원이 없음 |
+| 400 | `BODY_PART_NOT_IN_SCREENING` | 진단 결과에 없는 부위로 코스를 요청함 |
+| 409 | `SCREENING_REQUIRED` | 진단 전에 코스를 요청함. **온보딩으로 보낸다** |
+| 422 | `COURSE_TEMPLATE_NOT_FOUND` | 그 부위·난이도의 코스 seed가 없음 |
+| 422 | `EMPTY_COURSE_TEMPLATE` | 코스 템플릿에 스텝이 없음 |
+| 404 | `COURSE_NOT_FOUND` | 없는 코스이거나 남의 코스 |
+| 404 | `IN_PROGRESS_COURSE_NOT_FOUND` | 진행 중인 코스가 없음. **코스 처방으로 보낸다** |
 | 404 | `SCREENING_RESULT_NOT_FOUND` | 아직 진단한 적이 없음. **온보딩으로 보낸다** |
 | 404 | `TARGET_POSE_NOT_FOUND` | 존재하지 않는 목표 자세 ID |
 | 404 | `EXERCISE_NOT_FOUND` | 존재하지 않는 운동 ID |
@@ -566,7 +580,9 @@ HTTP 상태만 보지 말고 가능하면 `code`를 기준으로 화면 동작�
 | 원인 판별 규칙 | `screening/model`의 `ScreeningResult.determineCauses` | 구현됨 |
 | 부위·원인·분기 규칙 데이터 | `screening/schema`의 Liquibase seed | 현재 seed 미구현 |
 | CORS 허용 오리진 | `support-web`의 `SecurityConfig`·`CorsProperties` | 구현됨 |
-| 코스·진행도·세션 | `course`, `training` 도메인 | 도메인 미구현 |
+| 코스 처방·진행도·도장 | `course/api`, `course/service`, `course/model` | 구현됨 |
+| 코스 템플릿·스텝 데이터 | `course/schema`의 Liquibase seed | 현재 seed 미구현 |
+| 세션 수행·기록 | `training` 도메인 | 도메인 미구현 |
 
 예를 들어 프론트가 “코스 상세에서 운동 목록을 받고 싶다”고 요청하면,
 `GET /catalog/exercises`를 임시로 만들어 쓰는 것이 아니라 `course`의 코스 계약과
@@ -618,3 +634,155 @@ Swagger/OpenAPI는 기본적으로 꺼져 있다. 확인이 필요하면 서버 
 
 프론트가 새 화면을 만들기 전에 먼저 “현재 API로 가능한 화면인지”를 이 문서의 구현 상태
 표에서 확인한다. 없는 API를 프론트에서 임시로 가정하면 이후 서버 계약과 충돌하기 쉽다.
+
+## 코스 API
+
+**하나의 핀포즈가 곧 하나의 코스다.** 회원이 고른 (강화 부위, 난이도)가 곧 목표 자세의
+(부위, 레벨)이고, 그 자세의 코스가 처방된다. 일자 개념이 없다 — "오늘의 코스"는 **진행 중인
+코스**의 다른 이름이다.
+
+### `POST /courses`
+
+강화할 부위와 난이도로 코스를 만든다. 성공하면 **201**이다.
+
+```http
+POST /courses
+Authorization: Bearer {alignerAccessToken}
+Content-Type: application/json
+
+{"bodyPartCode":"BACK","level":1}
+```
+
+```json
+{ "courseId": 20 }
+```
+
+**자세 식별자와 원인 코드를 보내지 않는다.**
+
+- 자세는 서버가 `(bodyPartCode, level)`로 catalog에서 찾는다. 클라이언트가 자세를 지정하면
+  고르지 않은 난이도의 코스를 받아갈 수 있다
+- 원인은 서버가 최신 진단으로 검증한다. 요청으로 받으면 원인 위조가 가능하다
+
+**멱등하다.** 같은 자세의 코스가 이미 있으면 새로 만들지 않고 그 코스를 돌려준다. 재시도해도
+안전하고, 이 경우도 201이다.
+
+실패는 넷이다.
+
+| 상태 | 코드 | 화면 처리 |
+| --- | --- | --- |
+| 400 | `BODY_PART_NOT_IN_SCREENING` | 진단 결과에 없는 부위를 골랐다 |
+| 409 | `SCREENING_REQUIRED` | 아직 진단한 적이 없다. **온보딩으로 보낸다** |
+| 422 | `COURSE_TEMPLATE_NOT_FOUND` | 그 부위·난이도의 자세나 코스 seed가 없다 |
+| 422 | `EMPTY_COURSE_TEMPLATE` | 코스 템플릿에 스텝이 없다 |
+
+422 둘은 회원 잘못이 아니라 서버 seed가 그 조합을 덮지 못한 것이다. "다시 입력하세요"가 아니라
+"코스를 만들 수 없다"에 가까운 안내가 맞다.
+
+### `GET /courses/today`
+
+홈 카드다. 진행 중인 코스가 여럿이면 가장 최근에 처방된 것이 온다.
+
+```json
+{
+  "courseId": 20,
+  "targetPoseId": 3,
+  "targetPoseName": "낙타 자세",
+  "targetPoseImageAssetKey": "target-pose/camel",
+  "targetPoseLevel": 1,
+  "name": "낙타자세 정복하기",
+  "recommendationReason": "등과 골반 근육 강화에 집중해 보세요",
+  "currentStepOrder": 2,
+  "completedStepCount": 1,
+  "totalStepCount": 6,
+  "exerciseCount": 6,
+  "totalSetCount": 6,
+  "estimatedDurationSeconds": 900,
+  "estimatedKcal": 69
+}
+```
+
+**진행 중인 코스가 없으면 404 `IN_PROGRESS_COURSE_NOT_FOUND`다.** 화면은 이 404를 "코스를
+처방받아야 한다"는 신호로 읽는다.
+
+**모르는 값에 서버가 0을 넣지 않는다.** `estimatedKcal` · `estimatedDurationSeconds` ·
+`targetPoseLevel`은 계산이나 조회가 성립하지 않으면 `null`이다.
+
+- `estimatedKcal` — 회원이 몸무게를 아직 입력하지 않았거나 운동의 MET이 비어 있을 때
+- `estimatedDurationSeconds` — 운동 하나라도 수행 시간을 모를 때. 아는 것만 더한 값을 내리면
+  화면이 그것을 코스 전체 시간으로 읽는다
+- `targetPoseLevel` — 자세 콘텐츠를 찾지 못했을 때
+
+0 kcal은 "운동량 없음", 0초는 "순식간", 레벨 0은 "0단계 코스"로 읽히므로 "모름"과 구분된다.
+`null`이면 그 자리를 비우거나(칼로리는 몸무게 입력을 유도) 대체 문구를 쓴다.
+
+`currentStepOrder`는 다음에 수행할 스텝이고 다 했으면 `null`이다.
+
+### `GET /courses/{courseId}`
+
+코스 개요다. 스텝과 그 스텝의 운동을 함께 내린다.
+
+```json
+{
+  "courseId": 20,
+  "name": "낙타자세 정복하기",
+  "completedStepCount": 1,
+  "totalStepCount": 6,
+  "estimatedKcal": 69,
+  "steps": [
+    {
+      "courseStepId": 31,
+      "stepOrder": 1,
+      "completed": true,
+      "completedAt": "2026-08-09T00:00:00Z",
+      "exercises": [
+        {
+          "courseStepExerciseId": 51,
+          "exerciseId": 7,
+          "name": "캣카우",
+          "category": "가동성 웜업",
+          "displayOrder": 1,
+          "durationSeconds": 120,
+          "setCount": 1,
+          "estimatedKcal": 6
+        }
+      ]
+    }
+  ]
+}
+```
+
+**`durationSeconds`와 `setCount`는 해석이 끝난 값이다.** 코스에 override가 있으면 그 값이고
+없으면 catalog 기본값이다. 프론트가 두 곳을 보고 고르지 않도록 서버가 정리해서 내린다.
+
+없는 코스와 남의 코스는 똑같이 404 `COURSE_NOT_FOUND`다.
+
+### `GET /courses/progress/target-poses`
+
+자세 도전 현황이다. `completed` 파라미터로 거른다 — 생략하면 전체, `true`면 완성한 자세만,
+`false`면 도전 중인 자세만이다.
+
+```json
+[
+  {
+    "courseId": 20,
+    "targetPoseId": 3,
+    "targetPoseName": "낙타자세",
+    "targetPoseImageAssetKey": "target-pose/camel",
+    "completedStepCount": 3,
+    "totalStepCount": 4,
+    "completed": false
+  }
+]
+```
+
+**`completedStepCount / totalStepCount`가 화면의 `3 / 4`다.** 자세 포인트 체크가 아니라
+**코스 안에서 완료한 스텝 개수**다. `completed`가 `false`면 `도전 중`, `true`면 `완성`이다.
+
+프로필의 "완수한 자세 목록"도 `completed=true`로 이 API를 쓴다 — 별도 API가 없다.
+
+상단 필터의 `전체 4 · 도전 중 3 · 완성 1`은 파라미터 없이 한 번 받아 프론트에서 세면 된다.
+
+### 아직 없는 것
+
+**세션 수행 API가 없다.** 코스 스텝을 실제로 수행하고 완료를 기록하는 것은 `training` 도메인이고
+아직 구현되지 않았다. 그래서 **지금은 진행도를 올릴 방법이 없다** — 처방과 조회까지만 가능하다.

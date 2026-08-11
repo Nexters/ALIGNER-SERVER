@@ -27,4 +27,29 @@ internal class TargetPoseContractImpl(
                     level = it.level,
                 )
             }
+
+    /**
+     * 부위 목록 조회를 재사용해 레벨로 거른다. 전용 SQL 을 만들지 않는 이유는 한 부위의
+     * 자세가 레벨 1~3 로 몇 개뿐이라 걸러낼 양이 작기 때문이다.
+     *
+     * 둘 이상 걸리면 식별자가 가장 작은 것을 고른다. getAll 이 (부위, 레벨, 식별자) 순으로
+     * 정렬해 돌려주므로 first() 가 곧 그 값이다 — 처방이 호출마다 다른 자세를 고르지 않게
+     * 하려는 것이다.
+     */
+    override fun findByBodyPartCodeAndLevel(
+        bodyPartCode: String,
+        level: Int,
+    ): TargetPoseResponse? =
+        targetPoseQueryService
+            .getAll(bodyPartCode)
+            .firstOrNull { it.level == level }
+            ?.let {
+                TargetPoseResponse(
+                    targetPoseId = it.targetPoseId,
+                    name = it.name,
+                    imageAssetKey = it.imageAssetKey,
+                    bodyPartCode = it.bodyPartCode,
+                    level = it.level,
+                )
+            }
 }

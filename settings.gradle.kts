@@ -65,3 +65,21 @@ include(
     "catalog:repository-jdbc",
     "catalog:api",
 )
+
+// course — 원인별 코스 템플릿, 회원별 처방 코스·스텝·진행 상태, 도장
+// (docs/domains.md §4-4, §5). 기본 6 개 + contract + adapter 3 개.
+//
+// adapter 가 셋인 것은 처방에 원인 검증(screening), 운동·자세 조회(catalog),
+// 칼로리 계산용 몸무게(member)가 모두 필요하기 때문이다 (§3).
+include(
+    "course:model",
+    "course:infrastructure",
+    "course:contract",
+    "course:schema",
+    "course:service",
+    "course:repository-jdbc",
+    "course:api",
+    "course:adapter-screening",
+    "course:adapter-catalog",
+    "course:adapter-member",
+)

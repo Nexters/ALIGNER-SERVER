@@ -19,9 +19,9 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 | PostgreSQL schema | 도메인명과 동일 (`member` `screening` `catalog` `course` `training`) |
 | 도메인 간 의존 | **단방향** — `catalog` ← `course` ← `training`, `screening` ← `course`, `member` ← `course` |
 | 마스터 데이터 소유 | 운동·자세·근육은 `catalog`, 자세 체감 → 원인 분기 규칙은 `screening`, 처방 규칙은 `course` |
-| 도장(`Stamp`) | `course` 소유 (달성 판단은 `course`, 수행 기록은 `training`). **판정 기준 미정** (§7-8) |
+| 도장(`Stamp`) | `course` 소유 (달성 판단은 `course`, 수행 기록은 `training`). **판정 = 코스의 전체 스텝 완료** (§7-8) |
 | 자세 포인트(`PoseCheckpoint`) | **만들지 않는다.** 완료 판정은 "운동 수행 + 시간 종료"다 (§4-3) |
-| 총 모듈 수 | **44개** — 도메인 40 + 루트 4 |
+| 총 모듈 수 | **45개** — 도메인 41 + 루트 4. `course`에 `adapter-member`가 늘었다(§3) |
 | 외부 시스템 | **YMove** — 영상·썸네일. `catalog`만 접근한다 (§4-3-1). **음성 큐잉 대본은 `catalog`가 소유한다** |
 
 ### 도메인 지도
@@ -43,7 +43,7 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 ⑤ 원인별 코스 처방              course  (원인은 screening:contract로 읽음)
 ⑥ 세션 수행 → 완료 기록         training
 ⑦ 세션 완료                     training 이 기록 → course 로 push
-   └ 완수 판정 → 도장·해금       course   ※ 판정 기준 미정 (§7-8)
+   └ 완수 판정 → 도장            course   (코스의 전체 스텝 완료, §7-8)
 ```
 
 **`AGENTS.md` §2와 어긋난다.** 그 문서의 루프는 `PoseCheckpoint 확인 → Stamp/다음 코스 보강`
@@ -139,9 +139,8 @@ interface TargetPoseContract {
 interface CourseStepContract {
     fun findStep(courseId: Long, stepOrder: Int): CourseStepResponse?
 }
-interface CourseProgressContract {          // 초안 — §7-8 확정 전까지 고정하지 않는다
-    fun completeStep(command: CompleteStepCommand)
-    fun completeSession(command: CompleteSessionCommand)
+interface CourseProgressContract {
+    fun completeSession(command: CompleteSessionCommand): CourseProgressResponse
 }
 ```
 
@@ -149,10 +148,12 @@ interface CourseProgressContract {          // 초안 — §7-8 확정 전까지
 나열하므로 단수로는 만들 수 없다. `bodyPartCode` 파라미터도 없다 — 진단이 부위를 결정하는
 쪽이라 호출부가 미리 알고 들어오지 않는다.
 
-`CourseProgressContract`만 초안으로 둔다. 이 문서에는 `training`이 세션 완료를 밀어넣는
-흐름(§4-5)만 있고 **`completeStep`을 누가 부르는지가 없다.** 두 메서드가 모두 열려 있으면
-세션 없이 스텝만 완료하거나 같은 세션이 두 번 반영될 수 있는데, 무엇을 중복으로 볼지는 완수
-판정 기준(§7-8)이 정해져야 답할 수 있다. `course` 착수 시점에 §7-8과 함께 확정한다.
+`CourseProgressContract`에 **`completeSession` 하나만 둔다.** 초안에 있던 `completeStep`을
+만들지 않는 이유는 스텝 완료를 세션 완료와 따로 부를 주체가 이 설계에 없기 때문이다 — 두
+진입점이 열려 있으면 세션 없이 스텝만 완료하는 경로가 생긴다.
+
+**재시도는 애그리거트가 흡수한다.** 이미 완료된 스텝을 다시 완료해도 진행도가 오르지 않고
+도장도 한 번만 붙는다(§7-8). `training`이 세션을 저장한 뒤 push 에 실패해 재시도해도 안전하다.
 
 ### port ↔ adapter 대응
 
@@ -374,7 +375,7 @@ slug 정도이고 둘 다 seed라 changeset을 같이 쌓으면 된다.
 `TargetPoseContract.findCheckpoints`, `PoseCheckpointPort`가 전부 없다. 미달 포인트를 다음
 코스에 보강 편성하는 흐름도 없다.
 
-도장·해금·진행도의 판정 기준이 이 결정으로 비었다. §7-8에 열린 질문으로 남긴다.
+도장·진행도의 판정 기준은 자세 포인트가 아니라 **코스 스텝 완료**로 정해졌다(§7-8).
 
 #### 근육 — `catalog`가 갖는다
 
@@ -572,29 +573,56 @@ interface PoseVideoPort {
 | 마스터 | `CourseTemplate` + `TemplateStep`, 자세 사다리 — seed |
 | Command | 코스 처방, 스텝 완료, 세션 완료 반영(도장·해금) |
 | Query | 코스 상세(스텝+운동), 진행도, 획득한 도장 |
-| 모듈 | 기본 6 + `contract` + `adapter-screening` + `adapter-catalog` = **9** |
+| 모듈 | 기본 6 + `contract` + `adapter-screening` + `adapter-catalog` + `adapter-member` = **10** |
 
 ```text
-course.course_template          template_id(pk), cause_code, target_pose_id, name,
-                                unlock_required_target_pose_id(null)              [seed]
+course.course_template          template_id(pk), target_pose_id(uk), name,
+                                recommendation_reason                             [seed]
 course.template_step            template_step_id(pk), template_id, step_order     [seed]
-course.template_step_exercise   template_step_id, exercise_id, display_order      [seed]
+course.template_step_exercise   template_step_exercise_id(pk), template_step_id,
+                                exercise_id, display_order,
+                                duration_seconds, set_count                       [seed]
 
-course.course                   course_id(pk), member_id, template_id, cause_code,
-                                target_pose_id, scheduled_on,
-                                current_step_order, status, created_at
-course.course_step              course_step_id(pk), course_id, step_order, status
+course.course                   course_id(pk), member_id, template_id, target_pose_id,
+                                cause_code(null), status, created_at, completed_at
+                                UNIQUE (member_id, target_pose_id)
+course.course_step              course_step_id(pk), course_id, step_order, status, completed_at
 course.course_step_exercise     course_step_exercise_id(pk), course_step_id, exercise_id,
                                 display_order, duration_seconds, set_count
-course.stamp                    stamp_id(pk), member_id, target_pose_id, acquired_at
+course.stamp                    stamp_id(pk), member_id, target_pose_id, course_id, acquired_at
+                                UNIQUE (member_id, target_pose_id)
 ```
 
-- `scheduled_on`이 **며칠 코스인가**다. 홈이 "오늘의 코스 / 내일의 코스"를 보여주므로 코스가
-  일자 단위로 존재한다. 며칠치를 미리 만드는지와 `(member_id, scheduled_on)` 유니크 여부는
-  미정이다(§7-9).
+`course.course`에 `version`이 있다. **동시 세션 완료가 서로를 덮지 않게 하는 낙관적 락**이다 —
+애그리거트를 통째로 저장하므로 버전이 없으면 나중 저장이 앞선 완료를 지운다. 충돌하면 서비스가
+다시 읽어 한 번 재시도한다.
+
+**하나의 핀포즈가 곧 하나의 코스다.** 회원이 고른 (강화 부위, 난이도)가 곧
+`catalog.target_pose`의 (부위, 레벨)이고 그 자세의 템플릿으로 코스가 만들어진다. 그래서
+`course_template`의 자연키가 `target_pose_id`다.
+
+- **`scheduled_on`이 없다.** 초판은 홈이 "오늘의 코스 / 내일의 코스"를 보여준다는 전제로
+  코스를 일자 단위로 뒀는데, 확정된 화면에 내일의 코스가 없다. **진행 중인 코스가 곧 오늘의
+  코스**다(§7-9 해소).
+- **`unlock_required_target_pose_id`가 없다.** 회원이 난이도를 직접 고르므로 해금 사다리가
+  없다(§7-2 재해소).
+- **`course_template.cause_code`가 없다.** 처방 입력이 (부위, 레벨)로 바뀌었다. 원인은 여전히
+  쓰이되 "회원이 고른 부위가 실제 진단 결과에 있는가"를 **검증**하는 데만 쓴다(§2). 검증에 쓴
+  원인은 `course.cause_code`에 스냅샷으로 남는다 — 재진단으로 원인이 바뀌어도 이 코스가 왜
+  처방됐는지는 남아야 한다.
+- **`(member_id, target_pose_id)` 유니크가 처방 멱등성을 만든다.** 같은 요청이 재시도돼도 새
+  코스가 생기지 않고 이미 있는 코스가 돌아간다. 조회와 저장 사이의 틈은 제약 위반을 잡아
+  다시 읽는 것으로 메운다 — 조회만으로는 동시 요청을 막을 수 없다.
+- **도장은 `ON CONFLICT DO NOTHING` 한 문장으로 넣는다.** "있는지 보고 없으면 넣는다" 로
+  짜면 두 요청이 확인을 함께 통과해 유니크 제약에 걸린다. 새로 붙었는지는 저장 결과가 알려주고,
+  서비스가 "방금 완료됐나" 로 짐작하지 않는다.
+- **`IN_PROGRESS` 코스는 회원당 여럿일 수 있다.** 도전 현황 화면이 `도전 중 3`을 동시에
+  보여주므로 하나로 제한하지 않는다. 홈의 "오늘의 코스" 는 그중 **가장 최근에 처방된 것**이다.
+- **진행도는 `course_step`의 완료 개수 / 전체 개수**다. 자세 도전 현황의 `3 / 4`가 이 값이고,
+  전부 완료하면 `Stamp`가 붙는다(§7-8 해소). 별도의 "필요 횟수" seed가 필요 없다.
+- `current_step_order` 컬럼을 두지 않는다. 스텝 상태에서 계산한다 — 컬럼으로 두면 스텝 완료와
+  커서 갱신이 어긋날 수 있는데 그 상태를 표현할 이유가 없다.
 - `duration_seconds` `set_count`는 nullable이며 비어 있으면 `catalog.exercise`의 기본값을 쓴다.
-- **자세 사다리는 분기하지 않는다.** 부위별로 레벨 1→2→3 선형이므로
-  `unlock_required_target_pose_id` 한 컬럼으로 충분하다.
 - `exercise_id` `target_pose_id` `member_id`는 전부 값 컬럼이고 FK가 없다.
 - `reinforcement_rule`과 `course_step_exercise.source`는 **없다.** 보강 편성이 사라졌다(§4-3).
 
@@ -634,16 +662,19 @@ member:      model infrastructure service repository-jdbc api schema contract ad
 screening:   model infrastructure service repository-jdbc api schema contract
 catalog:     model infrastructure service repository-jdbc api schema contract adapter-ymove
 course:      model infrastructure service repository-jdbc api schema contract
-             adapter-screening adapter-catalog
+             adapter-screening adapter-catalog adapter-member
 training:    model infrastructure service repository-jdbc api schema
              adapter-course adapter-catalog
 ```
 
 패키지 루트는 `team.aligner.{domain}`이다(§10).
 
-현재 `settings.gradle.kts`는 루트 3개에 더해 `member` 8개와 `catalog` 7개를 include 한다.
-`build-logic`은 `includeBuild` 대상이다. `screening` · `course` · `training`은 아직 없다.
+현재 `settings.gradle.kts`는 루트 3개에 더해 `member` 8개, `catalog` 7개, `screening` 7개,
+`course` 10개를 include 한다. `build-logic`은 `includeBuild` 대상이다. `training`은 아직 없고,
 `catalog`의 `adapter-ymove`도 §7-4·5·6이 정해진 뒤 후속으로 붙인다.
+
+`course`의 adapter 가 셋인 것은 처방에 원인 검증(`screening`), 자세·운동 조회(`catalog`),
+칼로리 계산용 몸무게(`member`)가 모두 필요하기 때문이다(§3).
 
 도메인이 다 구현되면 `application-api`는 5개 도메인의 `api` · `repository-jdbc` · `schema` ·
 `adapter-*`와 `member:contract` · `support-web` · `support-core`를 조립한다.
@@ -664,8 +695,9 @@ training:    model infrastructure service repository-jdbc api schema
 `screening`은 `catalog`를 **의존하지 않지만**(§4-2) `target_pose_id`를 값으로 참조하므로
 자세 seed가 먼저 있어야 분기 규칙 seed를 쓸 수 있다. 순서는 그대로다.
 
-`course`는 §7-8·§7-9가 정해지기 전에는 착수할 수 없다. 도장·해금·진행도와 코스 스케줄이
-비어 있기 때문이다. `catalog`와 `screening`은 그 결정과 무관하게 진행할 수 있다.
+~~`course`는 §7-8·§7-9가 정해지기 전에는 착수할 수 없다.~~ **둘 다 해소돼 착수했다.**
+`course`는 `member`(몸무게)·`catalog`(자세·운동)·`screening`(원인)이 모두 있어야 하므로
+의존 말단 중 가장 마지막이다.
 
 ---
 
@@ -704,8 +736,9 @@ training:    model infrastructure service repository-jdbc api schema
    `course.course_step_exercise`가 필요할 때만 덮어쓰는 방식이다. 같은 운동이 코스마다 다른
    시간을 갖는 사례가 콘텐츠 정본에 있으므로(같은 준비 동작이 레벨별로 1분 30초·2분·2분 30초)
    override 컬럼은 유지한다. 세트 override까지 필요한지는 확인이 남았다.
-2. ~~**자세 해금 사다리의 표현.**~~ **해소.** 부위별 레벨 1→2→3 선형이고 분기가 없다.
-   `unlock_required_target_pose_id` 한 컬럼으로 충분하다.
+2. ~~**자세 해금 사다리의 표현.**~~ **해소 — 사다리 자체가 없다.** 회원이 온보딩과 마이페이지에서
+   **난이도를 직접 고르고 그 난이도가 곧 자세 레벨**이다. 잠금이 없으므로
+   `unlock_required_target_pose_id`도 만들지 않는다.
 3. ~~**`Course` 용어.**~~ **해소.** 마스터(`CourseTemplate`)와 회원 인스턴스(`Course`) 구분이
    화면과 일치한다. `AGENTS.md` 용어집에 `CourseTemplate` 행을 추가하는 것은 §7-11에 함께 둔다.
 4. **YMove 장애 시 무엇을 보여주는가.** 영상 없이는 세션을 진행할 수 없어 fallback이 없다.
@@ -719,19 +752,19 @@ training:    model infrastructure service repository-jdbc api schema
    볼지도 여기서 같이 정한다.
 7. **고민 유형(`Concern`)은 P1**이다(`AGENTS.md` §3). `screening.body_part` 아래 자리만 비워두고
    지금 만들지 않는다. 추가될 때 `screening.concern` + `cause_rule`에 `concern_code`가 붙는다.
-8. **완수·도장·해금의 판정 기준.** 자세 포인트를 만들지 않기로 하면서(§4-3) 판정 근거가 비었다.
-   "운동 수행 + 시간 종료"는 **세션** 완료의 정의이고, **자세** 완수는 별개다. 도전 현황 화면이
-   `3 / 4` 형태의 진행도와 `도전 중 / 완성` 상태를 보여주므로 세션 1회로는 부족하다.
-   누적 횟수(`target_pose`에 필요 횟수 seed) 방식이 유력하나 **기획 확정 대기 중**이다.
-   이것이 정해지기 전에는 `course`의 도장·해금과 진행도 Query를 확정할 수 없다.
+8. ~~**완수·도장의 판정 기준.**~~ **해소.** 하나의 핀포즈가 하나의 코스이고, 도전 현황의
+   `3 / 4`는 **그 코스 안에서 완료한 스텝 개수**다. 전부 완료하면 `완성`이고 그때 `Stamp`가
+   붙는다. 자세 포인트도, `target_pose`의 "필요 횟수" seed도 필요 없다 — 진행도는
+   `course_step` 완료 상태의 집계다.
 
-   `CourseProgressContract`(§3)도 여기 달려 있다. `completeSession`을 단일 진입점으로 두고
-   `CompleteSessionCommand`에 `sessionId`를 멱등 키로 넣을지, `completeStep`을 남긴다면 호출
-   주체가 누구인지, `training`이 세션을 저장한 뒤 push에 실패하면 재시도를 어떻게 하는지가
-   전부 완수 판정 기준이 정해진 뒤에야 답이 된다.
-9. **오늘 코스와 내일 코스의 차이.** 보강 편성이 사라지면서 두 코스가 달라질 근거가 없어졌다.
-   같은 코스의 반복인지, 레벨 사다리를 따라 진행하는지, 며칠치를 미리 만드는지가 미정이다.
-   `course.scheduled_on`의 유니크 제약도 여기 달렸다. **기획 확정 대기 중.**
+   `CourseProgressContract`도 확정했다. `completeSession`을 **단일 진입점**으로 두고
+   `completeStep`은 만들지 않는다 — 스텝 완료를 세션 완료와 따로 부를 주체가 이 설계에 없다.
+   재시도는 애그리거트가 흡수한다. 이미 완료된 스텝을 다시 완료해도 진행도가 오르지 않고
+   도장도 한 번만 붙는다.
+9. ~~**오늘 코스와 내일 코스의 차이.**~~ **해소 — 내일의 코스가 없다.** 살아 있는 화면에
+   "내일 코스"가 나오는 곳이 없고, 유일한 언급이 deprecated 처리된 체크 화면이었다.
+   **진행 중인 코스가 곧 오늘의 코스**이므로 `course.scheduled_on`을 만들지 않는다.
+   진행 중인 코스가 여럿이면 가장 최근에 처방된 것을 홈에 그린다.
 10. **MET 값의 출처와 보간.** 레벨별 값이 표준 참조의 보간이라 감수가 필요하다. 운동 단위로
     값을 부여하는 이상 준비 동작과 핀포즈에 각각 무엇을 줄지도 감수 대상이다.
 11. **`AGENTS.md` 갱신.** §1 핵심 루프의 `PoseCheckpoint 확인 → Stamp/다음 코스 보강`,
