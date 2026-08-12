@@ -460,7 +460,10 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
 - `category`는 코스 스텝 행에 운동 이름 아래로 그리는 분류다(`가동성 웜업` · `핀포즈`).
   **값 집합이 아직 고정되지 않았다** — seed가 들어올 때 확정되므로 프론트에서 값을 열거해
   분기하지 말고 문자열을 그대로 표시한다. `difficulty`도 같다.
-- `metValue`는 kcal이 아니다. 현재 회원 몸무게를 함께 조회해 kcal을 계산하는 API도 없다.
+- **`metValue`는 kcal이 아니다.** catalog는 회원 몸무게를 모르므로 계산하지 않는다.
+  kcal이 필요하면 계산해서 내려주는 쪽을 쓴다 — 코스·홈은 `estimatedKcal`(현재 몸무게로
+  매번 계산한 **예상치**), 완료 리포트는 세션의 `estimatedKcal`(완료 시점에 계산해 **저장한
+  실측 기반 값**)이다. 프론트가 MET으로 직접 계산하지 않는다.
 - 음성 큐는 `displayOrder` 순서다. `startOffsetSeconds`가 null이면 타임코드가 확정되지
   않은 상태이므로 순차 재생으로 처리한다. `endOffsetSeconds`가 null인 큐는 유지 구간이
   없는 문장이다.
@@ -855,6 +858,9 @@ Content-Type: application/json
   "status": "IN_PROGRESS",
   "startedAt": "2026-08-10T12:00:00Z",
   "completedAt": null,
+  "completedExerciseCount": 0,
+  "estimatedKcal": null,
+  "perceivedResult": null,
   "exerciseRecords": [
     {
       "courseStepExerciseId": 51,
@@ -960,6 +966,7 @@ Content-Type: application/json
 
 ```http
 POST /sessions/100/perceived-result
+Authorization: Bearer {alignerAccessToken}
 Content-Type: application/json
 
 {"perceivedResult":"TOO_HARD"}

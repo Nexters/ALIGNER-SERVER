@@ -126,6 +126,9 @@ internal class SessionServiceImpl(
         command: CompleteSessionCommand,
     ): SessionView {
         val session = findOwned(memberId, sessionId)
+        // **재시도인지를 complete 전에 본다.** 완료된 세션은 complete 가 같은 인스턴스를
+        // 돌려주므로 그 뒤로는 최초 완료와 재시도를 구분할 수 없다.
+        val retry = session.completed
 
         val completed =
             session.complete(
@@ -164,7 +167,12 @@ internal class SessionServiceImpl(
         // **칼로리는 course 가 계산해 준 값을 받아 저장한다** (docs/domains.md §2, §4-3).
         // 리포트를 새로고침해도 같은 값이 나와야 하는데, 조회할 때마다 다시 계산하면 그 사이
         // 몸무게가 바뀐 회원의 지난 기록이 흔들린다.
-        val reported = sessionRepository.save(saved.withEstimatedKcal(progress.estimatedKcal))
+        //
+        // **최초 완료에서만 담는다.** 재시도에도 push 는 그대로 하지만(course 가 멱등하게
+        // 흡수한다) 그 결과는 버린다 — 최초 계산이 null 이었던 세션에 나중 값이 얹히면,
+        // 그 사이 몸무게를 입력한 회원의 지난 리포트가 "그날 태운 값" 이 아니게 된다.
+        val reported =
+            if (retry) saved else sessionRepository.save(saved.withEstimatedKcal(progress.estimatedKcal))
 
         return reported.toView(
             lookupStepExercises(reported),

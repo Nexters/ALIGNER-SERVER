@@ -643,7 +643,8 @@ course.stamp                    stamp_id(pk), member_id, target_pose_id, course_
 
 ```text
 training.session                  session_id(pk), member_id, course_id, step_order,
-                                  status, started_at, completed_at
+                                  status, started_at, completed_at,
+                                  estimated_kcal, perceived_result
 training.session_exercise_record  record_id(pk), session_id, course_step_exercise_id,
                                   exercise_id, display_order,
                                   completed, performed_duration_seconds

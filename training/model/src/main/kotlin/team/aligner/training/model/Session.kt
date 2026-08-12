@@ -41,8 +41,14 @@ data class Session(
     val completedExerciseCount: Int get() = records.count { it.completed }
 
     /**
-     * course 가 계산해 준 칼로리를 담는다. **이미 담긴 값을 덮지 않는다** — 완료 재시도에서
-     * push 가 다시 돌아도 처음 기록한 값이 남아야 한다.
+     * course 가 계산해 준 칼로리를 담는다.
+     *
+     * **최초 완료에서 한 번만 부른다.** 재시도에서 다시 부르면 최초 계산이 null 이었던 세션에
+     * 나중 값이 얹히는데, 그 사이 몸무게를 입력한 회원의 지난 리포트가 "그날 태운 값" 이
+     * 아니게 된다. 그 판단은 호출부가 한다 — 여기서는 완료 여부를 알아도 최초인지 재시도인지
+     * 구분할 수 없다.
+     *
+     * 값이 이미 있으면 덮지 않는다. 호출 규칙이 깨져도 저장된 기록은 지키는 두 번째 방어선이다.
      */
     fun withEstimatedKcal(kcal: Int?): Session = if (estimatedKcal != null) this else copy(estimatedKcal = kcal)
 
