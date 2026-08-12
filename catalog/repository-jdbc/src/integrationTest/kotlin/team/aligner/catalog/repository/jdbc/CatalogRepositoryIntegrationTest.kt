@@ -61,7 +61,7 @@ class CatalogRepositoryIntegrationTest {
         insertMuscle("ERECTOR_SPINAE", "척추기립근", "BACK", backKey = "erector-spinae-back")
         insertMuscle("ILIOPSOAS", "장요근", "PELVIS", frontKey = "iliopsoas-front")
 
-        insertExercise(1L, "camel-pose", "낙타자세")
+        insertExercise(1L, "camel-pose", "낙타자세", imageAssetKey = "exercise/camel")
         insertExerciseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRENGTHEN, 1)
         insertExerciseMuscle(1L, "ILIOPSOAS", MuscleRole.STRETCH, 2)
         insertVoiceCue(1L, 1, null, null, "무릎을 골반 너비로 벌리세요")
@@ -85,7 +85,7 @@ class CatalogRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'catalog-%'")
             .query(Int::class.java)
-            .single() shouldBe 8
+            .single() shouldBe 9
     }
 
     @Test
@@ -106,6 +106,10 @@ class CatalogRepositoryIntegrationTest {
 
         detail.name shouldBe "낙타자세"
         detail.category shouldBe "가동성 웜업"
+        // 새로 넣은 컬럼이 제 자리로 매핑돼야 한다. video_url 은 YMove 연동 전이라 비어 있는
+        // 것이 정상이고, 그 상태로도 상세 조회가 성립해야 한다.
+        detail.imageAssetKey shouldBe "exercise/camel"
+        detail.videoUrl.shouldBeNull()
         detail.muscles.map { it.name } shouldBe listOf("척추기립근", "장요근")
         // RENAME 한 컬럼과 새로 넣은 컬럼이 각각 제 자리로 매핑돼야 한다.
         detail.muscles.map { it.frontHighlightAssetKey } shouldBe listOf(null, "iliopsoas-front")
@@ -382,16 +386,22 @@ class CatalogRepositoryIntegrationTest {
         setCount: Int? = 3,
         repCount: Int? = null,
         category: String? = "가동성 웜업",
+        imageAssetKey: String? = null,
+        videoUrl: String? = null,
     ) = jdbcClient
         .sql(
             """
-            INSERT INTO catalog.exercise (exercise_id, ymove_slug, name, default_set_count, default_rep_count,
+            INSERT INTO catalog.exercise (exercise_id, ymove_slug, name, image_asset_key, video_url,
+                                          default_set_count, default_rep_count,
                                           default_duration_seconds, met_value, difficulty, category, caution_note)
-            VALUES (:id, :slug, :name, :setCount, :repCount, 120, 2.30, '하', :category, '통증이 오면 중단하세요')
+            VALUES (:id, :slug, :name, :imageAssetKey, :videoUrl,
+                    :setCount, :repCount, 120, 2.30, '하', :category, '통증이 오면 중단하세요')
             """.trimIndent(),
         ).param("id", id)
         .param("slug", slug)
         .param("name", name)
+        .param("imageAssetKey", imageAssetKey)
+        .param("videoUrl", videoUrl)
         .param("setCount", setCount)
         .param("repCount", repCount)
         .param("category", category)

@@ -14,13 +14,16 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import team.aligner.training.infrastructure.SessionAchievementQueryRepository
 import team.aligner.training.infrastructure.SessionRepository
 import team.aligner.training.model.ExerciseResult
+import team.aligner.training.model.PerceivedResult
 import team.aligner.training.model.Session
 import team.aligner.training.model.SessionStatus
 import team.aligner.training.model.StepExercise
 import team.aligner.training.repository.jdbc.bootstrap.TrainingRepositoryTestApplication
 import java.time.Instant
+import java.time.LocalDate
 
 /**
  * 러너는 Kotest 가 아니라 JUnit5 다. 단언만 kotest-assertions-core 를 쓴다.
@@ -39,6 +42,9 @@ class TrainingRepositoryIntegrationTest {
     @Autowired
     private lateinit var jdbcClient: JdbcClient
 
+    @Autowired
+    private lateinit var sessionAchievementQueryRepository: SessionAchievementQueryRepository
+
     @BeforeEach
     fun `픽스처를 새로 넣는다`() {
         jdbcClient
@@ -56,7 +62,7 @@ class TrainingRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'training-%'")
             .query(Int::class.java)
-            .single() shouldBe 3
+            .single() shouldBe 4
     }
 
     @Test
@@ -142,6 +148,90 @@ class TrainingRepositoryIntegrationTest {
                 ).param("sessionId", saved.identity.shouldNotBeNull().value)
                 .update()
         }
+    }
+
+    /**
+     * 리포트 값이 애그리거트와 함께 오가는지 본다. **저장하는 칼로리**라 되읽어서 같아야
+     * 리포트를 새로고침해도 값이 유지된다.
+     */
+    @Test
+    fun `소모 칼로리와 체감이 함께 저장되고 되읽힌다`() {
+        val saved = sessionRepository.save(started())
+        val identity = saved.identity.shouldNotBeNull()
+
+        sessionRepository.save(
+            saved
+                .complete(
+                    results = listOf(ExerciseResult(courseStepExerciseId = 51L, completed = true, performedDurationSeconds = 120)),
+                    at = AT,
+                ).withEstimatedKcal(63)
+                .recordPerceivedResult(PerceivedResult.TOO_HARD),
+        )
+
+        val found = sessionRepository.findByIdentity(identity).shouldNotBeNull()
+        found.estimatedKcal shouldBe 63
+        found.perceivedResult shouldBe PerceivedResult.TOO_HARD
+        found.completedExerciseCount shouldBe 1
+    }
+
+    /**
+     * 값 집합이 화면 선택지와 1:1 이라 CHECK 으로 막는다. difficulty·category 처럼 감수로
+     * 늘어날 어휘가 아니다.
+     */
+    @Test
+    fun `모르는 체감 값은 DB 가 막는다`() {
+        val saved = sessionRepository.save(started())
+
+        assertThrows<DataIntegrityViolationException> {
+            jdbcClient
+                .sql("UPDATE training.session SET perceived_result = 'MAYBE' WHERE session_id = :id")
+                .param("id", saved.identity.shouldNotBeNull().value)
+                .update()
+        }
+    }
+
+    /**
+     * 연속 달성이 날짜를 어떻게 접는지는 **SQL 이 정한다.** 단위 테스트로는 확인할 수 없어
+     * 여기서 고정한다.
+     *
+     * `2026-08-10T15:30Z` 는 UTC 로 10 일이지만 `Asia/Seoul` 로는 11 일 0 시 30 분이다.
+     * UTC 로 접으면 하루가 둘로 갈려 연속이 끊긴 것처럼 보인다.
+     */
+    @Test
+    fun `완료 날짜를 회원이 사는 날짜로 접어 중복 없이 돌려준다`() {
+        completeAt(Instant.parse("2026-08-10T01:00:00Z"))
+        completeAt(Instant.parse("2026-08-10T09:00:00Z"))
+        completeAt(Instant.parse("2026-08-10T15:30:00Z"))
+
+        val dates = sessionAchievementQueryRepository.findCompletedDates(MEMBER_ID, LocalDate.of(2026, 8, 1))
+
+        // 앞의 둘은 KST 로 10 일, 마지막은 11 일이다. 같은 날은 하나로 접힌다.
+        dates shouldBe listOf(LocalDate.of(2026, 8, 11), LocalDate.of(2026, 8, 10))
+    }
+
+    @Test
+    fun `진행 중인 세션은 연속 달성에 들어가지 않는다`() {
+        sessionRepository.save(started())
+
+        sessionAchievementQueryRepository.findCompletedDates(MEMBER_ID, LocalDate.of(2026, 8, 1)) shouldBe emptyList()
+    }
+
+    @Test
+    fun `남의 세션은 연속 달성에 들어가지 않는다`() {
+        val other =
+            Session.start(
+                memberId = MEMBER_ID + 1,
+                courseId = COURSE_ID,
+                stepOrder = 1,
+                exercises = listOf(StepExercise(courseStepExerciseId = 51L, exerciseId = 101L, displayOrder = 1)),
+            )
+        sessionRepository.save(other.complete(results = emptyList(), at = AT))
+
+        sessionAchievementQueryRepository.findCompletedDates(MEMBER_ID, LocalDate.of(2026, 8, 1)) shouldBe emptyList()
+    }
+
+    private fun completeAt(at: Instant) {
+        sessionRepository.save(sessionRepository.save(started()).complete(results = emptyList(), at = at))
     }
 
     private fun started(): Session =
