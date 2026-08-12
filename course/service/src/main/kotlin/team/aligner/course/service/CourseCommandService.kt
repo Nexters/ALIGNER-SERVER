@@ -6,6 +6,8 @@ import org.springframework.transaction.annotation.Transactional
 import team.aligner.course.infrastructure.CauseLookupPort
 import team.aligner.course.infrastructure.CourseRepository
 import team.aligner.course.infrastructure.CourseTemplateRepository
+import team.aligner.course.infrastructure.ExerciseCatalogPort
+import team.aligner.course.infrastructure.MemberBodyPort
 import team.aligner.course.infrastructure.StampRepository
 import team.aligner.course.infrastructure.TargetPoseCatalogPort
 import team.aligner.course.model.Course
@@ -28,6 +30,7 @@ interface CourseCommandService {
         memberId: Long,
         courseId: Long,
         stepOrder: Int,
+        performedExercises: List<PerformedExercise>,
     ): CourseProgressResult
 }
 
@@ -41,6 +44,8 @@ internal class CourseCommandServiceImpl(
     private val courseRepository: CourseRepository,
     private val courseTemplateRepository: CourseTemplateRepository,
     private val stampRepository: StampRepository,
+    private val exerciseCatalogPort: ExerciseCatalogPort,
+    private val memberBodyPort: MemberBodyPort,
     private val causeLookupPort: CauseLookupPort,
     private val targetPoseCatalogPort: TargetPoseCatalogPort,
 ) : CourseCommandService {
@@ -103,6 +108,7 @@ internal class CourseCommandServiceImpl(
         memberId: Long,
         courseId: Long,
         stepOrder: Int,
+        performedExercises: List<PerformedExercise>,
     ): CourseProgressResult {
         val completed = saveCompletedStep(memberId, courseId, stepOrder)
 
@@ -126,6 +132,54 @@ internal class CourseCommandServiceImpl(
             totalStepCount = completed.totalStepCount,
             courseCompleted = completed.status == CourseStatus.COMPLETED,
             stampAcquired = stampAcquired,
+            estimatedKcal = estimateKcal(memberId, completed, performedExercises),
+        )
+    }
+
+    /**
+     * 이번 세션의 소모 칼로리. **수행 기록이 없으면 계산하지 않는다.**
+     *
+     * `training` 은 실측 시간만 넘기고 계산은 여기서 한다 — MET(catalog)과 몸무게(member)를
+     * 이미 읽고 있는 쪽이 course 다 (docs/domains.md §4-3).
+     *
+     * 코스 개요의 예상 칼로리와 달리 **기본 수행 시간으로 메우지 않는다.** 리포트는 실제로
+     * 얼마나 움직였는지를 말하는 화면이라, 모르는 값을 예상치로 채우면 다른 뜻이 된다.
+     */
+    private fun estimateKcal(
+        memberId: Long,
+        course: Course,
+        performedExercises: List<PerformedExercise>,
+    ): Int? {
+        if (performedExercises.isEmpty()) {
+            return null
+        }
+
+        val exerciseIdByStepExerciseId =
+            course.steps
+                .flatMap { it.exercises }
+                .mapNotNull { row -> row.identity?.let { it to row.exerciseId } }
+                .toMap()
+
+        val performed =
+            performedExercises.mapNotNull { performedExercise ->
+                exerciseIdByStepExerciseId[performedExercise.courseStepExerciseId]?.let {
+                    it to performedExercise.performedDurationSeconds
+                }
+            }
+        if (performed.isEmpty()) {
+            return null
+        }
+
+        val metValues =
+            exerciseCatalogPort
+                .findAllByIds(performed.map { it.first }.distinct())
+                .associate { it.exerciseId to it.metValue }
+        val weightKg = memberBodyPort.findWeightKg(memberId)
+
+        return CalorieCalculator.sum(
+            performed.map { (exerciseId, seconds) ->
+                CalorieCalculator.calculate(metValues[exerciseId], weightKg, seconds)
+            },
         )
     }
 
@@ -212,4 +266,12 @@ data class CourseProgressResult(
     val totalStepCount: Int,
     val courseCompleted: Boolean,
     val stampAcquired: Boolean,
+    /** 이번 세션의 소모 칼로리. 계산이 성립하지 않으면 null 이다. */
+    val estimatedKcal: Int?,
+)
+
+/** `training` 이 넘기는 실측 수행 시간. 계산은 course 가 한다. */
+data class PerformedExercise(
+    val courseStepExerciseId: Long,
+    val performedDurationSeconds: Int?,
 )

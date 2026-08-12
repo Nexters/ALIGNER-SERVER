@@ -1,6 +1,7 @@
 package team.aligner.training.repository.jdbc
 
 import team.aligner.training.infrastructure.SessionRepository
+import team.aligner.training.model.PerceivedResult
 import team.aligner.training.model.Session
 import team.aligner.training.model.SessionExerciseRecord
 import team.aligner.training.model.SessionIdentity
@@ -31,6 +32,8 @@ internal class SessionRepositoryImpl(
                     status = session.status.name,
                     startedAt = session.startedAt ?: now,
                     completedAt = session.completedAt?.truncatedTo(ChronoUnit.MICROS),
+                    estimatedKcal = session.estimatedKcal,
+                    perceivedResult = session.perceivedResult?.name,
                     records =
                         session.records
                             .map {
@@ -75,4 +78,7 @@ private fun SessionEntity.toModel(): Session =
                 }.sortedBy { it.displayOrder },
         startedAt = startedAt,
         completedAt = completedAt,
+        estimatedKcal = estimatedKcal,
+        // DDL 의 CHECK 이 값 집합을 강제하므로 valueOf 가 실패하면 스키마가 어긋난 것이다.
+        perceivedResult = perceivedResult?.let(PerceivedResult::valueOf),
     )

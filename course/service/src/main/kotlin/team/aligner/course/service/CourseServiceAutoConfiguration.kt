@@ -29,6 +29,8 @@ class CourseServiceAutoConfiguration {
         courseRepository: CourseRepository,
         courseTemplateRepository: CourseTemplateRepository,
         stampRepository: StampRepository,
+        exerciseCatalogPort: ExerciseCatalogPort,
+        memberBodyPort: MemberBodyPort,
         causeLookupPort: CauseLookupPort,
         targetPoseCatalogPort: TargetPoseCatalogPort,
     ): CourseCommandService =
@@ -36,6 +38,8 @@ class CourseServiceAutoConfiguration {
             courseRepository,
             courseTemplateRepository,
             stampRepository,
+            exerciseCatalogPort,
+            memberBodyPort,
             causeLookupPort,
             targetPoseCatalogPort,
         )

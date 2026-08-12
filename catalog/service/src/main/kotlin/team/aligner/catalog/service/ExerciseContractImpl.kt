@@ -19,6 +19,7 @@ internal class ExerciseContractImpl(
                 ExerciseResponse(
                     exerciseId = it.exerciseId,
                     name = it.name,
+                    imageAssetKey = it.imageAssetKey,
                     defaultSetCount = it.defaultSetCount,
                     defaultRepCount = it.defaultRepCount,
                     defaultDurationSeconds = it.defaultDurationSeconds,

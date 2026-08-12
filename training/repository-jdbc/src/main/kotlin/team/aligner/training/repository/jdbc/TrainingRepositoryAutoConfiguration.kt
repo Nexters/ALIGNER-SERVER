@@ -3,6 +3,8 @@ package team.aligner.training.repository.jdbc
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories
+import org.springframework.jdbc.core.simple.JdbcClient
+import team.aligner.training.infrastructure.SessionAchievementQueryRepository
 import team.aligner.training.infrastructure.SessionRepository
 
 /**
@@ -16,4 +18,8 @@ class TrainingRepositoryAutoConfiguration {
     @Bean(name = ["sessionRepository"])
     internal fun sessionRepository(sessionJdbcRepository: SessionJdbcRepository): SessionRepository =
         SessionRepositoryImpl(sessionJdbcRepository)
+
+    @Bean(name = ["sessionAchievementQueryRepository"])
+    internal fun sessionAchievementQueryRepository(jdbcClient: JdbcClient): SessionAchievementQueryRepository =
+        SessionAchievementQueryRepositoryImpl(jdbcClient)
 }

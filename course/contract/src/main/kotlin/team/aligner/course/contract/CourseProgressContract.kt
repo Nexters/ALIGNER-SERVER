@@ -33,6 +33,25 @@ data class CompleteSessionCommand(
     val memberId: Long,
     val courseId: Long,
     val stepOrder: Int,
+    /**
+     * 이번 세션에서 **실제로 수행한** 운동. 소모 칼로리 계산 입력이다.
+     *
+     * `training` 이 계산하지 않고 실측값만 넘긴다. kcal = MET × 3.5 × 체중 ÷ 200 × 분 이라
+     * MET(catalog)과 몸무게(member)가 둘 다 필요한데 그 둘을 이미 읽고 있는 쪽이 course 다
+     * (docs/domains.md §4-3). training 이 계산하려면 port 두 개를 새로 뚫어야 한다.
+     *
+     * 비어 있으면 `estimatedKcal` 이 null 로 돌아간다.
+     */
+    val performedExercises: List<PerformedExerciseCommand> = emptyList(),
+)
+
+/**
+ * 수행한 운동 하나. **수행하지 않은 운동은 담지 않는다** — 담기면 0 분으로 계산되어
+ * "운동량 없음" 과 "안 했음" 이 뭉개진다.
+ */
+data class PerformedExerciseCommand(
+    val courseStepExerciseId: Long,
+    val performedDurationSeconds: Int?,
 )
 
 data class CourseProgressResponse(
@@ -42,4 +61,11 @@ data class CourseProgressResponse(
     val courseCompleted: Boolean,
     /** 이 호출로 도장이 새로 붙었는지. 재시도로 들어온 호출에서는 false 다. */
     val stampAcquired: Boolean,
+    /**
+     * **이번 세션의** 소모 칼로리. 코스 누적이 아니다 — 완료 리포트가 방금 한 운동의 스탯을
+     * 보여준다.
+     *
+     * 몸무게나 MET 이 없거나 수행 시간을 모르면 **0 이 아니라 null** 이다 (`CalorieCalculator`).
+     */
+    val estimatedKcal: Int?,
 )

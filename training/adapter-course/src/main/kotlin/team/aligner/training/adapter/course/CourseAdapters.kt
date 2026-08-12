@@ -3,11 +3,13 @@ package team.aligner.training.adapter.course
 import team.aligner.course.contract.CompleteSessionCommand
 import team.aligner.course.contract.CourseProgressContract
 import team.aligner.course.contract.CourseStepContract
+import team.aligner.course.contract.PerformedExerciseCommand
 import team.aligner.training.infrastructure.CourseProgressLookup
 import team.aligner.training.infrastructure.CourseProgressPort
 import team.aligner.training.infrastructure.CourseStepExerciseLookup
 import team.aligner.training.infrastructure.CourseStepLookup
 import team.aligner.training.infrastructure.CourseStepPort
+import team.aligner.training.infrastructure.PerformedExerciseLookup
 
 /**
  * `training` 의 port 둘을 `course:contract` 로 잇는다. 양쪽 도메인이 서로를 모르고 이 모듈만
@@ -51,10 +53,22 @@ internal class CourseProgressAdapter(
         memberId: Long,
         courseId: Long,
         stepOrder: Int,
+        performedExercises: List<PerformedExerciseLookup>,
     ): CourseProgressLookup {
         val response =
             courseProgressContract.completeSession(
-                CompleteSessionCommand(memberId = memberId, courseId = courseId, stepOrder = stepOrder),
+                CompleteSessionCommand(
+                    memberId = memberId,
+                    courseId = courseId,
+                    stepOrder = stepOrder,
+                    performedExercises =
+                        performedExercises.map {
+                            PerformedExerciseCommand(
+                                courseStepExerciseId = it.courseStepExerciseId,
+                                performedDurationSeconds = it.performedDurationSeconds,
+                            )
+                        },
+                ),
             )
         return CourseProgressLookup(
             courseId = response.courseId,
@@ -62,6 +76,7 @@ internal class CourseProgressAdapter(
             totalStepCount = response.totalStepCount,
             courseCompleted = response.courseCompleted,
             stampAcquired = response.stampAcquired,
+            estimatedKcal = response.estimatedKcal,
         )
     }
 }

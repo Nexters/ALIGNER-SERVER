@@ -31,7 +31,8 @@ internal class ExerciseQueryRepositoryImpl(
             jdbcClient
                 .sql(
                     """
-                    SELECT exercise_id, name, default_set_count, default_rep_count,
+                    SELECT exercise_id, name, image_asset_key, video_url,
+                           default_set_count, default_rep_count,
                            default_duration_seconds, met_value, difficulty, category, caution_note
                     FROM catalog.exercise
                     WHERE exercise_id = :exerciseId
@@ -41,6 +42,8 @@ internal class ExerciseQueryRepositoryImpl(
                     ExerciseDetailView(
                         exerciseId = rs.getLong("exercise_id"),
                         name = rs.getString("name"),
+                        imageAssetKey = rs.getString("image_asset_key"),
+                        videoUrl = rs.getString("video_url"),
                         defaultSetCount = rs.getIntOrNull("default_set_count"),
                         defaultRepCount = rs.getIntOrNull("default_rep_count"),
                         defaultDurationSeconds = rs.getIntOrNull("default_duration_seconds"),
@@ -64,7 +67,7 @@ internal class ExerciseQueryRepositoryImpl(
         jdbcClient
             .sql(
                 """
-                SELECT exercise_id, name, default_set_count, default_rep_count,
+                SELECT exercise_id, name, image_asset_key, default_set_count, default_rep_count,
                        default_duration_seconds, met_value, difficulty, category
                 FROM catalog.exercise
                 WHERE exercise_id IN (:exerciseIds)
@@ -75,6 +78,7 @@ internal class ExerciseQueryRepositoryImpl(
                 ExerciseSummaryView(
                     exerciseId = rs.getLong("exercise_id"),
                     name = rs.getString("name"),
+                    imageAssetKey = rs.getString("image_asset_key"),
                     defaultSetCount = rs.getIntOrNull("default_set_count"),
                     defaultRepCount = rs.getIntOrNull("default_rep_count"),
                     defaultDurationSeconds = rs.getIntOrNull("default_duration_seconds"),

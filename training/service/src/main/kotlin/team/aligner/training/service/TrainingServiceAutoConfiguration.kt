@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean
 import team.aligner.training.infrastructure.CourseProgressPort
 import team.aligner.training.infrastructure.CourseStepPort
 import team.aligner.training.infrastructure.ExerciseDetailPort
+import team.aligner.training.infrastructure.SessionAchievementQueryRepository
 import team.aligner.training.infrastructure.SessionRepository
 
 /**
@@ -18,8 +19,16 @@ class TrainingServiceAutoConfiguration {
     @Bean
     fun sessionService(
         sessionRepository: SessionRepository,
+        sessionAchievementQueryRepository: SessionAchievementQueryRepository,
         courseStepPort: CourseStepPort,
         courseProgressPort: CourseProgressPort,
         exerciseDetailPort: ExerciseDetailPort,
-    ): SessionService = SessionServiceImpl(sessionRepository, courseStepPort, courseProgressPort, exerciseDetailPort)
+    ): SessionService =
+        SessionServiceImpl(
+            sessionRepository,
+            sessionAchievementQueryRepository,
+            courseStepPort,
+            courseProgressPort,
+            exerciseDetailPort,
+        )
 }

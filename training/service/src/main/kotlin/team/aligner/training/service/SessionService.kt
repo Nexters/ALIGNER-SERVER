@@ -6,17 +6,25 @@ import team.aligner.training.infrastructure.CourseStepExerciseLookup
 import team.aligner.training.infrastructure.CourseStepPort
 import team.aligner.training.infrastructure.ExerciseDetailLookup
 import team.aligner.training.infrastructure.ExerciseDetailPort
+import team.aligner.training.infrastructure.PerformedExerciseLookup
+import team.aligner.training.infrastructure.SessionAchievementQueryRepository
 import team.aligner.training.infrastructure.SessionRepository
 import team.aligner.training.model.ExerciseResult
+import team.aligner.training.model.PerceivedResult
 import team.aligner.training.model.Session
 import team.aligner.training.model.SessionIdentity
 import team.aligner.training.model.StepExercise
 import team.aligner.training.model.exception.CourseStepNotFoundException
 import team.aligner.training.model.exception.SessionNotFoundException
+import team.aligner.training.model.view.AchievementDayView
+import team.aligner.training.model.view.AchievementView
 import team.aligner.training.model.view.CourseProgressView
 import team.aligner.training.model.view.SessionExerciseRecordView
 import team.aligner.training.model.view.SessionView
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 interface SessionService {
     fun start(
@@ -34,6 +42,14 @@ interface SessionService {
         sessionId: Long,
         command: CompleteSessionCommand,
     ): SessionView
+
+    fun recordPerceivedResult(
+        memberId: Long,
+        sessionId: Long,
+        perceivedResult: PerceivedResult,
+    ): SessionView
+
+    fun getAchievement(memberId: Long): AchievementView
 }
 
 /**
@@ -48,6 +64,7 @@ interface SessionService {
 @Transactional
 internal class SessionServiceImpl(
     private val sessionRepository: SessionRepository,
+    private val sessionAchievementQueryRepository: SessionAchievementQueryRepository,
     private val courseStepPort: CourseStepPort,
     private val courseProgressPort: CourseProgressPort,
     private val exerciseDetailPort: ExerciseDetailPort,
@@ -131,10 +148,26 @@ internal class SessionServiceImpl(
                 memberId = memberId,
                 courseId = saved.courseId,
                 stepOrder = saved.stepOrder,
+                // 실제로 수행한 것만 넘긴다. 수행하지 않은 운동을 담으면 0 분으로 계산되어
+                // "운동량 없음" 과 "안 했음" 이 뭉개진다.
+                performedExercises =
+                    saved.records
+                        .filter { it.completed }
+                        .map {
+                            PerformedExerciseLookup(
+                                courseStepExerciseId = it.courseStepExerciseId,
+                                performedDurationSeconds = it.performedDurationSeconds,
+                            )
+                        },
             )
 
-        return saved.toView(
-            lookupStepExercises(saved),
+        // **칼로리는 course 가 계산해 준 값을 받아 저장한다** (docs/domains.md §2, §4-3).
+        // 리포트를 새로고침해도 같은 값이 나와야 하는데, 조회할 때마다 다시 계산하면 그 사이
+        // 몸무게가 바뀐 회원의 지난 기록이 흔들린다.
+        val reported = sessionRepository.save(saved.withEstimatedKcal(progress.estimatedKcal))
+
+        return reported.toView(
+            lookupStepExercises(reported),
             courseProgress =
                 CourseProgressView(
                     completedStepCount = progress.completedStepCount,
@@ -143,6 +176,66 @@ internal class SessionServiceImpl(
                     stampAcquired = progress.stampAcquired,
                 ),
         )
+    }
+
+    /**
+     * 핀포즈 직후 체감을 기록한다. **기록만 하고 판단하지 않는다** (docs/domains.md §2).
+     *
+     * `TOO_HARD` 를 받아도 코스를 바꾸거나 자세를 내리지 않는다. 어떤 자세로 옮길지가 기획
+     * 미확정이라, 화면이 그 값을 보고 부위·난이도 재선택으로 보낸다.
+     */
+    override fun recordPerceivedResult(
+        memberId: Long,
+        sessionId: Long,
+        perceivedResult: PerceivedResult,
+    ): SessionView {
+        val saved = sessionRepository.save(findOwned(memberId, sessionId).recordPerceivedResult(perceivedResult))
+        return saved.toView(lookupStepExercises(saved), courseProgress = null)
+    }
+
+    /**
+     * 연속 달성. **저장된 집계가 아니라 완료 기록에서 센다** — 집계 테이블을 두면 세션과
+     * 어긋난 상태가 생길 자리가 하나 늘어난다.
+     *
+     * 날짜는 `Asia/Seoul` 기준이다. 저장은 UTC 지만 "며칠 연속" 은 회원이 사는 날짜로 세야
+     * 한다 (`AchievementView`).
+     */
+    override fun getAchievement(memberId: Long): AchievementView {
+        val today = LocalDate.now(ACHIEVEMENT_ZONE)
+        val weekStart = today.with(DayOfWeek.MONDAY)
+
+        // 연속 일수는 이번 주보다 더 거슬러 올라갈 수 있다. 상한을 두는 것은 오래된 기록까지
+        // 훑을 이유가 없어서다 — 화면이 보여주는 것은 "N 일 연속" 하나뿐이다.
+        val from = minOf(weekStart, today.minusDays(MAX_STREAK_DAYS.toLong()))
+        val achievedDates = sessionAchievementQueryRepository.findCompletedDates(memberId, from).toSet()
+
+        return AchievementView(
+            currentStreakDays = streakDaysOf(achievedDates, today),
+            weeklyAchievedCount = (0..<DAYS_PER_WEEK).count { weekStart.plusDays(it.toLong()) in achievedDates },
+            days =
+                (0..<DAYS_PER_WEEK).map {
+                    val date = weekStart.plusDays(it.toLong())
+                    AchievementDayView(date = date, achieved = date in achievedDates)
+                },
+        )
+    }
+
+    /**
+     * **오늘 아직 안 했어도 끊기지 않는다.** 어제까지 이어져 있으면 그 값을 유지한다 —
+     * 하루가 지나기도 전에 0 이 되면 화면이 회원을 잘못 다그친다.
+     */
+    private fun streakDaysOf(
+        achievedDates: Set<LocalDate>,
+        today: LocalDate,
+    ): Int {
+        val start = if (today in achievedDates) today else today.minusDays(1)
+        var days = 0
+        var cursor = start
+        while (cursor in achievedDates && days < MAX_STREAK_DAYS) {
+            days++
+            cursor = cursor.minusDays(1)
+        }
+        return days
     }
 
     /**
@@ -185,6 +278,9 @@ internal class SessionServiceImpl(
             status = status,
             startedAt = checkNotNull(startedAt) { "저장된 세션에 시작 시각이 없다" },
             completedAt = completedAt,
+            completedExerciseCount = completedExerciseCount,
+            estimatedKcal = estimatedKcal,
+            perceivedResult = perceivedResult,
             exerciseRecords =
                 records
                     .sortedBy { it.displayOrder }
@@ -214,6 +310,19 @@ internal class SessionServiceImpl(
             return emptyMap()
         }
         return exerciseDetailPort.findAllByIds(ids).associateBy { it.exerciseId }
+    }
+
+    private companion object {
+        /** 회원이 사는 날짜로 센다. 밤 늦게 한 운동이 UTC 로는 다음 날이 된다. */
+        private val ACHIEVEMENT_ZONE: ZoneId = ZoneId.of("Asia/Seoul")
+
+        private const val DAYS_PER_WEEK = 7
+
+        /**
+         * 연속 일수 상한. 화면이 보여주는 것은 "N 일 연속" 하나뿐이라 그 이상 거슬러 올라가도
+         * 쓰이지 않는다. 상한이 없으면 오래 쓴 회원일수록 조회가 무거워진다.
+         */
+        private const val MAX_STREAK_DAYS = 365
     }
 }
 
