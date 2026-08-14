@@ -39,6 +39,8 @@ data class CourseDetailView(
     val courseId: Long,
     val targetPoseId: Long,
     val targetPoseName: String,
+    /** 개요 상단의 히어로 이미지. 홈 카드와 같은 그림이라 같은 키다. */
+    val targetPoseImageAssetKey: String?,
     val name: String,
     val recommendationReason: String?,
     val completedStepCount: Int,
@@ -68,6 +70,7 @@ data class CourseStepExerciseView(
     val courseStepExerciseId: Long,
     val exerciseId: Long,
     val name: String,
+    val imageAssetKey: String?,
     val category: String?,
     val displayOrder: Int,
     val durationSeconds: Int?,

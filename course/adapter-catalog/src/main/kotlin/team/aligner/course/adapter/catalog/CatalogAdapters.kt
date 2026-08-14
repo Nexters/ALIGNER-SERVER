@@ -58,6 +58,7 @@ internal class ExerciseCatalogAdapter(
             ExerciseCatalogEntry(
                 exerciseId = it.exerciseId,
                 name = it.name,
+                imageAssetKey = it.imageAssetKey,
                 category = it.category,
                 defaultSetCount = it.defaultSetCount,
                 defaultDurationSeconds = it.defaultDurationSeconds,

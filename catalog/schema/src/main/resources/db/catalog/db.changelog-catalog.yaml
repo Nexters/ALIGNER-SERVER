@@ -78,3 +78,12 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/007-split-muscle-highlight-and-add-exercise-category.sql
             relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0009-add-exercise-media
+      author: aligner
+      comment: 운동에 이미지 자산 키와 영상 URL 추가
+      changes:
+        - sqlFile:
+            path: ddl/008-add-exercise-media.sql
+            relativeToChangelogFile: true

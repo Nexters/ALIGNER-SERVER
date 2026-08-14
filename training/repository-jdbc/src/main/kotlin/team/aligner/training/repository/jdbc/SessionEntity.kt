@@ -24,6 +24,8 @@ internal data class SessionEntity(
     val status: String,
     val startedAt: Instant,
     val completedAt: Instant?,
+    val estimatedKcal: Int?,
+    val perceivedResult: String?,
     @MappedCollection(idColumn = "session_id")
     val records: Set<SessionExerciseRecordEntity>,
 )

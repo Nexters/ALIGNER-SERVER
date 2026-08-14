@@ -23,6 +23,8 @@ interface ExerciseCatalogPort {
 data class ExerciseCatalogEntry(
     val exerciseId: Long,
     val name: String,
+    /** 코스 순서 카드가 스텝마다 그리는 그림. URL 이 아니라 키다. */
+    val imageAssetKey: String?,
     val category: String?,
     val defaultSetCount: Int?,
     val defaultDurationSeconds: Int?,

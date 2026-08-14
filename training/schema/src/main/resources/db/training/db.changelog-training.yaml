@@ -30,3 +30,12 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/002-create-session-exercise-record.sql
             relativeToChangelogFile: true
+
+  - changeSet:
+      id: training-0004-add-session-report
+      author: aligner
+      comment: 세션에 소모 칼로리와 핀포즈 직후 체감 추가
+      changes:
+        - sqlFile:
+            path: ddl/003-add-session-report.sql
+            relativeToChangelogFile: true

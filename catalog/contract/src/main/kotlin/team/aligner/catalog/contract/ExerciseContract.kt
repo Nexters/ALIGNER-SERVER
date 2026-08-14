@@ -34,6 +34,13 @@ interface ExerciseContract {
 data class ExerciseResponse(
     val exerciseId: Long,
     val name: String,
+    /**
+     * 코스 순서 카드가 스텝마다 그리는 그림이다. **URL 이 아니라 키**이고 파일은 프론트가 갖는다.
+     *
+     * videoUrl 은 싣지 않는다. 재생은 세션 플레이어가 `GET /catalog/exercises/{id}` 로 직접
+     * 읽고, course·training 이 영상을 필요로 한다는 근거가 없다 (docs/architecture.md §3).
+     */
+    val imageAssetKey: String?,
     val defaultSetCount: Int?,
     val defaultRepCount: Int?,
     val defaultDurationSeconds: Int?,

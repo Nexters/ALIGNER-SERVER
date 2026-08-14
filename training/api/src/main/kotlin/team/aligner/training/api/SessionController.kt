@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import team.aligner.support.web.AlignerPrincipal
+import team.aligner.training.api.dto.AchievementResponse
 import team.aligner.training.api.dto.CompleteSessionRequest
+import team.aligner.training.api.dto.RecordPerceivedResultRequest
 import team.aligner.training.api.dto.SessionResponse
 import team.aligner.training.api.dto.StartSessionRequest
 import team.aligner.training.service.SessionService
@@ -118,6 +120,48 @@ class SessionController(
         @PathVariable sessionId: Long,
         @RequestBody request: CompleteSessionRequest,
     ): SessionResponse = SessionResponse.from(sessionService.complete(principal.memberId, sessionId, request.toCommand()))
+
+    @Operation(
+        summary = "핀포즈 직후 체감 기록",
+        description =
+            "\"오늘 파이어로그, 어땠어요?\" 화면의 3 지선다다. **기록만 한다** — `TOO_HARD` 를 보내도 " +
+                "서버가 코스를 바꾸거나 자세를 내리지 않는다. 어떤 자세로 옮길지는 아직 정해지지 않았고, " +
+                "지금은 화면이 이 값을 보고 부위·난이도 재선택(`POST /courses`)으로 보낸다. " +
+                "**다시 답할 수 있다** — 잘못 누른 것을 고치지 못하게 막을 이유가 없다.",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "기록 성공. perceivedResult 가 채워진 세션이 돌아온다"),
+            ApiResponse(
+                responseCode = "404",
+                description = "`SESSION_NOT_FOUND` — 없는 세션이거나 남의 세션이다",
+                content = [Content(mediaType = "application/json", schema = Schema(ref = ERROR_SCHEMA_REF))],
+            ),
+        ],
+    )
+    @PostMapping("/{sessionId}/perceived-result")
+    fun recordPerceivedResult(
+        @AuthenticationPrincipal principal: AlignerPrincipal,
+        @Parameter(description = "세션 식별자", example = "100")
+        @PathVariable sessionId: Long,
+        @RequestBody request: RecordPerceivedResultRequest,
+    ): SessionResponse =
+        SessionResponse.from(
+            sessionService.recordPerceivedResult(principal.memberId, sessionId, request.perceivedResult),
+        )
+
+    @Operation(
+        summary = "연속 달성 현황",
+        description =
+            "운동 완료 리포트의 \"5일 연속 달성 중 · 이번 주 5 / 7\" 과 요일 체크다. " +
+                "**날짜는 `Asia/Seoul` 기준**이고, 하루에 세션을 여러 번 해도 그날은 하루로 센다. " +
+                "**오늘 아직 안 했어도 연속이 끊기지 않는다** — 어제까지 이어져 있으면 그 값을 유지한다.",
+    )
+    @ApiResponse(responseCode = "200", description = "조회 성공. 완료한 세션이 없으면 0 일 · 전부 false 다")
+    @GetMapping("/achievements")
+    fun getAchievement(
+        @AuthenticationPrincipal principal: AlignerPrincipal,
+    ): AchievementResponse = AchievementResponse.from(sessionService.getAchievement(principal.memberId))
 }
 
 /**

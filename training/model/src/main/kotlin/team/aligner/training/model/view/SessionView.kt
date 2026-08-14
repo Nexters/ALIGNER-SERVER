@@ -1,5 +1,6 @@
 package team.aligner.training.model.view
 
+import team.aligner.training.model.PerceivedResult
 import team.aligner.training.model.SessionStatus
 import java.time.Instant
 
@@ -21,6 +22,12 @@ data class SessionView(
     val status: SessionStatus,
     val startedAt: Instant,
     val completedAt: Instant?,
+    /** 완료 리포트의 "완료 동작 N 개". 화면이 기록을 세지 않게 서버가 정리해서 내린다. */
+    val completedExerciseCount: Int,
+    /** 이 세션의 소모 칼로리. course 가 계산해 준 값이다. 계산이 안 되면 null 이다. */
+    val estimatedKcal: Int?,
+    /** 핀포즈 직후 체감. 아직 답하지 않았으면 null 이다. */
+    val perceivedResult: PerceivedResult?,
     val exerciseRecords: List<SessionExerciseRecordView>,
     val courseProgress: CourseProgressView?,
 )

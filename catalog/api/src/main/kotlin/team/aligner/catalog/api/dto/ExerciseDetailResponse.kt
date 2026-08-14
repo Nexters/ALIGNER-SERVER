@@ -11,7 +11,8 @@ import java.math.BigDecimal
  * 칼로리를 내리지 않고 metValue 만 내린다. kcal 은 회원 몸무게의 함수인데 몸무게는 member
  * 소유이고 catalog 는 member 를 의존할 수 없다 (docs/domains.md §1, §4-3).
  *
- * 재생 URL 과 썸네일이 없다. YMove 연동은 후속 이슈다 (§7-4·5·6).
+ * **`videoUrl` 은 YMove 연동 전까지 항상 null 이다.** 자리를 먼저 만들어 두는 것은 프론트가
+ * 플레이어를 미리 짤 수 있게 하기 위해서다 (§7-4·5·6).
  */
 @Schema(description = "운동 가이드 화면 전체")
 data class ExerciseDetailResponse(
@@ -19,6 +20,18 @@ data class ExerciseDetailResponse(
     val exerciseId: Long,
     @field:Schema(description = "운동 이름", example = "턱 당기기")
     val name: String,
+    @field:Schema(
+        description = "대표 이미지 asset 키. **URL 이 아니다** — 파일은 프론트가 갖고 키로 매핑한다",
+        example = "exercise/cat-cow",
+        nullable = true,
+    )
+    val imageAssetKey: String?,
+    @field:Schema(
+        description = "재생 영상 URL. 소스가 YMove 라 우리가 파일을 갖지 않는다. **연동 전까지 항상 null 이다**",
+        example = "https://ymove.example.com/v/cat-cow.mp4",
+        nullable = true,
+    )
+    val videoUrl: String?,
     @field:Schema(description = "권장 세트 수. 시간으로 수행하는 운동이면 null 이다", example = "3", nullable = true)
     val defaultSetCount: Int?,
     @field:Schema(description = "세트당 권장 반복 수. 시간으로 수행하는 운동이면 null 이다", example = "10", nullable = true)
@@ -51,6 +64,8 @@ data class ExerciseDetailResponse(
             ExerciseDetailResponse(
                 exerciseId = view.exerciseId,
                 name = view.name,
+                imageAssetKey = view.imageAssetKey,
+                videoUrl = view.videoUrl,
                 defaultSetCount = view.defaultSetCount,
                 defaultRepCount = view.defaultRepCount,
                 defaultDurationSeconds = view.defaultDurationSeconds,

@@ -1,6 +1,7 @@
 package team.aligner.training.api.dto
 
 import io.swagger.v3.oas.annotations.media.Schema
+import team.aligner.training.model.PerceivedResult
 import team.aligner.training.model.SessionStatus
 import team.aligner.training.model.view.CourseProgressView
 import team.aligner.training.model.view.SessionExerciseRecordView
@@ -83,6 +84,22 @@ data class SessionResponse(
     val startedAt: Instant,
     @field:Schema(description = "완료 시각. 진행 중이면 null 이다", nullable = true)
     val completedAt: Instant?,
+    @field:Schema(description = "완료한 운동 개수. 리포트의 \"완료 동작 N 개\" 다", example = "8")
+    val completedExerciseCount: Int,
+    @field:Schema(
+        description =
+            "이 세션의 소모 칼로리. 완료 시점에 계산해 **저장한 값**이라 나중에 몸무게가 바뀌어도 " +
+                "지난 리포트가 흔들리지 않는다. 몸무게·MET·수행 시간 중 하나라도 모르면 0 이 아니라 null 이다",
+        example = "63",
+        nullable = true,
+    )
+    val estimatedKcal: Int?,
+    @field:Schema(
+        description = "핀포즈 직후 체감. 아직 답하지 않았으면 null 이다",
+        allowableValues = ["SUCCEEDED", "STILL_HARD", "TOO_HARD"],
+        nullable = true,
+    )
+    val perceivedResult: PerceivedResult?,
     @field:Schema(description = "운동별 수행 기록. displayOrder 오름차순이다")
     val exerciseRecords: List<SessionExerciseRecordResponse>,
     @field:Schema(
@@ -100,6 +117,9 @@ data class SessionResponse(
                 status = view.status,
                 startedAt = view.startedAt,
                 completedAt = view.completedAt,
+                completedExerciseCount = view.completedExerciseCount,
+                estimatedKcal = view.estimatedKcal,
+                perceivedResult = view.perceivedResult,
                 exerciseRecords = view.exerciseRecords.map(SessionExerciseRecordResponse::from),
                 courseProgress = view.courseProgress?.let(CourseProgressResponse::from),
             )

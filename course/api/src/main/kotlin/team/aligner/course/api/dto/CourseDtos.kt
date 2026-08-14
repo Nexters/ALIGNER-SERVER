@@ -113,6 +113,11 @@ data class CourseDetailResponse(
     val targetPoseId: Long,
     @field:Schema(description = "목표 자세 이름", example = "낙타 자세")
     val targetPoseName: String,
+    @field:Schema(
+        description = "목표 자세 이미지 asset 키. 개요 상단 히어로에 쓴다. URL 이 아니다",
+        nullable = true,
+    )
+    val targetPoseImageAssetKey: String?,
     @field:Schema(description = "코스 이름", example = "낙타자세 정복하기")
     val name: String,
     @field:Schema(description = "코스 추천 이유", nullable = true)
@@ -142,6 +147,7 @@ data class CourseDetailResponse(
                 courseId = view.courseId,
                 targetPoseId = view.targetPoseId,
                 targetPoseName = view.targetPoseName,
+                targetPoseImageAssetKey = view.targetPoseImageAssetKey,
                 name = view.name,
                 recommendationReason = view.recommendationReason,
                 completedStepCount = view.completedStepCount,
@@ -192,6 +198,12 @@ data class CourseStepExerciseResponse(
     val exerciseId: Long,
     @field:Schema(description = "운동 이름", example = "캣카우")
     val name: String,
+    @field:Schema(
+        description = "운동 이미지 asset 키. 코스 순서 카드의 썸네일이다. URL 이 아니다",
+        example = "exercise/cat-cow",
+        nullable = true,
+    )
+    val imageAssetKey: String?,
     @field:Schema(description = "분류. 값 집합이 아직 고정되지 않았다", example = "가동성 웜업", nullable = true)
     val category: String?,
     @field:Schema(description = "표시 순서", example = "1")
@@ -209,6 +221,7 @@ data class CourseStepExerciseResponse(
                 courseStepExerciseId = view.courseStepExerciseId,
                 exerciseId = view.exerciseId,
                 name = view.name,
+                imageAssetKey = view.imageAssetKey,
                 category = view.category,
                 displayOrder = view.displayOrder,
                 durationSeconds = view.durationSeconds,

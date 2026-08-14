@@ -12,10 +12,14 @@ import java.math.BigDecimal
  *
  * category 는 코스 개요가 스텝마다 운동 이름 아래에 그리는 분류다. course 가 소비하게 되어
  * 요약에도 싣는다 — 상세 조회를 스텝 수만큼 다시 하지 않기 위해서다.
+ *
+ * imageAssetKey 도 같은 이유로 싣는다. 코스 순서 카드가 스텝마다 그림을 그린다.
+ * **videoUrl 은 싣지 않는다** — 목록에서 재생하는 화면이 없다.
  */
 data class ExerciseSummaryView(
     val exerciseId: Long,
     val name: String,
+    val imageAssetKey: String?,
     val defaultSetCount: Int?,
     val defaultRepCount: Int?,
     val defaultDurationSeconds: Int?,

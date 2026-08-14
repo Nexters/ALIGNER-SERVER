@@ -19,6 +19,13 @@ internal class CourseProgressContractImpl(
                 memberId = command.memberId,
                 courseId = command.courseId,
                 stepOrder = command.stepOrder,
+                performedExercises =
+                    command.performedExercises.map {
+                        PerformedExercise(
+                            courseStepExerciseId = it.courseStepExerciseId,
+                            performedDurationSeconds = it.performedDurationSeconds,
+                        )
+                    },
             )
         return CourseProgressResponse(
             courseId = result.courseId,
@@ -26,6 +33,7 @@ internal class CourseProgressContractImpl(
             totalStepCount = result.totalStepCount,
             courseCompleted = result.courseCompleted,
             stampAcquired = result.stampAcquired,
+            estimatedKcal = result.estimatedKcal,
         )
     }
 }

@@ -15,7 +15,7 @@
 | `catalog` | 구현됨 | 목표 자세 목록·상세, 운동 상세 조회 |
 | `screening` | 구현됨 | 부위 목록, 자세 체감 제출·원인 판별, 최신 결과 조회 |
 | `course` | 구현됨 | 코스 처방, 오늘의 코스, 코스 개요, 자세 도전 현황 |
-| `training` | 구현됨 | 세션 시작·복구·완료. 완료가 코스 진행도에 반영된다 |
+| `training` | 구현됨 | 세션 시작·복구·완료, 완료 리포트(소모 칼로리·연속 달성), 핀포즈 직후 체감 기록. 완료가 코스 진행도에 반영된다 |
 
 현재 Liquibase changelog는 다섯 도메인의 **테이블만 생성**한다. 감수 콘텐츠
 seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 빈 배열이고, 존재하지 않는 ID의
@@ -50,6 +50,7 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 �
 | `imageAssetKey` | 이미지 파일을 가리키는 안정적인 키 | URL로 바로 렌더링하지 말고 프론트 asset 매핑에 사용 |
 | `bodyPartCode` | 자세·근육이 속한 부위 코드 | `GET /screening/body-parts`가 소유하는 문자열 |
 | `metValue` | 운동 칼로리 계산에 쓰는 MET 값 | catalog 응답에는 MET 만 실린다. kcal 은 **코스·세션 API가** 회원 몸무게와 합쳐 계산해 내려준다 |
+| `PerceivedResult` | 핀포즈를 해본 직후의 체감 | `SUCCEEDED`·`STILL_HARD`·`TOO_HARD`. 온보딩의 `PerceivedDifficulty`와 **다른 어휘**다 |
 | `voiceCue` | 운동 중 보여줄 한글 큐잉 문장 | `displayOrder` 순서로 재생·표시 |
 | `BodyPart` | 부위 | 진단 결과 뒤 **강화할 부위**를 고르는 화면의 선택지 |
 | `PerceivedDifficulty` | 자세를 해보고 느낀 체감 | `EASY`(쉬웠다) 또는 `HARD`(어려웠다) |
@@ -59,7 +60,10 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 �
 `TargetPose`는 목표 자세 콘텐츠의 이름이다. 예전 기획 용어인 `PoseCheckpoint`를 현재
 서버가 제공한다고 가정하면 안 된다. 현재 도메인 결정에서는 `PoseCheckpoint`를 만들지 않으며,
 **자세 도전 현황의 `3 / 4`는 자세 포인트 체크가 아니라 코스 안에서 완료한 스텝 개수**다.
-`training`(세션 기록)은 아직 구현되지 않았다.
+
+핀포즈 직후의 "어땠어요?" 3지선다(`PerceivedResult`)는 `PoseCheckpoint`가 아니다. 자세
+포인트를 항목별로 체크하는 것이 아니라 **세션 하나에 대한 회원의 체감을 기록만** 하며,
+서버가 그 값으로 코스를 바꾸지 않는다.
 
 ## 기본 연동 흐름
 
@@ -87,7 +91,9 @@ Authorization: Bearer {alignerAccessToken}
         ├── GET   /courses/progress/target-poses
         ├── POST  /sessions
         ├── GET   /sessions/{sessionId}
-        └── POST  /sessions/{sessionId}/complete
+        ├── POST  /sessions/{sessionId}/complete
+        ├── POST  /sessions/{sessionId}/perceived-result
+        └── GET   /sessions/achievements
 ```
 
 로그인 API만 인증 없이 열려 있고, 나머지 현재 API는 모두 Aligner JWT가 필요하다.
@@ -426,6 +432,8 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
 {
   "exerciseId": 1,
   "name": "예시 운동",
+  "imageAssetKey": "exercise/cat-cow",
+  "videoUrl": null,
   "defaultSetCount": 3,
   "defaultRepCount": null,
   "defaultDurationSeconds": 40,
@@ -452,11 +460,19 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
 - `category`는 코스 스텝 행에 운동 이름 아래로 그리는 분류다(`가동성 웜업` · `핀포즈`).
   **값 집합이 아직 고정되지 않았다** — seed가 들어올 때 확정되므로 프론트에서 값을 열거해
   분기하지 말고 문자열을 그대로 표시한다. `difficulty`도 같다.
-- `metValue`는 kcal이 아니다. 현재 회원 몸무게를 함께 조회해 kcal을 계산하는 API도 없다.
+- **`metValue`는 kcal이 아니다.** catalog는 회원 몸무게를 모르므로 계산하지 않는다.
+  kcal이 필요하면 계산해서 내려주는 쪽을 쓴다 — 코스·홈은 `estimatedKcal`(현재 몸무게로
+  매번 계산한 **예상치**), 완료 리포트는 세션의 `estimatedKcal`(완료 시점에 계산해 **저장한
+  실측 기반 값**)이다. 프론트가 MET으로 직접 계산하지 않는다.
 - 음성 큐는 `displayOrder` 순서다. `startOffsetSeconds`가 null이면 타임코드가 확정되지
   않은 상태이므로 순차 재생으로 처리한다. `endOffsetSeconds`가 null인 큐는 유지 구간이
   없는 문장이다.
-- 현재 운동 응답에는 동영상 재생 URL·썸네일 URL이 없다. YMove 연동은 후속 범위다.
+- **`imageAssetKey`는 URL이 아니라 키다.** 목표 자세의 `imageAssetKey`와 같은 규칙이라
+  파일은 프론트가 정적으로 갖고 키로 매핑한다. 코스 순서 카드·운동 가이드 상단·세션 플레이어가
+  같은 키를 쓴다.
+- **`videoUrl`은 지금 항상 `null`이다.** 재생 소스가 YMove인데 연동(`catalog/adapter-ymove`)이
+  아직 없다. 자리를 먼저 열어 둔 것은 플레이어 코드를 미리 짤 수 있게 하기 위해서이고,
+  **null일 때의 화면을 반드시 함께 만든다.**
 - 현재 운동 목록 API(`GET /catalog/exercises`)는 없다. 화면에 필요한 운동 ID를 가진
   코스 API가 아직 구현되지 않았기 때문이다.
 
@@ -731,6 +747,9 @@ Content-Type: application/json
 ```json
 {
   "courseId": 20,
+  "targetPoseId": 3,
+  "targetPoseName": "낙타자세",
+  "targetPoseImageAssetKey": "target-pose/camel",
   "name": "낙타자세 정복하기",
   "completedStepCount": 1,
   "totalStepCount": 6,
@@ -746,6 +765,7 @@ Content-Type: application/json
           "courseStepExerciseId": 51,
           "exerciseId": 7,
           "name": "캣카우",
+          "imageAssetKey": "exercise/cat-cow",
           "category": "가동성 웜업",
           "displayOrder": 1,
           "durationSeconds": 120,
@@ -760,6 +780,10 @@ Content-Type: application/json
 
 **`durationSeconds`와 `setCount`는 해석이 끝난 값이다.** 코스에 override가 있으면 그 값이고
 없으면 catalog 기본값이다. 프론트가 두 곳을 보고 고르지 않도록 서버가 정리해서 내린다.
+
+`targetPoseImageAssetKey`는 개요 상단 히어로에 쓴다 — 홈 카드와 같은 그림이라 같은 키다.
+스텝의 `imageAssetKey`는 코스 순서 카드의 썸네일이다. 둘 다 URL이 아니라 키이고, seed 전에는
+`null`이다.
 
 없는 코스와 남의 코스는 똑같이 404 `COURSE_NOT_FOUND`다.
 
@@ -834,6 +858,9 @@ Content-Type: application/json
   "status": "IN_PROGRESS",
   "startedAt": "2026-08-10T12:00:00Z",
   "completedAt": null,
+  "completedExerciseCount": 0,
+  "estimatedKcal": null,
+  "perceivedResult": null,
   "exerciseRecords": [
     {
       "courseStepExerciseId": 51,
@@ -881,7 +908,11 @@ Content-Type: application/json
 {
   "sessionId": 100,
   "status": "COMPLETED",
+  "startedAt": "2026-08-10T11:54:46Z",
   "completedAt": "2026-08-10T12:15:00Z",
+  "completedExerciseCount": 8,
+  "estimatedKcal": 63,
+  "perceivedResult": null,
   "exerciseRecords": [ "..." ],
   "courseProgress": {
     "completedStepCount": 2,
@@ -905,3 +936,78 @@ Content-Type: application/json
 `courseCompleted`가 `true`이고 `stampAcquired`가 `true`면 그 자세를 처음 완성한 것이다.
 축하 화면을 띄운다면 이 조합을 신호로 쓴다. 이후 `GET /courses/progress/target-poses`에서
 그 자세가 `completed:true`로 바뀐다.
+
+### 운동 완료 리포트에 쓰는 값
+
+완료 리포트의 스탯 셋은 세션 응답이 그대로 갖는다. **코스 누적이 아니라 방금 한 세션의
+값**이다.
+
+| 화면 | 필드 |
+| --- | --- |
+| 운동 시간 `20:14` | `completedAt - startedAt` |
+| 완료 동작 `8개` | `completedExerciseCount` |
+| 소모 칼로리 `63kcal` | `estimatedKcal` |
+
+**`estimatedKcal`은 완료 시점에 계산해 저장한 값이다.** 코스·홈의 예상 칼로리는 조회할 때마다
+현재 몸무게로 다시 계산하지만, 리포트는 "그날 얼마나 태웠나"라 그날의 값으로 남는다. 몸무게를
+나중에 바꿔도 지난 리포트는 그대로다.
+
+**몸무게·MET·수행 시간 중 하나라도 모르면 `null`이다. 0이 아니다** — 0 kcal은 "운동량 없음"이라
+"모름"과 다르다. 온보딩에서 몸무게를 아직 받지 않은 회원이 흔하므로 이 화면은 `null` 상태를
+반드시 함께 만든다.
+
+`파이어로그 해냈어요! 1 / 4회`와 세그먼트는 `courseProgress`의
+`completedStepCount / totalStepCount`다. 헤더의 `골반 레벨 3 · 파이어로그 로드맵`은 코스의
+`targetPoseId`로 `GET /catalog/target-poses/{id}`를 한 번 더 불러 `bodyPartCode`·`level`을 얻는다.
+
+### `POST /sessions/{sessionId}/perceived-result`
+
+핀포즈 직후 "오늘 파이어로그, 어땠어요?" 3지선다를 기록한다.
+
+```http
+POST /sessions/100/perceived-result
+Authorization: Bearer {alignerAccessToken}
+Content-Type: application/json
+
+{"perceivedResult":"TOO_HARD"}
+```
+
+| 값 | 화면 |
+| --- | --- |
+| `SUCCEEDED` | 잘됐어요 |
+| `STILL_HARD` | 아직 어려워요 |
+| `TOO_HARD` | 안될 거 같아요 |
+
+응답은 `SessionResponse`이고 `perceivedResult`가 채워진다. **다시 답할 수 있다** — 잘못 누른
+것을 고치지 못하게 막지 않는다.
+
+**서버가 이 값으로 코스를 바꾸지 않는다.** `TOO_HARD`를 보내도 자세가 자동으로 내려가지
+않는다 — 어떤 자세로 옮길지가 아직 정해지지 않았다. 화면의 "다음 자세로 바꿔드려요"는 지금은
+부위·난이도 재선택(`PATCH /members/me` → `POST /courses`)으로 이어 붙인다.
+
+### `GET /sessions/achievements`
+
+완료 리포트 아래쪽의 연속 달성 카드다.
+
+```json
+{
+  "currentStreakDays": 5,
+  "weeklyAchievedCount": 5,
+  "days": [
+    { "date": "2026-08-10", "achieved": true },
+    { "date": "2026-08-11", "achieved": true },
+    { "date": "2026-08-12", "achieved": true },
+    { "date": "2026-08-13", "achieved": true },
+    { "date": "2026-08-14", "achieved": true },
+    { "date": "2026-08-15", "achieved": false },
+    { "date": "2026-08-16", "achieved": false }
+  ]
+}
+```
+
+- **날짜는 `Asia/Seoul` 기준**이다. 밤 늦게 한 운동이 UTC로는 다음 날이라 그대로 세면 하루가
+  둘로 갈린다
+- `days`는 **이번 주 월요일부터 일요일까지 7개**다. 오늘 이후 날짜도 `achieved:false`로 실린다
+- 하루에 세션을 여러 번 해도 **그날은 하루**로 센다
+- **오늘 아직 안 했어도 연속이 끊기지 않는다.** 어제까지 이어져 있으면 그 값을 유지하고,
+  어제도 없으면 0이다

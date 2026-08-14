@@ -32,7 +32,7 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 | `screening` | 부위, 자세 체감 → 원인 분기 규칙, 회원 응답과 판별된 원인 | 2, 3(앞) |
 | `catalog` | 보강 운동·목표 자세·근육, 음성 큐잉 대본(번역본), YMove 연동(영상) | 5, 7(정의) |
 | `course` | 원인별 코스 템플릿, 회원별 처방 코스·스텝·진행 상태, 도장·해금 | 3(뒤), 4, 7 |
-| `training` | 세션 시작·완료·수행 기록 | 6 |
+| `training` | 세션 시작·완료·수행 기록, 세션의 소모 칼로리 스냅샷·핀포즈 직후 체감, 연속 달성 조회 | 6 |
 
 ### 핵심 도메인 루프(`AGENTS.md` §2)와의 대응
 
@@ -377,6 +377,12 @@ slug 정도이고 둘 다 seed라 changeset을 같이 쌓으면 된다.
 
 도장·진행도의 판정 기준은 자세 포인트가 아니라 **코스 스텝 완료**로 정해졌다(§7-8).
 
+**핀포즈 직후의 "어땠어요?" 3지선다(`training.session.perceived_result`)는 이 결정을 되돌리지
+않는다** (이슈 #34). 자세 포인트를 항목별로 체크하는 것이 아니라 세션 하나에 대한 회원의
+체감을 기록만 하고, 완료 판정에도 진행도에도 쓰이지 않는다. `TOO_HARD`("안될 거 같아요")를
+받아도 **서버가 코스를 바꾸거나 자세를 내리지 않는다** — 어떤 자세로 옮길지는 미확정이고,
+지금은 화면이 부위·난이도 재선택으로 이어 붙인다.
+
 #### 근육 — `catalog`가 갖는다
 
 근육은 운동 가이드의 부위 탭과 근육맵에 쓰인다. "어떤 운동이 어느 근육을 쓰는가"는 카탈로그
@@ -637,7 +643,8 @@ course.stamp                    stamp_id(pk), member_id, target_pose_id, course_
 
 ```text
 training.session                  session_id(pk), member_id, course_id, step_order,
-                                  status, started_at, completed_at
+                                  status, started_at, completed_at,
+                                  estimated_kcal, perceived_result
 training.session_exercise_record  record_id(pk), session_id, course_step_exercise_id,
                                   exercise_id, display_order,
                                   completed, performed_duration_seconds
