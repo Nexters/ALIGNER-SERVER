@@ -87,3 +87,29 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/008-add-exercise-media.sql
             relativeToChangelogFile: true
+
+  # 여기부터 seed 다. DDL 과 달리 감수로 값이 바뀌므로 rollback 을 붙인다 — 개발 DB 에서
+  # 되돌리고 다시 쌓는 일이 잦다. 이미 적용된 changeset 은 고치지 않고 UPDATE 를 새로 쌓는다.
+  - changeSet:
+      id: catalog-0010-seed-target-pose
+      author: aligner
+      comment: 핀포즈 9 개 적재
+      changes:
+        - sqlFile:
+            path: seed/001-target-pose.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM catalog.target_pose WHERE target_pose_id BETWEEN 1 AND 9
+
+  - changeSet:
+      id: catalog-0011-seed-exercise
+      author: aligner
+      comment: 루틴에 배치된 자세 29 개의 운동 행 적재
+      changes:
+        - sqlFile:
+            path: seed/002-exercise.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM catalog.exercise WHERE exercise_id BETWEEN 101 AND 129
