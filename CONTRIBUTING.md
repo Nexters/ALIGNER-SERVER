@@ -268,9 +268,10 @@ Gradle 파일을 추가하면서 wrapper를 누락하면 CI가 실패합니다. 
   - Secrets: `APPLICATION_ENV`, `GABIA_HOST`, `GABIA_USER`, `GABIA_SSH_PRIVATE_KEY`, `GABIA_KNOWN_HOSTS`
   - Variables: `GABIA_SSH_PORT`, `GABIA_DEPLOY_PATH`, `DEPLOY_SMOKE_URL`
 - 서버의 `GABIA_DEPLOY_PATH/.env`는 배포 시 생성하고 권한을 `600`으로 제한합니다.
-- 개발 환경은 Traefik, API, PostgreSQL을 같은 Compose로 실행합니다. 외부에는 Traefik의 HTTP
-  포트만 공개하고 PostgreSQL은 `postgres-data` 볼륨에 데이터를 보존합니다. 현재 코드에 사용처가 없는
-  Valkey·메시지 큐·오브젝트 스토리지는 추가하지 않습니다.
+- 개발 환경은 Traefik, API, PostgreSQL, Dozzle을 같은 Compose로 실행합니다. 외부에는 Traefik의 HTTP
+  포트만 공개하고, `/logs` 경로로 Dozzle 실시간 컨테이너 로그 뷰어를 제공하여 프론트엔드/백엔드 개발자가
+  브라우저에서 직접 로그를 확인할 수 있습니다. PostgreSQL은 `postgres-data` 볼륨에 데이터를 보존합니다.
+  현재 코드에 사용처가 없는 Valkey·메시지 큐·오브젝트 스토리지는 추가하지 않습니다.
 - 향후 k3s 전환 시 Gabia `.env`의 운영 값은 K8s Secret으로 옮기고, 같은 GHCR SHA 이미지를
   배포합니다.
 

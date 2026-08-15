@@ -31,6 +31,18 @@ services:
     restart: unless-stopped
     stop_grace_period: 30s
 
+  dozzle:
+    image: amir20/dozzle:v10.7.1
+    container_name: aligner-dozzle
+    environment:
+      DOZZLE_BASE: /logs
+      DOZZLE_LEVEL: info
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    expose:
+      - "8080"
+    restart: unless-stopped
+
   postgres:
     image: postgres:18.4-alpine
     environment:

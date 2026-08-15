@@ -240,9 +240,18 @@ jobs:
                 docker compose --env-file .env.next -f compose.deploy.yml.next rm -f api
             fi
             ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+              docker compose --env-file .env.next -f compose.deploy.yml.next stop dozzle || true
+            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+              docker compose --env-file .env.next -f compose.deploy.yml.next rm -f dozzle || true
+            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
               docker compose --env-file .env.next -f compose.deploy.yml.next stop traefik
             ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
               docker compose --env-file .env.next -f compose.deploy.yml.next rm -f traefik
+            if [[ -f compose.deploy.yml ]] && \
+              ALIGNER_IMAGE="${previous_image:-$image_reference}" docker compose -f compose.deploy.yml config --services | grep -qx dozzle; then
+              ALIGNER_IMAGE="${previous_image:-$image_reference}" \
+                docker compose -f compose.deploy.yml up -d --no-deps dozzle || true
+            fi
             if [[ -f compose.deploy.yml ]] && \
               ALIGNER_IMAGE="${previous_image:-$image_reference}" docker compose -f compose.deploy.yml config --services | grep -qx traefik; then
               ALIGNER_IMAGE="${previous_image:-$image_reference}" \
@@ -260,6 +269,8 @@ jobs:
           ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
             docker compose --env-file .env.next -f compose.deploy.yml.next up -d --no-deps api
           ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+            docker compose --env-file .env.next -f compose.deploy.yml.next up -d --no-deps dozzle
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
             docker compose --env-file .env.next -f compose.deploy.yml.next up -d --no-deps --force-recreate traefik
           trap - ERR
           REMOTE
@@ -276,6 +287,9 @@ jobs:
           install -m 600 .env.next .env
           install -m 644 compose.deploy.yml.next compose.deploy.yml
           install -m 644 traefik.dynamic.yml.next traefik.dynamic.yml
+          if ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml config --services | grep -qx dozzle; then
+            ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml up -d --no-deps dozzle || true
+          fi
           if ! ALIGNER_IMAGE="$image_reference" \
             docker compose -f compose.deploy.yml up -d --no-deps --force-recreate traefik; then
             ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
@@ -306,9 +320,18 @@ jobs:
               docker compose --env-file .env.next -f compose.deploy.yml.next rm -f api
           fi
           ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+            docker compose --env-file .env.next -f compose.deploy.yml.next stop dozzle || true
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
+            docker compose --env-file .env.next -f compose.deploy.yml.next rm -f dozzle || true
+          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
             docker compose --env-file .env.next -f compose.deploy.yml.next stop traefik
           ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
             docker compose --env-file .env.next -f compose.deploy.yml.next rm -f traefik
+          if [[ -f compose.deploy.yml ]] && \
+            ALIGNER_IMAGE="${previous_image:-$image_reference}" docker compose -f compose.deploy.yml config --services | grep -qx dozzle; then
+            ALIGNER_IMAGE="${previous_image:-$image_reference}" \
+              docker compose -f compose.deploy.yml up -d --no-deps dozzle || true
+          fi
           if [[ -f compose.deploy.yml ]] && \
             ALIGNER_IMAGE="${previous_image:-$image_reference}" docker compose -f compose.deploy.yml config --services | grep -qx traefik; then
             ALIGNER_IMAGE="${previous_image:-$image_reference}" \
