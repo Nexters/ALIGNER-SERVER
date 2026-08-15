@@ -20,5 +20,9 @@ ALTER TABLE course.stamp
 ALTER TABLE course.stamp
     ADD CONSTRAINT uk_stamp_member_target_pose_attempt UNIQUE (member_id, target_pose_id, attempt_no);
 
+-- 하한만 건다. 0 이하 회차는 유니크 키의 뜻을 잃게 하므로 course.course 와 같은 제약을 둔다.
+ALTER TABLE course.stamp
+    ADD CONSTRAINT ck_stamp_attempt_no CHECK (attempt_no > 0);
+
 COMMENT ON TABLE course.stamp IS '완주할 때마다 붙는 도장. 자세당 4 개를 채우면 완성이다';
 COMMENT ON COLUMN course.stamp.attempt_no IS '몇 번째 완주인가. course.course.attempt_no 의 사본이다';

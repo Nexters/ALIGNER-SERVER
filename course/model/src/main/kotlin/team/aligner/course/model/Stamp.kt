@@ -20,6 +20,12 @@ data class Stamp(
     val attemptNo: Int,
     val acquiredAt: Instant?,
 ) {
+    init {
+        // 회차가 0 이하면 유니크 키가 뜻을 잃고 도장 집계도 어긋난다. 회원 입력이 아니라
+        // 코스의 회차를 그대로 받는 값이라, 여기 걸리면 호출부 버그다.
+        require(attemptNo > 0) { "도장의 회차는 1 이상이어야 한다: $attemptNo" }
+    }
+
     companion object {
         /**
          * 자세 하나를 완성하는 데 필요한 도장 수. 완료 리포트의 세그먼트 개수이자 도전 현황

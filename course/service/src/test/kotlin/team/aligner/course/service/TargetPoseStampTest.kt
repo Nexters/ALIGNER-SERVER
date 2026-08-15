@@ -7,6 +7,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import org.springframework.dao.OptimisticLockingFailureException
 import team.aligner.course.infrastructure.CauseLookup
 import team.aligner.course.infrastructure.CauseLookupPort
 import team.aligner.course.infrastructure.CourseRepository
@@ -129,6 +130,22 @@ class TargetPoseStampTest :
                 result.targetPoseCompleted shouldBe true
             }
 
+            it("네 번째 완료 요청을 재시도해도 도장이 다섯 번째로 붙지 않는다") {
+                // 화면은 이 조합을 "이미 완성" 으로 읽는다. 완성 축하를 두 번 띄우지 않게
+                // stampAcquired 가 false 로 남는 것이 요점이다.
+                every { courseRepository.findByIdentity(CourseIdentity.of(20L)) } returns
+                    course(completedSteps = 2, attemptNo = 4)
+                every { stampRepository.saveIfAbsent(any()) } returns false
+                every { stampRepository.countAcquired(1L, 3L) } returns 4
+
+                val result = service().completeStep(1L, 20L, 2, emptyList())
+
+                result.courseCompleted shouldBe true
+                result.stampAcquired shouldBe false
+                result.acquiredStampCount shouldBe 4
+                result.targetPoseCompleted shouldBe true
+            }
+
             it("아직 남은 스텝이 있으면 도장을 세지만 붙이지는 않는다") {
                 // 리포트는 매번 파이어로그를 그리므로 개수는 항상 실린다.
                 every { courseRepository.findByIdentity(CourseIdentity.of(20L)) } returns course(completedSteps = 0)
@@ -175,6 +192,24 @@ class TargetPoseStampTest :
                 service().recommend(1L, RecommendCourseCommand(bodyPartCode = "PELVIS", level = 3))
 
                 verify(exactly = 0) { courseRepository.save(any()) }
+            }
+
+            it("저장이 충돌하면 최신 상태를 다시 읽어 한 번 더 연다") {
+                // 충돌이 곧 "다른 쪽이 이미 열었다" 는 아니다. 완료 push 재시도가 같은 코스를
+                // 다시 저장해 버전만 올린 경우에도 충돌한다 — 그때 성공으로 삼으면 회원이
+                // 다시 눌렀는데 코스는 완주 상태 그대로다.
+                every { courseRepository.findByMemberIdAndTargetPoseId(1L, 3L) } returns course(completedSteps = 2)
+                every { courseRepository.findByIdentity(CourseIdentity.of(20L)) } returns course(completedSteps = 2)
+                every { stampRepository.countAcquired(1L, 3L) } returns 1
+                val saved = mutableListOf<Course>()
+                every { courseRepository.save(capture(saved)) } throws
+                    OptimisticLockingFailureException("충돌") andThenAnswer { saved.last() }
+
+                service().recommend(1L, RecommendCourseCommand(bodyPartCode = "PELVIS", level = 3))
+
+                // 두 번째 저장이 실제로 다시 연 코스여야 한다.
+                saved.last().status shouldBe CourseStatus.IN_PROGRESS
+                saved.last().attemptNo shouldBe 2
             }
 
             it("도장을 다 채운 자세는 다시 열지 않는다") {

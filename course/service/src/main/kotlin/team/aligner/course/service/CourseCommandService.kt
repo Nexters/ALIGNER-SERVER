@@ -126,10 +126,29 @@ internal class CourseCommandServiceImpl(
             courseRepository.save(course.restart())
             identity
         } catch (_: OptimisticLockingFailureException) {
-            // 두 번 눌린 요청이 함께 들어와 다른 쪽이 이미 다시 열었다. 여기서 재시도하면
-            // 회차가 두 번 오르므로 그대로 돌려준다 — 결과는 이미 회원이 원한 상태다.
-            identity
+            // 충돌이 곧 "다른 쪽이 이미 다시 열었다" 는 아니다. **완료 push 재시도가 같은
+            // 코스를 다시 저장해 버전만 올린 경우**에도 여기로 온다 — 그때 성공으로 삼으면
+            // 회원이 다시 눌렀는데 코스는 완주 상태 그대로다.
+            //
+            // 그래서 최신 상태를 다시 읽어 판단한다. 이미 열려 있으면 그대로 두고, 아직
+            // 완주 상태면 새 버전으로 다시 연다. 두 번째도 충돌하면 그대로 올린다 —
+            // 계속 미루기보다 클라이언트가 재시도하는 편이 낫다 (saveCompletedStep 과 같은 형태다).
+            restartOnce(memberId, identity)
         }
+    }
+
+    private fun restartOnce(
+        memberId: Long,
+        identity: CourseIdentity,
+    ): CourseIdentity {
+        val current = loadOwned(memberId, identity.value)
+        if (current.status != CourseStatus.COMPLETED ||
+            stampRepository.countAcquired(memberId, current.targetPoseId) >= Stamp.REQUIRED_COUNT
+        ) {
+            return identity
+        }
+        courseRepository.save(current.restart())
+        return identity
     }
 
     /**
