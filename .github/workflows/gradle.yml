@@ -46,6 +46,10 @@ jobs:
         if: steps.gradle.outputs.enabled == 'true'
         run: chmod +x ./gradlew
 
+      - name: 런타임 환경변수 계약 검증
+        if: steps.gradle.outputs.enabled == 'true'
+        run: bash scripts/assert-runtime-contract.sh
+
       - name: 빌드·린트·통합 테스트
         if: steps.gradle.outputs.enabled == 'true'
         run: ./gradlew --no-daemon ktlintCheck build integrationTest
@@ -68,7 +72,8 @@ jobs:
       contents: read
       packages: write
     outputs:
-      image_reference: ${{ steps.image.outputs.reference }}
+      image_reference: ${{ steps.digest.outputs.reference }}
+      image_digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -95,6 +100,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Docker Buildx 준비
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
       - name: 이미지 참조 결정
         id: image
         shell: bash
@@ -103,11 +111,25 @@ jobs:
           echo "reference=${image_repository}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: 이미지 빌드·발행
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.image.outputs.reference }}
+
+      - name: 불변 이미지 참조 결정
+        id: digest
         env:
-          IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        shell: bash
         run: |
-          docker build --tag "$IMAGE_REFERENCE" .
-          docker push "$IMAGE_REFERENCE"
+          image_repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::GHCR가 유효한 SHA256 digest를 반환하지 않았습니다."
+            exit 1
+          fi
+          echo "reference=${image_repository}@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Gabia 개발 환경 배포
@@ -347,3 +369,54 @@ jobs:
         run: |
           ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" "$GABIA_USER@$GABIA_HOST" \
             "find '$GABIA_DEPLOY_PATH/.docker-ci' -depth -delete 2>/dev/null || true"
+
+  update-platform:
+    name: Platform 이미지 digest 갱신 요청
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ secrets.PLATFORM_REPO_TOKEN }}
+      IMAGE_REFERENCE: ${{ needs.publish.outputs.image_reference }}
+    steps:
+      - name: Cross-repository 권한 확인
+        id: gate
+        shell: bash
+        run: |
+          if [[ -n "$GH_TOKEN" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "PLATFORM_REPO_TOKEN이 없어 GitOps PR 생성을 건너뜁니다."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Platform digest Draft PR 생성
+        if: steps.gate.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          branch="chore/aligner-api-${GITHUB_SHA:0:12}"
+          gh auth setup-git
+          gh repo clone Nexters/ALIGNER-PLATFORM platform
+          cd platform
+          git checkout -b "$branch"
+          ./scripts/update-aligner-api-image.sh "$IMAGE_REFERENCE"
+
+          if git diff --quiet; then
+            echo "Platform이 이미 같은 digest를 사용합니다."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gitops/apps/aligner-api/base/deployment.yaml
+          git commit -m "chore: ALIGNER API 이미지 digest 갱신"
+          git push origin "$branch"
+          gh pr create \
+            --repo Nexters/ALIGNER-PLATFORM \
+            --base main \
+            --head "$branch" \
+            --draft \
+            --title "chore: ALIGNER API 이미지 digest 갱신" \
+            --body "ALIGNER-SERVER develop의 검증된 GHCR 이미지 digest만 갱신합니다. K3s에는 직접 접속하지 않습니다."
