@@ -272,8 +272,11 @@ Gradle 파일을 추가하면서 wrapper를 누락하면 CI가 실패합니다. 
   포트만 공개하고, `/logs` 경로로 Dozzle 실시간 컨테이너 로그 뷰어를 제공하여 프론트엔드/백엔드 개발자가
   브라우저에서 직접 로그를 확인할 수 있습니다. PostgreSQL은 `postgres-data` 볼륨에 데이터를 보존합니다.
   현재 코드에 사용처가 없는 Valkey·메시지 큐·오브젝트 스토리지는 추가하지 않습니다.
-- 향후 k3s 전환 시 Gabia `.env`의 운영 값은 K8s Secret으로 옮기고, 같은 GHCR SHA 이미지를
-  배포합니다.
+- K3s는 같은 GHCR 이미지를 tag가 아닌 SHA256 digest로 배포합니다. Server CI는 Platform에
+  digest 갱신 Draft PR만 만들고 K3s에 직접 접속하지 않습니다.
+- Cross-repository PR에는 `ALIGNER-PLATFORM` 한 저장소의 Contents·Pull requests 쓰기 권한만 가진
+  fine-grained token을 Repository Secret `PLATFORM_REPO_TOKEN`으로 등록합니다. 없으면 기존 Gabia
+  개발 배포만 계속하고 Platform PR 생성은 건너뜁니다.
 
 CI가 없는 동안에는 **PR 체크리스트의 "로컬에서 빌드와 테스트가 통과했습니다"가 그 자리를
 대신합니다.** 체크만 하고 안 돌리면 의미가 없으니 실제로 돌립니다.
@@ -283,7 +286,7 @@ CI가 없는 동안에는 **PR 체크리스트의 "로컬에서 빌드와 테스
 ## 8. 하지 말 것
 
 - **시크릿을 커밋하지 않습니다.** DB 비밀번호, 카카오 앱 키, JWT 시크릿 전부 해당합니다.
-  - **로컬은 `.env`** — `.gitignore`에 넣고 커밋하지 않습니다.
+  - **로컬은 `application-secret.properties`** — 루트 예시 파일을 복사해 쓰고 커밋하지 않습니다.
   - **Gabia 개발 배포는 GitHub Environment Secret** — Actions가 서버의 `.env`를 생성합니다.
   - **k3s 배포는 K8s Secret** — 운영 값은 클러스터가 소유하고, 애플리케이션은 환경변수로만 받습니다.
   - 경계는 하나입니다. **값이 어디서 오는지는 환경이 정하고, 코드는 이름만 압니다.**

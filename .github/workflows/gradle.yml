@@ -1,349 +1,40 @@
 name: Gradle 검증
 
-# Gradle 프로젝트가 도입되면 모든 PR과 통합 브랜치에서 빌드·린트·통합 테스트를 강제한다.
-# 아직 wrapper와 Kotlin/Gradle 소스가 없는 저장소 초기 단계에서는 명시적으로 건너뛴다.
-
 on:
   pull_request:
   push:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   verify:
+    name: 빌드·린트·통합 테스트
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
 
-      - name: Gradle wrapper 존재 확인
-        id: gradle
-        shell: bash
-        run: |
-          if [[ -f gradlew ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if find . -type f \( -name '*.gradle.kts' -o -name '*.gradle' -o -name '*.kt' \) \
-            -not -path './.gradle/*' -print -quit | grep -q .; then
-            echo "::error::Gradle 또는 Kotlin 소스가 있는데 gradlew가 없습니다. Wrapper를 함께 추가하세요."
-            exit 1
-          fi
-
-          echo "enabled=false" >> "$GITHUB_OUTPUT"
-          echo "Gradle 프로젝트가 아직 없어 검증을 건너뜁니다."
-
-      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
-        if: steps.gradle.outputs.enabled == 'true'
+      - name: JDK 25 설정
+        uses: actions/setup-java@v5
         with:
           distribution: corretto
           java-version: '25'
-          cache: gradle
+
+      - name: Gradle 설정 및 빌드 캐시 활성화
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main' }}
 
       - name: Gradle wrapper 실행 권한 부여
-        if: steps.gradle.outputs.enabled == 'true'
         run: chmod +x ./gradlew
 
-      - name: 빌드·린트·통합 테스트
-        if: steps.gradle.outputs.enabled == 'true'
-        run: ./gradlew --no-daemon ktlintCheck build integrationTest
-
-      - name: 배포용 bootJar 보관
-        if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && steps.gradle.outputs.enabled == 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: application-api-${{ github.sha }}
-          path: application-api/build/libs/*.jar
-          if-no-files-found: error
-          retention-days: 1
-
-  publish:
-    name: 컨테이너 이미지 발행
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    needs: verify
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      image_reference: ${{ steps.image.outputs.reference }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: bootJar 내려받기
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: application-api-${{ github.sha }}
-          path: image-artifact
-
-      - name: 이미지 입력 준비
-        shell: bash
-        run: |
-          mapfile -t jars < <(find image-artifact -type f -name '*.jar' -print)
-          if [[ "${#jars[@]}" -ne 1 ]]; then
-            echo "::error::배포할 bootJar가 정확히 1개여야 합니다."
-            exit 1
-          fi
-          cp "${jars[0]}" application-api.jar
-
-      - name: GHCR 로그인
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 이미지 참조 결정
-        id: image
-        shell: bash
-        run: |
-          image_repository="ghcr.io/${GITHUB_REPOSITORY,,}"
-          echo "reference=${image_repository}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: 이미지 빌드·발행
-        env:
-          IMAGE_REFERENCE: ${{ steps.image.outputs.reference }}
-        run: |
-          docker build --tag "$IMAGE_REFERENCE" .
-          docker push "$IMAGE_REFERENCE"
-
-  deploy:
-    name: Gabia 개발 환경 배포
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    needs: publish
-    runs-on: ubuntu-latest
-    environment: gabia-development
-    concurrency:
-      group: gabia-development
-      cancel-in-progress: false
-    permissions:
-      contents: read
-      packages: read
-    env:
-      IMAGE_REFERENCE: ${{ needs.publish.outputs.image_reference }}
-      GABIA_HOST: ${{ secrets.GABIA_HOST }}
-      GABIA_USER: ${{ secrets.GABIA_USER }}
-      GABIA_SSH_PRIVATE_KEY: ${{ secrets.GABIA_SSH_PRIVATE_KEY }}
-      GABIA_KNOWN_HOSTS: ${{ secrets.GABIA_KNOWN_HOSTS }}
-      GABIA_SSH_PORT: ${{ vars.GABIA_SSH_PORT }}
-      GABIA_DEPLOY_PATH: ${{ vars.GABIA_DEPLOY_PATH }}
-      DEPLOY_SMOKE_URL: ${{ vars.DEPLOY_SMOKE_URL }}
-      GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: 배포 설정 검증
-        env:
-          APPLICATION_ENV: ${{ secrets.APPLICATION_ENV }}
-        shell: bash
-        run: |
-          while IFS= read -r line; do
-            for name in DB_PASSWORD JWT_SECRET KAKAO_CLIENT_SECRET; do
-              if [[ "$line" == "$name="* ]]; then
-                value=${line#*=}
-                [[ -n "$value" ]] && printf '::add-mask::%s\n' "$value"
-              fi
-            done
-          done <<< "$APPLICATION_ENV"
-
-          required=(IMAGE_REFERENCE GABIA_HOST GABIA_USER GABIA_SSH_PRIVATE_KEY GABIA_KNOWN_HOSTS APPLICATION_ENV GABIA_DEPLOY_PATH DEPLOY_SMOKE_URL GHCR_TOKEN)
-          for name in "${required[@]}"; do
-            if [[ -z "${!name:-}" ]]; then
-              echo "::error::${name} 설정이 비어 있습니다."
-              exit 1
-            fi
-          done
-
-          if [[ ! "$GABIA_DEPLOY_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]]; then
-            echo "::error::GABIA_DEPLOY_PATH는 공백 없는 절대 경로여야 합니다."
-            exit 1
-          fi
-          if [[ ! "$DEPLOY_SMOKE_URL" =~ ^https?:// ]]; then
-            echo "::error::DEPLOY_SMOKE_URL은 http 또는 https URL이어야 합니다."
-            exit 1
-          fi
-
-          echo "GABIA_SSH_PORT=${GABIA_SSH_PORT:-22}" >> "$GITHUB_ENV"
-
-      - name: SSH 설정
-        shell: bash
-        run: |
-          install -m 700 -d "$HOME/.ssh"
-          printf '%s\n' "$GABIA_SSH_PRIVATE_KEY" > "$HOME/.ssh/gabia_deploy"
-          chmod 600 "$HOME/.ssh/gabia_deploy"
-          printf '%s\n' "$GABIA_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-
-      - name: 런타임 환경 파일 전송
-        env:
-          APPLICATION_ENV: ${{ secrets.APPLICATION_ENV }}
-        shell: bash
-        run: |
-          printf '%s' "$APPLICATION_ENV" | ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" \
-            "$GABIA_USER@$GABIA_HOST" \
-            "umask 077; mkdir -p -- '$GABIA_DEPLOY_PATH'; cat > '$GABIA_DEPLOY_PATH/.env.next'; chmod 600 '$GABIA_DEPLOY_PATH/.env.next'; test -s '$GABIA_DEPLOY_PATH/.env.next'"
-
-      - name: Compose 파일 전송
-        shell: bash
-        run: |
-          ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" "$GABIA_USER@$GABIA_HOST" \
-            "mkdir -p -- '$GABIA_DEPLOY_PATH'"
-          scp -P "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" compose.deploy.yml \
-            "$GABIA_USER@$GABIA_HOST:$GABIA_DEPLOY_PATH/compose.deploy.yml.next"
-          scp -P "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" traefik.dynamic.yml \
-            "$GABIA_USER@$GABIA_HOST:$GABIA_DEPLOY_PATH/traefik.dynamic.yml.next"
-
-      - name: Gabia에서 GHCR 로그인
-        shell: bash
-        run: |
-          ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" "$GABIA_USER@$GABIA_HOST" \
-            "mkdir -p -- '$GABIA_DEPLOY_PATH/.docker-ci'"
-          printf '%s' "$GHCR_TOKEN" | ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" \
-            "$GABIA_USER@$GABIA_HOST" \
-            "docker --config '$GABIA_DEPLOY_PATH/.docker-ci' login ghcr.io --username '$GITHUB_ACTOR' --password-stdin"
-
-      - name: 중단 배포·smoke check
-        shell: bash
-        run: |
-          ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" "$GABIA_USER@$GABIA_HOST" \
-            bash -s -- "$GABIA_DEPLOY_PATH" "$IMAGE_REFERENCE" <<'REMOTE'
-          set -euo pipefail
-          deploy_path=$1
-          image_reference=$2
-          cd "$deploy_path"
-
-          test -f .env.next
-          required_env=(DB_URL DB_USERNAME DB_PASSWORD JWT_SECRET KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET)
-          for name in "${required_env[@]}"; do
-            if ! grep -Eq "^${name}=.+" .env.next; then
-              echo "필수 애플리케이션 환경값 ${name}이 비어 있습니다." >&2
-              exit 1
-            fi
-          done
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-            docker compose --env-file .env.next -f compose.deploy.yml.next config --quiet
-
-          previous_image=$(docker inspect --format '{{.Config.Image}}' aligner-api 2>/dev/null || true)
-          printf '%s\n' "$previous_image" > .previous-image
-
-          rollback_rollout() {
-            failed_status=$?
-            trap - ERR
-            set +e
-            if [[ -n "$previous_image" && -f compose.deploy.yml ]]; then
-              ALIGNER_IMAGE="$previous_image" docker compose -f compose.deploy.yml up -d --no-deps api
-            else
-              ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-                docker compose --env-file .env.next -f compose.deploy.yml.next stop api
-              ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-                docker compose --env-file .env.next -f compose.deploy.yml.next rm -f api
-            fi
-            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-              docker compose --env-file .env.next -f compose.deploy.yml.next stop dozzle || true
-            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-              docker compose --env-file .env.next -f compose.deploy.yml.next rm -f dozzle || true
-            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-              docker compose --env-file .env.next -f compose.deploy.yml.next stop traefik
-            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-              docker compose --env-file .env.next -f compose.deploy.yml.next rm -f traefik
-            if [[ -f compose.deploy.yml ]] && \
-              ALIGNER_IMAGE="${previous_image:-$image_reference}" docker compose -f compose.deploy.yml config --services | grep -qx dozzle; then
-              ALIGNER_IMAGE="${previous_image:-$image_reference}" \
-                docker compose -f compose.deploy.yml up -d --no-deps dozzle || true
-            fi
-            if [[ -f compose.deploy.yml ]] && \
-              ALIGNER_IMAGE="${previous_image:-$image_reference}" docker compose -f compose.deploy.yml config --services | grep -qx traefik; then
-              ALIGNER_IMAGE="${previous_image:-$image_reference}" \
-                docker compose -f compose.deploy.yml up -d --no-deps --force-recreate traefik
-            fi
-            rm -f .env.next compose.deploy.yml.next traefik.dynamic.yml.next
-            exit "$failed_status"
-          }
-          trap rollback_rollout ERR
-
-          DOCKER_CONFIG="$deploy_path/.docker-ci" ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-            docker compose --env-file .env.next -f compose.deploy.yml.next pull
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-            docker compose --env-file .env.next -f compose.deploy.yml.next up -d --wait postgres
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-            docker compose --env-file .env.next -f compose.deploy.yml.next up -d --no-deps api
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-            docker compose --env-file .env.next -f compose.deploy.yml.next up -d --no-deps dozzle
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-            docker compose --env-file .env.next -f compose.deploy.yml.next up -d --no-deps --force-recreate traefik
-          trap - ERR
-          REMOTE
-
-          if curl --fail --silent --show-error --retry 12 --retry-delay 5 \
-            --retry-all-errors --max-time 10 "$DEPLOY_SMOKE_URL" > /dev/null; then
-            ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" "$GABIA_USER@$GABIA_HOST" \
-              bash -s -- "$GABIA_DEPLOY_PATH" "$IMAGE_REFERENCE" <<'REMOTE'
-          set -euo pipefail
-          deploy_path=$1
-          image_reference=$2
-          cd "$deploy_path"
-
-          install -m 600 .env.next .env
-          install -m 644 compose.deploy.yml.next compose.deploy.yml
-          install -m 644 traefik.dynamic.yml.next traefik.dynamic.yml
-          if ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml config --services | grep -qx dozzle; then
-            ALIGNER_IMAGE="$image_reference" docker compose -f compose.deploy.yml up -d --no-deps dozzle || true
-          fi
-          if ! ALIGNER_IMAGE="$image_reference" \
-            docker compose -f compose.deploy.yml up -d --no-deps --force-recreate traefik; then
-            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-              docker compose --env-file .env.next -f compose.deploy.yml.next up -d --no-deps --force-recreate traefik
-            exit 1
-          fi
-          rm -f .env.next compose.deploy.yml.next traefik.dynamic.yml.next
-          REMOTE
-            exit 0
-          fi
-
-          echo "::error::배포 smoke check가 실패해 직전 이미지로 복구합니다."
-          ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" "$GABIA_USER@$GABIA_HOST" \
-            bash -s -- "$GABIA_DEPLOY_PATH" "$IMAGE_REFERENCE" <<'REMOTE'
-          set -euo pipefail
-          deploy_path=$1
-          image_reference=$2
-          cd "$deploy_path"
-          previous_image=$(cat .previous-image)
-
-          if [[ -n "$previous_image" ]]; then
-            ALIGNER_IMAGE="$previous_image" \
-              docker compose -f compose.deploy.yml up -d --no-deps api
-          else
-            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-              docker compose --env-file .env.next -f compose.deploy.yml.next stop api
-            ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-              docker compose --env-file .env.next -f compose.deploy.yml.next rm -f api
-          fi
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-            docker compose --env-file .env.next -f compose.deploy.yml.next stop dozzle || true
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-            docker compose --env-file .env.next -f compose.deploy.yml.next rm -f dozzle || true
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-            docker compose --env-file .env.next -f compose.deploy.yml.next stop traefik
-          ALIGNER_IMAGE="$image_reference" ALIGNER_ENV_FILE=.env.next TRAEFIK_DYNAMIC_FILE=./traefik.dynamic.yml.next \
-            docker compose --env-file .env.next -f compose.deploy.yml.next rm -f traefik
-          if [[ -f compose.deploy.yml ]] && \
-            ALIGNER_IMAGE="${previous_image:-$image_reference}" docker compose -f compose.deploy.yml config --services | grep -qx dozzle; then
-            ALIGNER_IMAGE="${previous_image:-$image_reference}" \
-              docker compose -f compose.deploy.yml up -d --no-deps dozzle || true
-          fi
-          if [[ -f compose.deploy.yml ]] && \
-            ALIGNER_IMAGE="${previous_image:-$image_reference}" docker compose -f compose.deploy.yml config --services | grep -qx traefik; then
-            ALIGNER_IMAGE="${previous_image:-$image_reference}" \
-              docker compose -f compose.deploy.yml up -d --no-deps --force-recreate traefik
-          fi
-          rm -f .env.next compose.deploy.yml.next traefik.dynamic.yml.next
-          REMOTE
-          exit 1
-
-      - name: 임시 GHCR 인증 삭제
-        if: always() && env.GABIA_HOST != '' && env.GABIA_USER != '' && env.GABIA_DEPLOY_PATH != ''
-        shell: bash
-        run: |
-          ssh -p "$GABIA_SSH_PORT" -i "$HOME/.ssh/gabia_deploy" "$GABIA_USER@$GABIA_HOST" \
-            "find '$GABIA_DEPLOY_PATH/.docker-ci' -depth -delete 2>/dev/null || true"
+      - name: 빌드·린트·통합 테스트 실행
+        run: ./gradlew ktlintCheck build integrationTest --build-cache --parallel

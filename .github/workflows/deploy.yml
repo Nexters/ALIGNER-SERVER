@@ -1,0 +1,246 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build application-api bootJar
+        run: |
+          ./gradlew :application-api:bootJar --build-cache --parallel
+          mapfile -t jars < <(find application-api/build/libs -type f -name '*.jar' -print)
+          if [[ "${#jars[@]}" -ne 1 ]]; then
+            echo "::error::Expected exactly one bootJar in application-api/build/libs"
+            exit 1
+          fi
+          cp "${jars[0]}" application-api.jar
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/aligner-server
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=develop,enable=${{ github.ref_name == 'develop' }}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
+            type=raw,value=main,enable=${{ github.ref_name == 'main' }}
+            type=semver,pattern={{version}}
+            type=sha,prefix=sha-
+
+      - name: Build and push Docker image
+        id: build-push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Log image details
+        run: |
+          echo "Image digest: ${{ steps.build-push.outputs.digest }}"
+          echo "Image tags: ${{ steps.meta.outputs.tags }}"
+
+  deploy-dev:
+    name: Deploy to Dev (Sandbox)
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'develop'
+    environment: dev
+    steps:
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Check Tailscale credentials
+        id: tailscale-check
+        env:
+          TS_CLIENT_ID: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          TS_SECRET: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+        run: |
+          if [[ -n "$TS_CLIENT_ID" && -n "$TS_SECRET" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Tailscale credentials (TAILSCALE_OAUTH_CLIENT_ID / TAILSCALE_OAUTH_SECRET) are not configured. Skipping Kubernetes deployment."
+          fi
+
+      - name: Connect to Tailscale
+        if: steps.tailscale-check.outputs.available == 'true'
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Configure Kubeconfig
+        if: steps.tailscale-check.outputs.available == 'true'
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          if [[ -n "$KUBECONFIG_DATA" ]]; then
+            mkdir -p "$HOME/.kube"
+            printf '%s\n' "$KUBECONFIG_DATA" > "$HOME/.kube/config"
+            chmod 600 "$HOME/.kube/config"
+          fi
+
+      - name: Inject Secret and Rollout Restart
+        if: steps.tailscale-check.outputs.available == 'true'
+        env:
+          DEV_ENV_FILE: ${{ secrets.DEV_ENV_FILE }}
+        run: |
+          if [[ -n "$DEV_ENV_FILE" ]]; then
+            TMP_ENV_FILE=$(mktemp)
+            trap 'rm -f "$TMP_ENV_FILE"' EXIT
+            printf '%s\n' "$DEV_ENV_FILE" > "$TMP_ENV_FILE"
+            chmod 600 "$TMP_ENV_FILE"
+
+            echo "Injecting secret aligner-api-secrets into namespace aligner-sandbox..."
+            kubectl create secret generic aligner-api-secrets \
+              --from-env-file="$TMP_ENV_FILE" \
+              --namespace="aligner-sandbox" \
+              --dry-run=client -o yaml | kubectl apply -f -
+          else
+            echo "::warning::DEV_ENV_FILE secret is empty."
+          fi
+
+          echo "Triggering rollout restart for deployment/aligner-sandbox-api in namespace aligner-sandbox..."
+          kubectl rollout restart deployment/aligner-sandbox-api -n aligner-sandbox
+          kubectl rollout status deployment/aligner-sandbox-api -n aligner-sandbox --timeout=180s
+
+      - name: Deployment Summary
+        run: |
+          {
+            echo "### 🚀 Dev (Sandbox) 배포 완료!"
+            echo "- **환경**: \`dev\` (namespace: aligner-sandbox)"
+            echo "- **접속 도메인**: [https://test.aligneryoga.com](https://test.aligneryoga.com)"
+            echo "- **Swagger UI**: [https://test.aligneryoga.com/swagger-ui/index.html](https://test.aligneryoga.com/swagger-ui/index.html)"
+            echo "- **이미지**: \`ghcr.io/${{ github.repository_owner }}/aligner-server:develop\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-prod:
+    name: Deploy to Prod (Production)
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'main' || startsWith(github.ref_name, 'v')
+    environment: prod
+    steps:
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Check Tailscale credentials
+        id: tailscale-check
+        env:
+          TS_CLIENT_ID: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          TS_SECRET: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+        run: |
+          if [[ -n "$TS_CLIENT_ID" && -n "$TS_SECRET" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Tailscale credentials (TAILSCALE_OAUTH_CLIENT_ID / TAILSCALE_OAUTH_SECRET) are not configured. Skipping Kubernetes deployment."
+          fi
+
+      - name: Connect to Tailscale
+        if: steps.tailscale-check.outputs.available == 'true'
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Configure Kubeconfig
+        if: steps.tailscale-check.outputs.available == 'true'
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          if [[ -n "$KUBECONFIG_DATA" ]]; then
+            mkdir -p "$HOME/.kube"
+            printf '%s\n' "$KUBECONFIG_DATA" > "$HOME/.kube/config"
+            chmod 600 "$HOME/.kube/config"
+          fi
+
+      - name: Inject Secret and Rollout Restart
+        if: steps.tailscale-check.outputs.available == 'true'
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+        run: |
+          if [[ -n "$PROD_ENV_FILE" ]]; then
+            TMP_ENV_FILE=$(mktemp)
+            trap 'rm -f "$TMP_ENV_FILE"' EXIT
+            printf '%s\n' "$PROD_ENV_FILE" > "$TMP_ENV_FILE"
+            chmod 600 "$TMP_ENV_FILE"
+
+            echo "Injecting secret aligner-api-secrets into namespace aligner..."
+            kubectl create secret generic aligner-api-secrets \
+              --from-env-file="$TMP_ENV_FILE" \
+              --namespace="aligner" \
+              --dry-run=client -o yaml | kubectl apply -f -
+          else
+            echo "::warning::PROD_ENV_FILE secret is empty."
+          fi
+
+          echo "Triggering rollout restart for deployment/aligner-api in namespace aligner..."
+          kubectl rollout restart deployment/aligner-api -n aligner
+          kubectl rollout status deployment/aligner-api -n aligner --timeout=180s
+
+      - name: Deployment Summary
+        run: |
+          {
+            echo "### 🏢 Prod (Production) 배포 완료!"
+            echo "- **환경**: \`prod\` (namespace: aligner)"
+            echo "- **접속 도메인**: [https://api.aligneryoga.com](https://api.aligneryoga.com)"
+            echo "- **이미지**: \`ghcr.io/${{ github.repository_owner }}/aligner-server:latest\`"
+          } >> "$GITHUB_STEP_SUMMARY"

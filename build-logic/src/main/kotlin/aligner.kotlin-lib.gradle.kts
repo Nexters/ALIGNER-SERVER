@@ -57,6 +57,7 @@ val mockkAgentJvmArgs = listOf("-Djdk.attach.allowAttachSelf=true")
 tasks.named<Test>("test") {
     useJUnitPlatform()
     jvmArgs(mockkAgentJvmArgs)
+    systemProperty("spring.profiles.active", "test")
 }
 
 tasks.register<Test>("integrationTest") {
@@ -66,5 +67,6 @@ tasks.register<Test>("integrationTest") {
     classpath = integrationTestSourceSet.runtimeClasspath
     useJUnitPlatform()
     jvmArgs(mockkAgentJvmArgs)
+    systemProperty("spring.profiles.active", "test")
     shouldRunAfter(tasks.named("test"))
 }

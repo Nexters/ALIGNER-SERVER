@@ -1,24 +1,18 @@
+# ==============================================================================
+# 1. 공통 기본 설정 (Common Base & Fallback)
+# ==============================================================================
 spring:
+  config:
+    import: "optional:file:./application-secret.properties"
   application:
     name: aligner-server
-
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aligner}
     username: ${DB_USERNAME:aligner}
-    # 기본값을 두지 않는다. 로컬에서도 환경변수로 넣는다.
     password: ${DB_PASSWORD}
-
   liquibase:
     change-log: classpath:db/changelog-master.yaml
-    # 도메인 테이블은 각자의 schema 에 만들고, 변경 이력 테이블만 public 에 둔다
-    # (docs/architecture.md §6).
     liquibase-schema: public
-    # **기본값이 prod 인 것이 보안 경계다.** Liquibase 는 런타임 컨텍스트를 주지 않으면
-    # context 가 붙은 changeset 까지 전부 실행한다. 그래서 "dev 에만 넣는다" 를 context 표시만으로
-    # 달성할 수 없고, 여기서 기본을 prod 로 잠근다 — **설정을 잊으면 dev 전용 데이터가 안 들어간다.**
-    # 반대로 두면 잊었을 때 운영에 임시 회원이 들어간다.
-    #
-    # 컨텍스트가 없는 changeset(대부분)은 이 값과 무관하게 항상 실행된다.
     contexts: ${LIQUIBASE_CONTEXTS:prod}
 
 server:
@@ -27,61 +21,119 @@ server:
 aligner:
   web:
     cors:
-      # 프론트 개발 서버 오리진. KAKAO_REDIRECT_URI 의 호스트·포트와 같은 값이어야 한다 —
-      # 인가 코드가 착지하는 곳이 곧 API 를 부르는 곳이다.
-      # 배포에서는 배포 도메인을 넣는다. 쉼표로 여러 개를 줄 수 있고, `*` 는 기동 시 막힌다.
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
-      # preflight 캐시. 짧으면 요청마다 OPTIONS 가 한 번씩 더 붙는다.
       max-age-seconds: ${CORS_MAX_AGE_SECONDS:3600}
   auth:
     jwt:
-      # 기본값을 두지 않는다. DB_PASSWORD 와 같은 규칙이다.
-      # HS256 키라 32 바이트 이상이어야 하고, 미만이면 기동 시 예외가 난다.
       secret: ${JWT_SECRET}
-      # 리프레시 토큰이 없다. 만료되면 프론트가 Kakao.Auth.authorize() 부터 다시 태운다.
-      # 전체 페이지 리다이렉트 왕복이라 화면 전환이 생기지만, 14 일에 한 번이면 감수한다.
       expiration-seconds: ${JWT_EXPIRATION_SECONDS:1209600}
       issuer: aligner
     kakao:
-      # 인증 서버(kauth)와 사용자 API(kapi)는 호스트가 다르다.
       token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
       user-info-uri: ${KAKAO_USER_INFO_URI:https://kapi.kakao.com/v2/user/me}
-      # 기본값을 두지 않는다. DB_PASSWORD · JWT_SECRET 과 같은 규칙이다.
-      # client-id 는 앱 REST API 키다. JavaScript 키가 아니다.
       client-id: ${KAKAO_CLIENT_ID}
       client-secret: ${KAKAO_CLIENT_SECRET}
-      # 프론트의 인가 코드 착지 라우트. Kakao.Auth.authorize() 에 넘긴 값과 완전히 일치해야 하고,
-      # 카카오 개발자 콘솔에 local·dev·prod 를 전부 등록해야 한다.
       redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao}
-      # 카카오가 느려지면 로그인 요청이 스레드를 잡고 있다. 짧게 끊고 502 로 알린다.
       connect-timeout-millis: ${KAKAO_CONNECT_TIMEOUT_MILLIS:2000}
       read-timeout-millis: ${KAKAO_READ_TIMEOUT_MILLIS:3000}
-
-  # 운동 재생 영상. 소스가 YMove 이고 우리는 ymove_slug 만 소유한다 (docs/domains.md §4-3-1).
   ymove:
     base-url: ${YMOVE_BASE_URL:https://exercise-api.ymove.app/api/v2}
-    # 기본값을 두지 않는다. DB_PASSWORD · JWT_SECRET 과 같은 규칙이다.
-    # 배포 .env 와 CI secrets 에 넣지 않으면 기동이 실패한다.
     api-key: ${YMOVE_API_KEY}
-    # YMove 가 느려지면 운동 상세 요청이 스레드를 잡고 있다. 짧게 끊고 videoUrl 만 비운다.
     connect-timeout-millis: ${YMOVE_CONNECT_TIMEOUT_MILLIS:2000}
     read-timeout-millis: ${YMOVE_READ_TIMEOUT_MILLIS:3000}
-    # 재생 URL 만료를 47 시간으로 실측했다. 그보다 훨씬 짧게 둔다. 0 이면 캐시를 끈다.
-    # 시간 단위로 올리면 만료된 URL 을 줄 수 있다 (CachingPoseVideoAdapter 주석).
     cache-ttl-seconds: ${YMOVE_CACHE_TTL_SECONDS:1800}
 
-# 기본값을 켜둔다. 이 두 줄이 false 이던 것이 문서가 전혀 뜨지 않던 원인이다 —
-# springdoc 의 SpringDocConfiguration 이 @ConditionalOnProperty("springdoc.api-docs.enabled")
-# 라서 false 면 자동설정이 통째로 빠지고, 그래서 기동 로그에 springdoc 줄이 한 줄도 없었다.
-#
-# 공개 범위는 SecurityConfig 와 PublicPaths 가 정했다 — 문서 경로만 GET permitAll 이다.
-# 배포에서 닫아야 하면 SPRINGDOC_ENABLED=false 하나로 끈다. 그 순간 핸들러 자체가 사라져서
-# 열려 있는 경로도 404 만 돌려준다.
 springdoc:
   api-docs:
     enabled: ${SPRINGDOC_ENABLED:true}
   swagger-ui:
     enabled: ${SPRINGDOC_ENABLED:true}
-    # 태그·경로 정렬을 고정한다. 기본값은 등록 순서라 재기동마다 화면이 바뀐다.
     tags-sorter: alpha
     operations-sorter: method
+
+---
+# ==============================================================================
+# 2. 로컬 테스트 환경 프로필 (test Profile)
+# ==============================================================================
+spring:
+  config:
+    activate:
+      on-profile: test
+  liquibase:
+    contexts: ${LIQUIBASE_CONTEXTS:prod}
+
+logging:
+  level:
+    team.aligner: DEBUG
+
+aligner:
+  web:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+  auth:
+    kakao:
+      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+---
+# ==============================================================================
+# 3. 개발 / 테스트 서버 프로필 (dev Profile - test.aligneryoga.com)
+# ==============================================================================
+spring:
+  config:
+    activate:
+      on-profile: dev
+  liquibase:
+    contexts: ${LIQUIBASE_CONTEXTS:dev,prod}
+
+logging:
+  level:
+    team.aligner: DEBUG
+
+aligner:
+  web:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://test.aligneryoga.com}
+  auth:
+    kakao:
+      redirect-uri: ${KAKAO_REDIRECT_URI:https://test.aligneryoga.com/oauth/kakao}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+---
+# ==============================================================================
+# 4. 운영 환경 프로필 (prod Profile - api.aligneryoga.com)
+# ==============================================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+  liquibase:
+    contexts: ${LIQUIBASE_CONTEXTS:prod}
+
+logging:
+  level:
+    team.aligner: INFO
+
+aligner:
+  web:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:https://aligneryoga.com,https://www.aligneryoga.com}
+  auth:
+    kakao:
+      redirect-uri: ${KAKAO_REDIRECT_URI:https://aligneryoga.com/oauth/kakao}
+
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
