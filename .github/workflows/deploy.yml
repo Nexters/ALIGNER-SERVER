@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@v4
 
       - name: Setup JDK 25
-        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
@@ -45,7 +45,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -74,30 +74,25 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Output image digest and tag
         run: |
           echo "Image digest: ${{ steps.build-push.outputs.digest }}"
           echo "Image tags: ${{ steps.meta.outputs.tags }}"
 
-  deploy-to-cluster:
-    name: Deploy to Cluster
+  deploy-sandbox:
+    name: Deploy to Sandbox (Dev)
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/develop'
+    environment: sandbox
     steps:
-      - name: Determine target environment
-        id: target
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
-            echo "namespace=aligner-sandbox" >> "$GITHUB_OUTPUT"
-            echo "deployment=aligner-sandbox-api" >> "$GITHUB_OUTPUT"
-            echo "environment=sandbox" >> "$GITHUB_OUTPUT"
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "namespace=aligner" >> "$GITHUB_OUTPUT"
-            echo "deployment=aligner-api" >> "$GITHUB_OUTPUT"
-            echo "environment=production" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
 
       - name: Check Tailscale credentials
         id: tailscale-check
@@ -132,32 +127,89 @@ jobs:
       - name: Inject Kubernetes Secret and Trigger Rollout
         if: steps.tailscale-check.outputs.available == 'true'
         env:
-          TARGET_NAMESPACE: ${{ steps.target.outputs.namespace }}
-          TARGET_DEPLOYMENT: ${{ steps.target.outputs.deployment }}
           DEV_ENV_FILE: ${{ secrets.DEV_ENV_FILE }}
-          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
         run: |
-          if [[ "${{ steps.target.outputs.environment }}" == "sandbox" ]]; then
-            ENV_PAYLOAD="$DEV_ENV_FILE"
-          else
-            ENV_PAYLOAD="$PROD_ENV_FILE"
-          fi
-
-          if [[ -n "$ENV_PAYLOAD" ]]; then
+          if [[ -n "$DEV_ENV_FILE" ]]; then
             TMP_ENV_FILE=$(mktemp)
-            printf '%s\n' "$ENV_PAYLOAD" > "$TMP_ENV_FILE"
+            printf '%s\n' "$DEV_ENV_FILE" > "$TMP_ENV_FILE"
             chmod 600 "$TMP_ENV_FILE"
 
-            echo "Injecting secret aligner-api-secrets into namespace ${TARGET_NAMESPACE}..."
+            echo "Injecting secret aligner-api-secrets into namespace aligner-sandbox..."
             kubectl create secret generic aligner-api-secrets \
               --from-env-file="$TMP_ENV_FILE" \
-              --namespace="$TARGET_NAMESPACE" \
+              --namespace=aligner-sandbox \
               --dry-run=client -o yaml | kubectl apply -f -
 
             rm -f "$TMP_ENV_FILE"
           else
-            echo "::warning::Environment secret payload is empty for ${{ steps.target.outputs.environment }}."
+            echo "::warning::DEV_ENV_FILE secret payload is empty for sandbox."
           fi
 
-          echo "Triggering rollout restart for deployment/${TARGET_DEPLOYMENT} in namespace ${TARGET_NAMESPACE}..."
-          kubectl rollout restart "deployment/${TARGET_DEPLOYMENT}" -n "$TARGET_NAMESPACE"
+          echo "Triggering rollout restart for deployment/aligner-sandbox-api in namespace aligner-sandbox..."
+          kubectl rollout restart deployment/aligner-sandbox-api -n aligner-sandbox
+
+  deploy-production:
+    name: Deploy to Production (Prod)
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    environment: production
+    steps:
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Check Tailscale credentials
+        id: tailscale-check
+        env:
+          TS_CLIENT_ID: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          TS_SECRET: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+        run: |
+          if [[ -n "$TS_CLIENT_ID" && -n "$TS_SECRET" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Tailscale credentials (TAILSCALE_OAUTH_CLIENT_ID / TAILSCALE_OAUTH_SECRET) are not configured. Skipping Kubernetes deployment."
+          fi
+
+      - name: Connect to Tailscale
+        if: steps.tailscale-check.outputs.available == 'true'
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Configure Kubeconfig
+        if: steps.tailscale-check.outputs.available == 'true' && secrets.KUBECONFIG != ''
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          mkdir -p "$HOME/.kube"
+          printf '%s\n' "$KUBECONFIG_DATA" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Inject Kubernetes Secret and Trigger Rollout
+        if: steps.tailscale-check.outputs.available == 'true'
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+        run: |
+          if [[ -n "$PROD_ENV_FILE" ]]; then
+            TMP_ENV_FILE=$(mktemp)
+            printf '%s\n' "$PROD_ENV_FILE" > "$TMP_ENV_FILE"
+            chmod 600 "$TMP_ENV_FILE"
+
+            echo "Injecting secret aligner-api-secrets into namespace aligner..."
+            kubectl create secret generic aligner-api-secrets \
+              --from-env-file="$TMP_ENV_FILE" \
+              --namespace=aligner \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+            rm -f "$TMP_ENV_FILE"
+          else
+            echo "::warning::PROD_ENV_FILE secret payload is empty for production."
+          fi
+
+          echo "Triggering rollout restart for deployment/aligner-api in namespace aligner..."
+          kubectl rollout restart deployment/aligner-api -n aligner
