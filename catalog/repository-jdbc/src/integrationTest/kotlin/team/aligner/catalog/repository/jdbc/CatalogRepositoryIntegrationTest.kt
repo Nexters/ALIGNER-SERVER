@@ -82,10 +82,12 @@ class CatalogRepositoryIntegrationTest {
             .query(Int::class.java)
             .single() shouldBe 6
 
+        // changeset 을 추가할 때마다 함께 올린다. 0012~0014 는 YMove 연동(썸네일 컬럼,
+        // slug·썸네일 seed, 음성 큐 seed)이다.
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'catalog-%'")
             .query(Int::class.java)
-            .single() shouldBe 11
+            .single() shouldBe 14
     }
 
     @Test
@@ -227,6 +229,33 @@ class CatalogRepositoryIntegrationTest {
                 .single()
 
         exerciseSlug shouldBe poseSlug
+    }
+
+    @Test
+    fun `findYmoveSlugs 는 slug 가 있는 운동만 돌려준다`() {
+        // 1 번은 camel-pose, 2 번은 slug 가 있고, 90 번은 NULL 이다.
+        insertExercise(90L, null, "slug 없는 운동")
+
+        val slugs =
+            exerciseQueryRepository.findYmoveSlugs(
+                listOf(ExerciseIdentity.of(1L), ExerciseIdentity.of(90L), ExerciseIdentity.of(999L)),
+            )
+
+        // NULL 인 행과 없는 식별자는 맵에서 빠진다. "없음" 이 한 가지 모양이어야 호출부가
+        // videoUrl = null 로 접는 판단을 한 곳에서 한다.
+        slugs shouldBe mapOf(1L to "camel-pose")
+    }
+
+    @Test
+    fun `운동 상세는 video_url 컬럼을 더 이상 읽지 않는다`() {
+        // 컬럼에 값이 남아 있어도 응답에 실리면 안 된다. 재생 URL 은 48 시간 만료라 DB 값이
+        // 곧 죽은 URL 이다 — adapter-ymove 가 요청 시점에 채운다 (docs/domains.md §4-3-1).
+        insertExercise(95L, "stale-url", "묵은 URL", videoUrl = "https://cdn/expired.mp4")
+
+        val detail = exerciseQueryRepository.findDetail(ExerciseIdentity.of(95L))
+
+        detail.shouldNotBeNull()
+        detail.videoUrl.shouldBeNull()
     }
 
     @Test
