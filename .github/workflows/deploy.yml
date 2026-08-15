@@ -86,13 +86,13 @@ jobs:
           echo "Image digest: ${{ steps.build-push.outputs.digest }}"
           echo "Image tags: ${{ steps.meta.outputs.tags }}"
 
-  deploy-sandbox:
-    name: Deploy to Sandbox (Dev)
+  deploy-dev:
+    name: Deploy to Dev (Sandbox)
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref_name == 'develop'
     environment:
-      name: sandbox
+      name: dev
       url: https://test.aligneryoga.com
     steps:
       - name: Setup kubectl
@@ -156,19 +156,19 @@ jobs:
 
       - name: Deployment Summary
         run: |
-          echo "### 🚀 Sandbox (Dev) 배포 완료!" >> $GITHUB_STEP_SUMMARY
-          echo "- **환경**: \`aligner-sandbox\`" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Dev (Sandbox) 배포 완료!" >> $GITHUB_STEP_SUMMARY
+          echo "- **환경**: \`dev\` (namespace: aligner-sandbox)" >> $GITHUB_STEP_SUMMARY
           echo "- **접속 도메인**: [https://test.aligneryoga.com](https://test.aligneryoga.com)" >> $GITHUB_STEP_SUMMARY
           echo "- **Swagger UI**: [https://test.aligneryoga.com/swagger-ui/index.html](https://test.aligneryoga.com/swagger-ui/index.html)" >> $GITHUB_STEP_SUMMARY
           echo "- **이미지**: \`ghcr.io/${{ github.repository_owner }}/aligner-server:develop\`" >> $GITHUB_STEP_SUMMARY
 
-  deploy-production:
-    name: Deploy to Production (Prod)
+  deploy-prod:
+    name: Deploy to Prod (Production)
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref_name == 'main' || startsWith(github.ref_name, 'v')
     environment:
-      name: production
+      name: prod
       url: https://api.aligneryoga.com
     steps:
       - name: Setup kubectl
@@ -232,7 +232,7 @@ jobs:
 
       - name: Deployment Summary
         run: |
-          echo "### 🏢 Production 배포 완료!" >> $GITHUB_STEP_SUMMARY
-          echo "- **환경**: \`aligner\`" >> $GITHUB_STEP_SUMMARY
+          echo "### 🏢 Prod (Production) 배포 완료!" >> $GITHUB_STEP_SUMMARY
+          echo "- **환경**: \`prod\` (namespace: aligner)" >> $GITHUB_STEP_SUMMARY
           echo "- **접속 도메인**: [https://api.aligneryoga.com](https://api.aligneryoga.com)" >> $GITHUB_STEP_SUMMARY
           echo "- **이미지**: \`ghcr.io/${{ github.repository_owner }}/aligner-server:latest\`" >> $GITHUB_STEP_SUMMARY
