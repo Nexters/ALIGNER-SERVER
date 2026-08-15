@@ -2,6 +2,8 @@
 # 1. 공통 기본 설정 (Common Base Configuration)
 # ==============================================================================
 spring:
+  config:
+    import: "optional:file:./application-secret.properties"
   application:
     name: aligner-server
   datasource:

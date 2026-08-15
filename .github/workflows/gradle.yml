@@ -396,7 +396,12 @@ jobs:
           gh auth setup-git
           gh repo clone Nexters/ALIGNER-PLATFORM platform
           cd platform
-          git checkout -b "$branch"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            git fetch origin "$branch"
+            git checkout "$branch"
+          else
+            git checkout -b "$branch"
+          fi
           ./scripts/update-aligner-api-image.sh "$IMAGE_REFERENCE"
 
           if git diff --quiet; then
