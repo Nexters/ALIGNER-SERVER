@@ -131,3 +131,9 @@ aligner:
   auth:
     kakao:
       redirect-uri: ${KAKAO_REDIRECT_URI:https://aligneryoga.com/oauth/kakao}
+
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
