@@ -1,0 +1,3 @@
+team.aligner.support.web.SupportWebAutoConfiguration
+team.aligner.support.web.SecurityConfig
+team.aligner.support.web.docs.OpenApiConfig

@@ -1,0 +1,48 @@
+name: 버그
+description: 동작하지 않거나 잘못 동작하는 문제를 신고합니다.
+title: "[FIX] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 문제 상황
+      description: 무엇이 잘못 동작하나요?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현 방법
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 동작
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 동작
+      description: >
+        에러 로그나 응답 본문이 있다면 함께 붙여주세요.
+        토큰·비밀번호·개인정보는 반드시 마스킹하고 올려주세요.
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: 발생 환경
+      placeholder: 예) local / dev / prod, 브랜치명, 커밋 해시
+    validations:
+      required: false

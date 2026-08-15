@@ -1,0 +1,125 @@
+# course 도메인 changelog.
+#
+# changeset id 에 도메인 접두사를 붙인다. 도메인 5 개가 public.DATABASECHANGELOG 하나를
+# 공유하므로 접두사가 없으면 번호가 겹친다 (docs/architecture.md §6).
+#
+# 이미 적용된 changeset 은 수정하지 않고 새로 쌓는다.
+#
+# 순서가 FK 를 따른다. template_step 은 course_template 뒤, course 는 course_template 뒤,
+# course_step 은 course 뒤, stamp 는 course 뒤여야 한다.
+databaseChangeLog:
+  - changeSet:
+      id: course-0001-create-schema
+      author: aligner
+      comment: course 스키마 생성
+      changes:
+        - sql:
+            sql: CREATE SCHEMA IF NOT EXISTS course
+
+  - changeSet:
+      id: course-0002-create-course-template
+      author: aligner
+      comment: 코스 템플릿 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/001-create-course-template.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0003-create-template-step
+      author: aligner
+      comment: 템플릿 스텝 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/002-create-template-step.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0004-create-template-step-exercise
+      author: aligner
+      comment: 템플릿 스텝 운동 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/003-create-template-step-exercise.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0005-create-course
+      author: aligner
+      comment: 회원 처방 코스 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/004-create-course.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0006-create-course-step
+      author: aligner
+      comment: 회원 코스 스텝 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/005-create-course-step.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0007-create-course-step-exercise
+      author: aligner
+      comment: 회원 코스 스텝 운동 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/006-create-course-step-exercise.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0008-create-stamp
+      author: aligner
+      comment: 도장 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/007-create-stamp.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0009-add-course-version
+      author: aligner
+      comment: 동시 세션 완료가 서로를 덮지 않도록 낙관적 락 추가
+      changes:
+        - sqlFile:
+            path: ddl/008-add-course-version.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0010-add-course-attempt-no
+      author: aligner
+      comment: 완주한 코스를 다시 돌 수 있도록 재도전 회차 추가
+      changes:
+        - sqlFile:
+            path: ddl/009-add-course-attempt-no.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0011-add-stamp-attempt-no
+      author: aligner
+      comment: 도장을 자세당 하나에서 회차당 하나로 넓힘
+      changes:
+        - sqlFile:
+            path: ddl/010-add-stamp-attempt-no.sql
+            relativeToChangelogFile: true
+
+  # 여기부터 seed 다. 코스 템플릿은 감수 콘텐츠라 rollback 을 붙인다
+  # (catalog changelog 와 같은 판단). 자식부터 지워야 FK 에 걸리지 않는다.
+  - changeSet:
+      id: course-0012-seed-course-template
+      author: aligner
+      comment: 9 개 루틴의 코스 템플릿·스텝·스텝 운동 적재
+      changes:
+        - sqlFile:
+            path: seed/001-course-template.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM course.template_step_exercise WHERE template_step_id BETWEEN 1 AND 63
+        - sql:
+            sql: DELETE FROM course.template_step WHERE template_step_id BETWEEN 1 AND 63
+        - sql:
+            sql: DELETE FROM course.course_template WHERE template_id BETWEEN 1 AND 9

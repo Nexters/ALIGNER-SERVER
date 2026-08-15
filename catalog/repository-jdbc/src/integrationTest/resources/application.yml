@@ -1,0 +1,7 @@
+# 통합 테스트는 TestContainers 가 띄운 PostgreSQL 에 이 도메인 changelog 만 돌린다.
+# 루트 changelog-master 가 아니라 catalog changelog 를 직접 가리키는 이유는, 이 테스트가
+# catalog 모듈만 검증하고 다른 도메인 schema 모듈이 클래스패스에 없기 때문이다.
+spring:
+  liquibase:
+    change-log: classpath:db/catalog/db.changelog-catalog.yaml
+    liquibase-schema: public

@@ -1,0 +1,29 @@
+## 관련 이슈
+
+Closes #
+
+## 작업 내용
+
+<!-- 무엇을 왜 했는지 간단히 적어주세요. -->
+
+-
+
+## 리뷰 포인트
+
+<!-- 리뷰어가 집중해서 봐줬으면 하는 부분, 고민했던 선택지가 있다면 적어주세요. 없으면 지워도 됩니다. -->
+
+-
+
+## 체크리스트
+
+- [ ] 로컬에서 빌드와 테스트가 통과했습니다
+- [ ] 커밋 메시지가 [컨벤션](https://github.com/Nexters/ALIGNER-SERVER/blob/develop/CONTRIBUTING.md#2-커밋-컨벤션)을 따릅니다
+- [ ] 새 코드가 [아키텍처 문서](https://github.com/Nexters/ALIGNER-SERVER/blob/develop/docs/architecture.md)의 계층에 맞게 놓였습니다
+- [ ] API 변경이 있다면 Web 팀에 공유했습니다
+- [ ] 설정·환경변수 추가가 있다면 팀에 공유했습니다
+- [ ] 시크릿·키를 커밋하지 않았습니다
+
+<!-- build.gradle.kts를 수정했다면 아래도 체크해주세요. 지웠다면 해당 없음입니다. -->
+
+- [ ] 추가한 모듈 의존성이 [§3 의존성 표](https://github.com/Nexters/ALIGNER-SERVER/blob/develop/docs/architecture.md#계층별-역할과-허용-의존성)에서 허용된 것입니다
+- [ ] `implementation` / `api` 선택이 [§8 기준](https://github.com/Nexters/ALIGNER-SERVER/blob/develop/docs/architecture.md#8-build-logic--규칙을-빌드가-강제한다)을 따릅니다

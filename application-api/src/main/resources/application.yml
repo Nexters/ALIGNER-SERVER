@@ -1,0 +1,139 @@
+# ==============================================================================
+# 1. 공통 기본 설정 (Common Base & Fallback)
+# ==============================================================================
+spring:
+  config:
+    import: "optional:file:./application-secret.properties"
+  application:
+    name: aligner-server
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/aligner}
+    username: ${DB_USERNAME:aligner}
+    password: ${DB_PASSWORD}
+  liquibase:
+    change-log: classpath:db/changelog-master.yaml
+    liquibase-schema: public
+    contexts: ${LIQUIBASE_CONTEXTS:prod}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+aligner:
+  web:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+      max-age-seconds: ${CORS_MAX_AGE_SECONDS:3600}
+  auth:
+    jwt:
+      secret: ${JWT_SECRET}
+      expiration-seconds: ${JWT_EXPIRATION_SECONDS:1209600}
+      issuer: aligner
+    kakao:
+      token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
+      user-info-uri: ${KAKAO_USER_INFO_URI:https://kapi.kakao.com/v2/user/me}
+      client-id: ${KAKAO_CLIENT_ID}
+      client-secret: ${KAKAO_CLIENT_SECRET}
+      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao}
+      connect-timeout-millis: ${KAKAO_CONNECT_TIMEOUT_MILLIS:2000}
+      read-timeout-millis: ${KAKAO_READ_TIMEOUT_MILLIS:3000}
+  ymove:
+    base-url: ${YMOVE_BASE_URL:https://exercise-api.ymove.app/api/v2}
+    api-key: ${YMOVE_API_KEY}
+    connect-timeout-millis: ${YMOVE_CONNECT_TIMEOUT_MILLIS:2000}
+    read-timeout-millis: ${YMOVE_READ_TIMEOUT_MILLIS:3000}
+    cache-ttl-seconds: ${YMOVE_CACHE_TTL_SECONDS:1800}
+
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
+    tags-sorter: alpha
+    operations-sorter: method
+
+---
+# ==============================================================================
+# 2. 로컬 테스트 환경 프로필 (test Profile)
+# ==============================================================================
+spring:
+  config:
+    activate:
+      on-profile: test
+  liquibase:
+    contexts: ${LIQUIBASE_CONTEXTS:prod}
+
+logging:
+  level:
+    team.aligner: DEBUG
+
+aligner:
+  web:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+  auth:
+    kakao:
+      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+---
+# ==============================================================================
+# 3. 개발 / 테스트 서버 프로필 (dev Profile - test.aligneryoga.com)
+# ==============================================================================
+spring:
+  config:
+    activate:
+      on-profile: dev
+  liquibase:
+    contexts: ${LIQUIBASE_CONTEXTS:dev,prod}
+
+logging:
+  level:
+    team.aligner: DEBUG
+
+aligner:
+  web:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://test.aligneryoga.com}
+  auth:
+    kakao:
+      redirect-uri: ${KAKAO_REDIRECT_URI:https://test.aligneryoga.com/oauth/kakao}
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+---
+# ==============================================================================
+# 4. 운영 환경 프로필 (prod Profile - api.aligneryoga.com)
+# ==============================================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+  liquibase:
+    contexts: ${LIQUIBASE_CONTEXTS:prod}
+
+logging:
+  level:
+    team.aligner: INFO
+
+aligner:
+  web:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:https://aligneryoga.com,https://www.aligneryoga.com}
+  auth:
+    kakao:
+      redirect-uri: ${KAKAO_REDIRECT_URI:https://aligneryoga.com/oauth/kakao}
+
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
