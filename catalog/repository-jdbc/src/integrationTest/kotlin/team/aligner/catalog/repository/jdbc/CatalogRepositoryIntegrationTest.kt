@@ -197,7 +197,7 @@ class CatalogRepositoryIntegrationTest {
 
     @Test
     fun `자세가 없는 부위는 빈 목록이다`() {
-        targetPoseQueryRepository.findAll("NECK") shouldBe emptyList()
+        targetPoseQueryRepository.findAll("ABDOMEN") shouldBe emptyList()
     }
 
     @Test

@@ -31,10 +31,9 @@ data class UpdateMemberProfileRequest(
     val experienceLevel: ExperienceLevel? = null,
     @field:Schema(
         description = "강화 부위 코드. reinforcementLevel 과 **함께** 보내야 한다",
-        example = "BACK",
         requiredMode = Schema.RequiredMode.NOT_REQUIRED,
     )
-    val reinforcementBodyPartCode: String? = null,
+    val reinforcementBodyPartCode: BodyPartCode? = null,
     @field:Schema(
         description = "강화 난이도 1(하)·2(중)·3(상). reinforcementBodyPartCode 와 **함께** 보내야 한다",
         example = "1",
@@ -60,7 +59,7 @@ data class UpdateMemberProfileRequest(
         when {
             reinforcementBodyPartCode == null && reinforcementLevel == null -> null
             reinforcementBodyPartCode != null && reinforcementLevel != null ->
-                ReinforcementSetting(bodyPartCode = reinforcementBodyPartCode, level = reinforcementLevel)
+                ReinforcementSetting(bodyPartCode = reinforcementBodyPartCode.name, level = reinforcementLevel)
 
             else -> throw InvalidReinforcementSettingException()
         }

@@ -66,16 +66,16 @@ class ScreeningRepositoryIntegrationTest {
                 """.trimIndent(),
             ).update()
 
-        insertBodyPart("NECK_SHOULDER", "목·어깨", 1)
-        insertBodyPart("UPPER_BACK", "등·허리", 2)
+        insertBodyPart("BACK", "등", 1)
+        insertBodyPart("ABDOMEN", "복부", 2)
 
-        insertCause("THORACIC_STIFFNESS", "굳은 흉추", "UPPER_BACK", "흉추가 굳으면 목이 앞으로 나온다")
-        insertCause("SHOULDER_ROLL", "말린 어깨", "NECK_SHOULDER", null)
+        insertCause("THORACIC_STIFFNESS", "굳은 흉추", "BACK", "흉추가 굳으면 목이 앞으로 나온다")
+        insertCause("WEAK_CORE", "약한 코어", "ABDOMEN", null)
 
         insertCauseRule(10L, "HARD", "THORACIC_STIFFNESS", 3)
         insertCauseRule(11L, "HARD", "THORACIC_STIFFNESS", 2)
-        insertCauseRule(10L, "HARD", "SHOULDER_ROLL", 4)
-        insertCauseRule(10L, "EASY", "SHOULDER_ROLL", 1)
+        insertCauseRule(10L, "HARD", "WEAK_CORE", 4)
+        insertCauseRule(10L, "EASY", "WEAK_CORE", 1)
     }
 
     @Test
@@ -127,7 +127,7 @@ class ScreeningRepositoryIntegrationTest {
     @Test
     fun `부위 목록은 노출 순서로 돌아온다`() {
         screeningQueryRepository.findAllBodyParts().map { it.bodyPartCode } shouldBe
-            listOf("NECK_SHOULDER", "UPPER_BACK")
+            listOf("BACK", "ABDOMEN")
     }
 
     @Test
@@ -146,7 +146,7 @@ class ScreeningRepositoryIntegrationTest {
 
     @Test
     fun `부위 존재 검증이 코드로 동작한다`() {
-        bodyPartRepository.existsByCode("NECK_SHOULDER") shouldBe true
+        bodyPartRepository.existsByCode("ABDOMEN") shouldBe true
         bodyPartRepository.existsByCode("NOT_EXIST") shouldBe false
     }
 
@@ -156,14 +156,14 @@ class ScreeningRepositoryIntegrationTest {
 
         val view = screeningQueryRepository.findLatestByMemberId(MEMBER_ID).shouldNotBeNull()
 
-        // (10,HARD)+(11,HARD) 로 THORACIC_STIFFNESS 가 3+2=5, SHOULDER_ROLL 이 4 다.
+        // (10,HARD)+(11,HARD) 로 THORACIC_STIFFNESS 가 3+2=5, WEAK_CORE 가 4 다.
         // (10,EASY) 규칙은 체감이 달라 매칭되지 않는다.
-        view.causes.map { it.causeCode } shouldBe listOf("THORACIC_STIFFNESS", "SHOULDER_ROLL")
+        view.causes.map { it.causeCode } shouldBe listOf("THORACIC_STIFFNESS", "WEAK_CORE")
         view.causes.map { it.rank } shouldBe listOf(1, 2)
         view.causes.map { it.score } shouldBe listOf(5, 4)
         // **회원은 자세만 골랐는데 서로 다른 부위의 원인이 순위로 나온다.** 진단 결과 화면이
         // 이 부위들을 늘어놓고, 회원은 그다음 화면에서 강화할 부위를 고른다 (docs/domains.md §4-2).
-        view.causes.map { it.bodyPartCode } shouldBe listOf("UPPER_BACK", "NECK_SHOULDER")
+        view.causes.map { it.bodyPartCode } shouldBe listOf("BACK", "ABDOMEN")
         view.causes.first().name shouldBe "굳은 흉추"
         view.causes.first().description shouldBe "흉추가 굳으면 목이 앞으로 나온다"
         // description 은 nullable 이다.
@@ -220,15 +220,15 @@ class ScreeningRepositoryIntegrationTest {
 
         insertCauseRow(resultId, "THORACIC_STIFFNESS", 1, 5)
         assertThrows<DataIntegrityViolationException> { insertCauseRow(resultId, "THORACIC_STIFFNESS", 2, 3) }
-        assertThrows<DataIntegrityViolationException> { insertCauseRow(resultId, "SHOULDER_ROLL", 1, 3) }
+        assertThrows<DataIntegrityViolationException> { insertCauseRow(resultId, "WEAK_CORE", 1, 3) }
     }
 
     @Test
     fun `순위와 점수는 0 이하가 될 수 없다`() {
         val resultId = insertBareResult()
 
-        assertThrows<DataIntegrityViolationException> { insertCauseRow(resultId, "SHOULDER_ROLL", 0, 3) }
-        assertThrows<DataIntegrityViolationException> { insertCauseRow(resultId, "SHOULDER_ROLL", 1, 0) }
+        assertThrows<DataIntegrityViolationException> { insertCauseRow(resultId, "WEAK_CORE", 0, 3) }
+        assertThrows<DataIntegrityViolationException> { insertCauseRow(resultId, "WEAK_CORE", 1, 0) }
     }
 
     /**
@@ -314,7 +314,7 @@ class ScreeningRepositoryIntegrationTest {
             .sql(
                 """
                 INSERT INTO screening.screening_result (member_id, perceived_body_part_code, created_at)
-                VALUES (:memberId, 'NECK_SHOULDER', now())
+                VALUES (:memberId, 'ABDOMEN', now())
                 RETURNING result_id
                 """.trimIndent(),
             ).param("memberId", MEMBER_ID)
