@@ -8,7 +8,12 @@ package team.aligner.training.infrastructure
  * 한 경로가 두 도메인의 값을 실어 나르면 어느 쪽이 정본인지 흐려진다.
  */
 interface CourseStepPort {
+    /**
+     * **`memberId` 를 넘긴다.** course 가 소유권을 조건에 넣어야 남의 코스로 세션을 열 수
+     * 없다. 남의 코스와 없는 코스가 똑같이 null 이라 training 은 둘을 구분하지 않는다.
+     */
     fun findStep(
+        memberId: Long,
         courseId: Long,
         stepOrder: Int,
     ): CourseStepLookup?

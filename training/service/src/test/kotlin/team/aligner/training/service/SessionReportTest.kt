@@ -76,7 +76,7 @@ class SessionReportTest :
 
         beforeTest {
             every { sessionRepository.save(any()) } answers { firstArg() }
-            every { courseStepPort.findStep(20L, 1) } returns
+            every { courseStepPort.findStep(1L, 20L, 1) } returns
                 CourseStepLookup(
                     courseId = 20L,
                     courseStepId = 31L,

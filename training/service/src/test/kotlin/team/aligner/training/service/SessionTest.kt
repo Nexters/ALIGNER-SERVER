@@ -8,6 +8,7 @@ import team.aligner.training.model.ExerciseResult
 import team.aligner.training.model.Session
 import team.aligner.training.model.SessionStatus
 import team.aligner.training.model.StepExercise
+import team.aligner.training.model.exception.DuplicateExerciseRecordException
 import team.aligner.training.model.exception.EmptyCourseStepException
 import team.aligner.training.model.exception.UnknownExerciseRecordException
 import java.time.Instant
@@ -87,6 +88,58 @@ class SessionTest :
                 shouldThrow<UnknownExerciseRecordException> {
                     start().complete(
                         results = listOf(ExerciseResult(99L, completed = true, performedDurationSeconds = 10)),
+                        at = at,
+                    )
+                }
+            }
+
+            /**
+             * **여기가 조용히 사라지는 자리였다.** `associateBy` 는 중복 키에서 마지막 것만
+             * 남기므로, 서로 다른 값이 두 번 오면 앞선 값이 말없이 버려지고 요청은 200 이었다
+             * (이슈 #32).
+             */
+            it("같은 운동의 수행 결과가 서로 다른 값으로 두 번 오면 막는다") {
+                shouldThrow<DuplicateExerciseRecordException> {
+                    start().complete(
+                        results =
+                            listOf(
+                                ExerciseResult(1L, completed = true, performedDurationSeconds = 120),
+                                ExerciseResult(1L, completed = false, performedDurationSeconds = 0),
+                            ),
+                        at = at,
+                    )
+                }
+            }
+
+            /**
+             * 값이 같아도 막는다. 같은지 다른지로 갈라 봤자 클라이언트가 잘못 보낸 것은
+             * 마찬가지고, 분기를 두면 "같으면 통과" 를 규칙으로 읽는 쪽이 생긴다.
+             */
+            it("같은 값으로 두 번 와도 막는다") {
+                shouldThrow<DuplicateExerciseRecordException> {
+                    start().complete(
+                        results =
+                            listOf(
+                                ExerciseResult(1L, completed = true, performedDurationSeconds = 120),
+                                ExerciseResult(1L, completed = true, performedDurationSeconds = 120),
+                            ),
+                        at = at,
+                    )
+                }
+            }
+
+            /**
+             * 중복 검사가 **이 세션에 없는 운동 검사보다 뒤**다. 없는 식별자가 중복으로 와도
+             * 먼저 걸리는 것은 UNKNOWN 이다 — 어느 쪽이든 400 이라 화면은 같게 다룬다.
+             */
+            it("없는 운동이 중복으로 오면 UNKNOWN 이 먼저다") {
+                shouldThrow<UnknownExerciseRecordException> {
+                    start().complete(
+                        results =
+                            listOf(
+                                ExerciseResult(99L, completed = true, performedDurationSeconds = 10),
+                                ExerciseResult(99L, completed = true, performedDurationSeconds = 10),
+                            ),
                         at = at,
                     )
                 }

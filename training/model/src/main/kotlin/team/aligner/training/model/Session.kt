@@ -1,5 +1,6 @@
 package team.aligner.training.model
 
+import team.aligner.training.model.exception.DuplicateExerciseRecordException
 import team.aligner.training.model.exception.EmptyCourseStepException
 import team.aligner.training.model.exception.UnknownExerciseRecordException
 import java.time.Instant
@@ -34,6 +35,13 @@ data class Session(
     val estimatedKcal: Int? = null,
     /** 핀포즈 직후 체감. 아직 답하지 않았으면 null 이다. */
     val perceivedResult: PerceivedResult? = null,
+    /**
+     * 낙관적 락 버전. 저장 어댑터가 쓰는 값이라 도메인 규칙에는 관여하지 않는다.
+     *
+     * 애그리거트에 두는 것은 저장 시점에 "어떤 버전을 읽고 고쳤는가" 를 알아야 하기 때문이다.
+     * 새로 시작한 세션은 null 이고, 저장 뒤 값이 채워진다 (Course 와 같은 형태다).
+     */
+    val version: Long? = null,
 ) {
     val completed: Boolean get() = status == SessionStatus.COMPLETED
 
@@ -72,6 +80,10 @@ data class Session(
      *
      * 이 세션에 없는 운동이 섞여 오면 막는다. 조용히 무시하면 클라이언트가 잘못 보낸 것을
      * 성공으로 읽는다.
+     *
+     * **같은 운동이 두 번 오면 막는다.** `associateBy` 는 중복 키에서 마지막 것만 남기므로,
+     * 서로 다른 값이 두 번 오면 앞선 값이 말없이 버려진다. 어느 쪽이 맞는지 서버가 고를 수
+     * 없으니 400 으로 되돌려 보낸다.
      */
     fun complete(
         results: List<ExerciseResult>,
@@ -84,6 +96,11 @@ data class Session(
         val known = records.map { it.courseStepExerciseId }.toSet()
         results.firstOrNull { it.courseStepExerciseId !in known }?.let {
             throw UnknownExerciseRecordException()
+        }
+
+        // 중복 검사를 associateBy 전에 한다. 뒤에 하면 이미 하나만 남아 검사할 것이 없다.
+        if (results.distinctBy { it.courseStepExerciseId }.size != results.size) {
+            throw DuplicateExerciseRecordException()
         }
 
         val byId = results.associateBy { it.courseStepExerciseId }
