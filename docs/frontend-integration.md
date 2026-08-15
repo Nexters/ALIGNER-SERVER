@@ -122,7 +122,7 @@ GET  /screening/body-parts                       강화할 부위 선택지
 PATCH /members/me                                부위·난이도 저장
         │
         ▼
-POST /courses                                    같은 부위·난이도로 코스 처방
+POST /courses                                    같은 부위·난이도로 코스 추천
 ```
 
 경력·키·몸무게를 받는 화면들도 같은 `PATCH /members/me` 를 쓴다. 화면별로 무엇을 보낼지는
@@ -534,7 +534,6 @@ function resolveTargetPoseImage(key: string | null): string | null {
 | 401 | `KAKAO_TOKEN_INVALID` | 서버가 교환한 카카오 액세스 토큰이 사용자 조회에서 거부됨. 서버·카카오 쪽 문제이므로 재로그인으로 풀리지 않으면 서버팀에 알린다 |
 | 403 | `FORBIDDEN` | 현재 권한으로 접근할 수 없음 |
 | 404 | `MEMBER_NOT_FOUND` | 현재 토큰의 회원이 없음 |
-| 400 | `BODY_PART_NOT_IN_SCREENING` | 진단 결과에 없는 부위로 코스를 요청함 |
 | 409 | `SCREENING_REQUIRED` | 진단 전에 코스를 요청함. **온보딩으로 보낸다** |
 | 422 | `COURSE_TEMPLATE_NOT_FOUND` | 그 부위·난이도의 코스 seed가 없음 |
 | 422 | `EMPTY_COURSE_TEMPLATE` | 코스 템플릿에 스텝이 없음 |
@@ -695,17 +694,19 @@ Content-Type: application/json
 
 - 자세는 서버가 `(bodyPartCode, level)`로 catalog에서 찾는다. 클라이언트가 자세를 지정하면
   고르지 않은 난이도의 코스를 받아갈 수 있다
-- 원인은 서버가 최신 진단으로 검증한다. 요청으로 받으면 원인 위조가 가능하다
+- 원인은 서버가 최신 진단에서 찾아 스냅샷으로 남긴다. 요청으로 받으면 원인 위조가 가능하다
+
+**진단 결과에 없는 부위도 받는다.** 코스는 추천이라 회원이 자세 도전 현황에서 아무 자세나 골라
+시작할 수 있다. 그 경우 서버가 남기는 원인 스냅샷만 비어 있고 코스는 정상으로 만들어진다.
 
 **멱등하다.** 같은 자세의 코스가 이미 있으면 새로 만들지 않고 그 코스를 돌려준다. 재시도해도
 안전하고, 이 경우도 201이다.
 
-실패는 다섯이다.
+실패는 넷이다.
 
 | 상태 | 코드 | 화면 처리 |
 | --- | --- | --- |
 | 400 | `BAD_REQUEST` | `bodyPartCode`가 세 값 중 하나가 아니다. 본문 파싱에서 걸린다 |
-| 400 | `BODY_PART_NOT_IN_SCREENING` | 값은 맞지만 진단 결과에 없는 부위를 골랐다 |
 | 409 | `SCREENING_REQUIRED` | 아직 진단한 적이 없다. **온보딩으로 보낸다** |
 | 422 | `COURSE_TEMPLATE_NOT_FOUND` | 그 부위·난이도의 자세나 코스 seed가 없다 |
 | 422 | `EMPTY_COURSE_TEMPLATE` | 코스 템플릿에 스텝이 없다 |
@@ -801,29 +802,67 @@ Content-Type: application/json
 
 ### `GET /courses/progress/target-poses`
 
-자세 도전 현황이다. `completed` 파라미터로 거른다 — 생략하면 전체, `true`면 완성한 자세만,
-`false`면 도전 중인 자세만이다.
+자세 도전 현황이다. **서비스가 제공하는 핀포즈 전체가 나온다** — 회원이 시작한 코스만이
+아니다. 코스는 추천이라 아직 시작하지 않은 자세도 목록에 있다.
 
 ```json
-[
-  {
-    "courseId": 20,
-    "targetPoseId": 3,
-    "targetPoseName": "낙타자세",
-    "targetPoseImageAssetKey": "target-pose/camel",
-    "completedStepCount": 3,
-    "totalStepCount": 4,
-    "completed": false
-  }
-]
+{
+  "totalCount": 9,
+  "inProgressCount": 3,
+  "completedCount": 2,
+  "targetPoses": [
+    {
+      "targetPoseId": 3,
+      "targetPoseName": "낙타자세",
+      "targetPoseImageAssetKey": "target-pose/camel",
+      "bodyPartCode": "BACK",
+      "level": 1,
+      "courseId": 20,
+      "completedStepCount": 3,
+      "totalStepCount": 4,
+      "completed": false
+    },
+    {
+      "targetPoseId": 9,
+      "targetPoseName": "브릿지",
+      "targetPoseImageAssetKey": "target-pose/bridge",
+      "bodyPartCode": "PELVIS",
+      "level": 1,
+      "courseId": null,
+      "completedStepCount": null,
+      "totalStepCount": null,
+      "completed": false
+    }
+  ]
+}
 ```
 
+**아직 시작하지 않은 자세는 `courseId`·`completedStepCount`·`totalStepCount`가 `null`이다.**
+`0 / 4`가 아니다 — 0/4는 "시작했는데 아직 한 스텝도 안 함"이고 `null`은 "아직 열지 않음"이라
+화면이 둘을 다르게 그린다. 회색 카드는 `courseId === null`로 판별한다.
+
 **`completedStepCount / totalStepCount`가 화면의 `3 / 4`다.** 자세 포인트 체크가 아니라
-**코스 안에서 완료한 스텝 개수**다. `completed`가 `false`면 `도전 중`, `true`면 `완성`이다.
+**코스 안에서 완료한 스텝 개수**다.
 
-프로필의 "완수한 자세 목록"도 `completed=true`로 이 API를 쓴다 — 별도 API가 없다.
+세 상태는 이렇게 나뉜다.
 
-상단 필터의 `전체 4 · 도전 중 3 · 완성 1`은 파라미터 없이 한 번 받아 프론트에서 세면 된다.
+| 상태 | 판별 | 화면 |
+| --- | --- | --- |
+| 아직 안 열림 | `courseId === null` | 회색, 진행도 뱃지 없음 |
+| 도전 중 | `courseId !== null && !completed` | 링 진행도 + `3 / 4` |
+| 완성 | `completed === true` | 노란 링 + `완성` |
+
+**칩 세 개는 루트의 집계로 그린다.** `totalCount`·`inProgressCount`·`completedCount`는
+`completed` 파라미터와 **무관하게 언제나 전체 기준**이라, 걸러도 나머지 칩의 숫자가 유지된다.
+`totalCount`는 `inProgressCount + completedCount`가 아니다 — 아직 열지 않은 자세가 그 차이다.
+
+**부위 섹션은 `bodyPartCode`로 그룹핑한다.** 목록은 `(bodyPartCode, level)` 순으로 정렬돼
+있고, 섹션의 노출 순서는 `GET /screening/body-parts`가 정한다. 자세마다
+`GET /catalog/target-poses/{id}`를 다시 부르지 않는다.
+
+`completed` 파라미터는 목록만 거른다 — `true`면 완성한 자세만, `false`면 **완성하지 않은 전부**
+(아직 열지 않은 자세 포함)다. 프로필의 "완수한 자세 목록"도 `completed=true`로 이 API를 쓴다 —
+별도 API가 없다.
 
 ### 아직 없는 것
 

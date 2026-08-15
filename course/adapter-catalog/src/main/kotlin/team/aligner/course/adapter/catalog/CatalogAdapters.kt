@@ -2,6 +2,7 @@ package team.aligner.course.adapter.catalog
 
 import team.aligner.catalog.contract.ExerciseContract
 import team.aligner.catalog.contract.TargetPoseContract
+import team.aligner.catalog.contract.TargetPoseResponse
 import team.aligner.course.infrastructure.ExerciseCatalogEntry
 import team.aligner.course.infrastructure.ExerciseCatalogPort
 import team.aligner.course.infrastructure.TargetPoseCatalogEntry
@@ -13,19 +14,12 @@ import team.aligner.course.infrastructure.TargetPoseCatalogPort
 internal class TargetPoseCatalogAdapter(
     private val targetPoseContract: TargetPoseContract,
 ) : TargetPoseCatalogPort {
+    override fun findAll(): List<TargetPoseCatalogEntry> = targetPoseContract.findAll().map(::toEntry)
+
     override fun findByBodyPartCodeAndLevel(
         bodyPartCode: String,
         level: Int,
-    ): TargetPoseCatalogEntry? =
-        targetPoseContract.findByBodyPartCodeAndLevel(bodyPartCode, level)?.let {
-            TargetPoseCatalogEntry(
-                targetPoseId = it.targetPoseId,
-                name = it.name,
-                imageAssetKey = it.imageAssetKey,
-                bodyPartCode = it.bodyPartCode,
-                level = it.level,
-            )
-        }
+    ): TargetPoseCatalogEntry? = targetPoseContract.findByBodyPartCodeAndLevel(bodyPartCode, level)?.let(::toEntry)
 
     /**
      * 계약이 단건 조회만 노출하므로 여기서 식별자마다 부른다. 자세 목록이 회원의 도전 현황
@@ -33,17 +27,16 @@ internal class TargetPoseCatalogAdapter(
      * (docs/architecture.md §3 "미리 만들지 않는다").
      */
     override fun findAllByIds(targetPoseIds: List<Long>): List<TargetPoseCatalogEntry> =
-        targetPoseIds.distinct().mapNotNull { id ->
-            targetPoseContract.findById(id)?.let {
-                TargetPoseCatalogEntry(
-                    targetPoseId = it.targetPoseId,
-                    name = it.name,
-                    imageAssetKey = it.imageAssetKey,
-                    bodyPartCode = it.bodyPartCode,
-                    level = it.level,
-                )
-            }
-        }
+        targetPoseIds.distinct().mapNotNull { id -> targetPoseContract.findById(id)?.let(::toEntry) }
+
+    private fun toEntry(response: TargetPoseResponse) =
+        TargetPoseCatalogEntry(
+            targetPoseId = response.targetPoseId,
+            name = response.name,
+            imageAssetKey = response.imageAssetKey,
+            bodyPartCode = response.bodyPartCode,
+            level = response.level,
+        )
 }
 
 internal class ExerciseCatalogAdapter(

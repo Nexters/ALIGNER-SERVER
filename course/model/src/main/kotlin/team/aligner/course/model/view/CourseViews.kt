@@ -81,14 +81,44 @@ data class CourseStepExerciseView(
 /**
  * 자세 도전 현황 한 줄. "낙타자세 3 / 4 체크 · 도전 중" 이다.
  *
+ * **회원이 시작한 코스가 아니라 서비스가 제공하는 핀포즈 전체가 한 줄씩 나온다.** 코스는
+ * 추천이지 처방이 아니다 — 온보딩에서 한 번 제안할 뿐이고, 이 화면은 전체를 펼쳐두고 회원이
+ * 아무거나 골라 시작하게 한다.
+ *
+ * 그래서 코스 쪽 값 셋이 nullable 이다. **아직 시작하지 않은 자세는 `0 / 4` 가 아니라 null**
+ * 이어야 한다. 0/4 는 "시작했는데 아직 한 스텝도 안 함" 이고 null 은 "아직 열지 않음" 이라
+ * 화면이 둘을 다르게 그린다.
+ *
  * 프로필의 "완수한 자세 목록" 도 같은 모델을 상태로 걸러 쓴다.
  */
 data class TargetPoseProgressView(
-    val courseId: Long,
     val targetPoseId: Long,
     val targetPoseName: String,
     val targetPoseImageAssetKey: String?,
-    val completedStepCount: Int,
-    val totalStepCount: Int,
+    val bodyPartCode: String,
+    val level: Int,
+    val courseId: Long?,
+    val completedStepCount: Int?,
+    val totalStepCount: Int?,
     val completed: Boolean,
+) {
+    /** 시작했고 아직 완성하지 않은 상태. 화면의 "도전 중" 칩이 세는 값이다. */
+    val inProgress: Boolean get() = courseId != null && !completed
+}
+
+/**
+ * 자세 도전 현황 전체.
+ *
+ * **집계는 `completedOnly` 필터와 무관하게 언제나 전체 기준이다.** 화면의 칩 세 개가
+ * `전체 9 / 도전 중 3 / 완성 2` 를 항상 함께 보여주므로, 걸러진 목록으로 세면 나머지 칩의
+ * 숫자를 낼 수 없다.
+ *
+ * `totalCount` 는 `inProgressCount + completedCount` 가 아니다. 아직 시작하지 않은 자세가
+ * 그 차이만큼 있다.
+ */
+data class TargetPoseProgressSummaryView(
+    val totalCount: Int,
+    val inProgressCount: Int,
+    val completedCount: Int,
+    val targetPoses: List<TargetPoseProgressView>,
 )

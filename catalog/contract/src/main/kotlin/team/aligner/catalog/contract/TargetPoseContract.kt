@@ -12,6 +12,15 @@ interface TargetPoseContract {
     fun findById(targetPoseId: Long): TargetPoseResponse?
 
     /**
+     * 자세 전체를 (부위, 레벨, 식별자) 순으로 돌려준다.
+     *
+     * 「자세 도전 현황」이 **회원이 시작한 코스가 아니라 서비스가 제공하는 핀포즈 전체**를
+     * 펼치기 때문에 필요하다. 코스는 추천이고, 시작 여부는 그 위에 얹는 진행도일 뿐이다
+     * (docs/domains.md §4-4).
+     */
+    fun findAll(): List<TargetPoseResponse>
+
+    /**
      * 부위와 레벨로 목표 자세를 찾는다. course 의 처방 입력이 (강화 부위, 난이도)이고
      * **난이도가 곧 레벨**이라 이 조회가 처방의 첫 걸음이다 (docs/domains.md §4-4).
      *

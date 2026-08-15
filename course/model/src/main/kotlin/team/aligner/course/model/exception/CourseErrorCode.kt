@@ -36,7 +36,6 @@ enum class CourseErrorCode(
      * 클라이언트가 원인을 들고 오지 않고 서버가 최신 진단으로 검증한다 (docs/domains.md §2).
      * 이 검증이 없으면 원인을 위조해 아무 코스나 받아갈 수 있다.
      */
-    BODY_PART_NOT_IN_SCREENING(400, "BODY_PART_NOT_IN_SCREENING", "진단 결과에 없는 부위입니다"),
 
     EMPTY_COURSE_TEMPLATE(422, "EMPTY_COURSE_TEMPLATE", "코스 템플릿에 스텝이 없습니다"),
 }

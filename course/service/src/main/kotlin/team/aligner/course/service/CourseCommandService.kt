@@ -14,7 +14,6 @@ import team.aligner.course.model.Course
 import team.aligner.course.model.CourseIdentity
 import team.aligner.course.model.CourseStatus
 import team.aligner.course.model.Stamp
-import team.aligner.course.model.exception.BodyPartNotInScreeningException
 import team.aligner.course.model.exception.CourseNotFoundException
 import team.aligner.course.model.exception.CourseTemplateNotFoundException
 import team.aligner.course.model.exception.ScreeningRequiredException
@@ -66,7 +65,7 @@ internal class CourseCommandServiceImpl(
         memberId: Long,
         command: PrescribeCourseCommand,
     ): CourseIdentity {
-        val causeCode = verifyBodyPart(memberId, command.bodyPartCode)
+        val causeCode = findCauseCode(memberId, command.bodyPartCode)
 
         // 부위·레벨 → 자세 해석은 catalog 의 일이다. 여기서 SQL 을 짜면 도메인 간 조인이
         // 생긴다 (docs/domains.md §6).
@@ -225,23 +224,25 @@ internal class CourseCommandServiceImpl(
             ?.let { checkNotNull(it.identity) { "저장된 코스에 식별자가 없다" } }
 
     /**
-     * 회원이 고른 부위가 자기 진단 결과에 있는지 확인하고, 그 부위의 원인 코드를 돌려준다.
+     * 진단에서 이 부위의 원인을 찾아 스냅샷으로 남긴다. **없어도 막지 않는다.**
      *
-     * 진단한 적이 없으면 409 다. 화면은 이때 온보딩으로 보낸다 — 400 으로 내리면 요청이
-     * 잘못된 것처럼 보이는데 실제로는 순서를 건너뛴 것이다.
+     * 코스는 추천이지 처방이 아니다. 온보딩에서 한 번 제안할 뿐이고, 그 뒤 「자세 도전 현황」이
+     * 핀포즈 전체를 펼쳐두면 회원은 진단에 없던 부위도 눌러 시작한다. 여기서 거절하면 화면에
+     * 보이는 자세가 시작되지 않는다.
+     *
+     * 진단을 **한 번도 하지 않은** 회원은 여전히 막는다. 그건 부위 선택의 문제가 아니라 온보딩을
+     * 건너뛴 것이고, 409 라 화면이 온보딩으로 되돌린다 — 400 으로 내리면 요청이 잘못된 것처럼
+     * 보이는데 실제로는 순서를 건너뛴 것이다.
      */
-    private fun verifyBodyPart(
+    private fun findCauseCode(
         memberId: Long,
         bodyPartCode: String,
-    ): String {
+    ): String? {
         val causes = causeLookupPort.findLatestCauses(memberId)
         if (causes.isEmpty()) {
             throw ScreeningRequiredException()
         }
-        return causes
-            .find { it.bodyPartCode == bodyPartCode }
-            ?.causeCode
-            ?: throw BodyPartNotInScreeningException()
+        return causes.find { it.bodyPartCode == bodyPartCode }?.causeCode
     }
 }
 

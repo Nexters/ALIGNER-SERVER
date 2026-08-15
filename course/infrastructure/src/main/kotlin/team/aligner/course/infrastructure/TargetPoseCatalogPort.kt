@@ -18,6 +18,12 @@ interface TargetPoseCatalogPort {
 
     /** 목록 화면이 자세 이름·이미지를 붙일 때 쓴다. 자세 수만큼 부르지 않는다. */
     fun findAllByIds(targetPoseIds: List<Long>): List<TargetPoseCatalogEntry>
+
+    /**
+     * 자세 전체. 「자세 도전 현황」이 **회원이 시작한 코스가 아니라 서비스가 제공하는 핀포즈
+     * 전체**를 펼치므로 목록의 출발점이 여기다. 회원 코스는 그 위에 얹는다.
+     */
+    fun findAll(): List<TargetPoseCatalogEntry>
 }
 
 data class TargetPoseCatalogEntry(
