@@ -113,3 +113,40 @@ databaseChangeLog:
       rollback:
         - sql:
             sql: DELETE FROM catalog.exercise WHERE exercise_id BETWEEN 101 AND 129
+
+  # 여기부터 YMove 연동이다. DDL 과 seed 를 나눠 쌓는다 — 컬럼은 스키마이고 값은 감수 대상이라
+  # 되돌리는 단위가 다르다.
+  - changeSet:
+      id: catalog-0012-add-exercise-thumbnail-url
+      author: aligner
+      comment: 운동에 영상 썸네일 URL 컬럼 추가
+      changes:
+        - sqlFile:
+            path: ddl/009-add-exercise-thumbnail-url.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0013-seed-ymove-link
+      author: aligner
+      comment: 운동 29 개와 목표 자세 9 개에 YMove slug 와 썸네일 URL 적재
+      changes:
+        - sqlFile:
+            path: seed/003-update-ymove-link.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: UPDATE catalog.exercise SET ymove_slug = NULL, thumbnail_url = NULL WHERE exercise_id BETWEEN 101 AND 129
+        - sql:
+            sql: UPDATE catalog.target_pose SET ymove_slug = NULL WHERE target_pose_id BETWEEN 1 AND 9
+
+  - changeSet:
+      id: catalog-0014-seed-exercise-voice-cue
+      author: aligner
+      comment: 운동 29 개의 한글 음성 큐 대본 적재
+      changes:
+        - sqlFile:
+            path: seed/004-exercise-voice-cue.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM catalog.exercise_voice_cue WHERE exercise_id BETWEEN 101 AND 129
