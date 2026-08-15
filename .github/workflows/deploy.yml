@@ -141,6 +141,7 @@ jobs:
         run: |
           if [[ -n "$DEV_ENV_FILE" ]]; then
             TMP_ENV_FILE=$(mktemp)
+            trap 'rm -f "$TMP_ENV_FILE"' EXIT
             printf '%s\n' "$DEV_ENV_FILE" > "$TMP_ENV_FILE"
             chmod 600 "$TMP_ENV_FILE"
 
@@ -149,14 +150,13 @@ jobs:
               --from-env-file="$TMP_ENV_FILE" \
               --namespace="aligner-sandbox" \
               --dry-run=client -o yaml | kubectl apply -f -
-
-            rm -f "$TMP_ENV_FILE"
           else
             echo "::warning::DEV_ENV_FILE secret is empty."
           fi
 
           echo "Triggering rollout restart for deployment/aligner-sandbox-api in namespace aligner-sandbox..."
           kubectl rollout restart deployment/aligner-sandbox-api -n aligner-sandbox
+          kubectl rollout status deployment/aligner-sandbox-api -n aligner-sandbox --timeout=180s
 
       - name: Deployment Summary
         run: |
@@ -219,6 +219,7 @@ jobs:
         run: |
           if [[ -n "$PROD_ENV_FILE" ]]; then
             TMP_ENV_FILE=$(mktemp)
+            trap 'rm -f "$TMP_ENV_FILE"' EXIT
             printf '%s\n' "$PROD_ENV_FILE" > "$TMP_ENV_FILE"
             chmod 600 "$TMP_ENV_FILE"
 
@@ -227,14 +228,13 @@ jobs:
               --from-env-file="$TMP_ENV_FILE" \
               --namespace="aligner" \
               --dry-run=client -o yaml | kubectl apply -f -
-
-            rm -f "$TMP_ENV_FILE"
           else
             echo "::warning::PROD_ENV_FILE secret is empty."
           fi
 
           echo "Triggering rollout restart for deployment/aligner-api in namespace aligner..."
           kubectl rollout restart deployment/aligner-api -n aligner
+          kubectl rollout status deployment/aligner-api -n aligner --timeout=180s
 
       - name: Deployment Summary
         run: |
