@@ -92,3 +92,20 @@ databaseChangeLog:
       rollback:
         - sql:
             sql: DELETE FROM screening.body_part WHERE body_part_code IN ('BACK', 'ABDOMEN', 'PELVIS')
+
+  # 프론트 연동 테스트용 진단 결과. **context: dev 라 운영에는 들어가지 않는다.**
+  # 잠금 방식은 member-0004-seed-dev-member 와 같다 (application.yml 의 contexts 기본값 prod).
+  - changeSet:
+      id: screening-0010-seed-dev-screening-result
+      author: aligner
+      context: dev
+      comment: 임시 회원의 진단 결과 (dev 전용). POST /courses 가 SCREENING_REQUIRED 로 막히지 않게 한다
+      changes:
+        - sqlFile:
+            path: seed/002-dev-screening-result.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM screening.screening_result WHERE result_id = 900001
+        - sql:
+            sql: DELETE FROM screening.cause WHERE cause_code = 'DEV_PLACEHOLDER_CAUSE'
