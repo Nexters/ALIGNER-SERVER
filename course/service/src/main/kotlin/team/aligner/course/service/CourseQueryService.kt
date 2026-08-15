@@ -13,6 +13,7 @@ import team.aligner.course.model.exception.InProgressCourseNotFoundException
 import team.aligner.course.model.view.CourseDetailView
 import team.aligner.course.model.view.CourseStepExerciseView
 import team.aligner.course.model.view.CourseStepView
+import team.aligner.course.model.view.TargetPoseProgressSummaryView
 import team.aligner.course.model.view.TargetPoseProgressView
 import team.aligner.course.model.view.TodayCourseView
 
@@ -28,7 +29,7 @@ interface CourseQueryService {
     fun getTargetPoseProgress(
         memberId: Long,
         completedOnly: Boolean?,
-    ): List<TargetPoseProgressView>
+    ): TargetPoseProgressSummaryView
 }
 
 /**
@@ -135,41 +136,57 @@ internal class CourseQueryServiceImpl(
     }
 
     /**
-     * 자세 도전 현황. 프로필의 "완수한 자세 목록" 도 `completedOnly` 로 같은 조회를 쓴다 —
-     * 별도 API 를 만들지 않는다.
+     * 자세 도전 현황.
+     *
+     * **카탈로그의 자세 전체에서 출발하고 회원의 코스를 그 위에 얹는다.** 반대가 아니다 —
+     * 코스는 추천이라 회원이 아직 시작하지 않은 자세도 화면에 나와야 한다. 시작하지 않은
+     * 자세는 코스 쪽 값이 전부 null 로 나간다.
+     *
+     * 집계는 **거르기 전 전체**로 센다. 칩 세 개가 언제나 함께 보이므로 걸러진 목록으로
+     * 세면 나머지 칩을 그릴 수 없다.
+     *
+     * 프로필의 "완수한 자세 목록" 도 `completedOnly` 로 같은 조회를 쓴다 — 별도 API 를
+     * 만들지 않는다.
      */
     override fun getTargetPoseProgress(
         memberId: Long,
         completedOnly: Boolean?,
-    ): List<TargetPoseProgressView> {
-        val skeletons = courseQueryRepository.findAllCourseSkeletons(memberId)
-        val filtered =
-            when (completedOnly) {
-                null -> skeletons
-                else -> skeletons.filter { it.completed == completedOnly }
-            }
-        if (filtered.isEmpty()) {
-            return emptyList()
-        }
-
-        // 자세 수만큼 catalog 를 치지 않는다 (docs/domains.md §4-3-1).
-        val poses =
-            targetPoseCatalogPort
-                .findAllByIds(filtered.map { it.targetPoseId })
+    ): TargetPoseProgressSummaryView {
+        // 회원 코스는 자세 하나에 최대 하나다 — (member_id, target_pose_id) 유니크가 DB 에서
+        // 그것을 강제한다. 그래서 associateBy 가 값을 덮어쓸 걱정이 없다.
+        val coursesByTargetPoseId =
+            courseQueryRepository
+                .findAllCourseSkeletons(memberId)
                 .associateBy { it.targetPoseId }
 
-        return filtered.map { skeleton ->
-            val pose = poses[skeleton.targetPoseId]
-            TargetPoseProgressView(
-                courseId = skeleton.courseId,
-                targetPoseId = skeleton.targetPoseId,
-                targetPoseName = pose.displayName(),
-                targetPoseImageAssetKey = pose?.imageAssetKey,
-                completedStepCount = skeleton.completedStepCount,
-                totalStepCount = skeleton.totalStepCount,
-                completed = skeleton.completed,
-            )
-        }
+        // catalog 가 (부위, 레벨, 식별자) 순으로 정렬해 준다. 부위 섹션의 노출 순서는
+        // 화면이 GET /screening/body-parts 로 정하므로 여기서 다시 정렬하지 않는다.
+        val all =
+            targetPoseCatalogPort.findAll().map { pose ->
+                val course = coursesByTargetPoseId[pose.targetPoseId]
+                TargetPoseProgressView(
+                    targetPoseId = pose.targetPoseId,
+                    targetPoseName = pose.name,
+                    targetPoseImageAssetKey = pose.imageAssetKey,
+                    bodyPartCode = pose.bodyPartCode,
+                    level = pose.level,
+                    courseId = course?.courseId,
+                    completedStepCount = course?.completedStepCount,
+                    totalStepCount = course?.totalStepCount,
+                    completed = course?.completed ?: false,
+                )
+            }
+
+        return TargetPoseProgressSummaryView(
+            totalCount = all.size,
+            inProgressCount = all.count { it.inProgress },
+            completedCount = all.count { it.completed },
+            targetPoses =
+                when (completedOnly) {
+                    null -> all
+                    else -> all.filter { it.completed == completedOnly }
+                },
+        )
     }
 
     /**

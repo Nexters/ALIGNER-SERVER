@@ -35,7 +35,7 @@ import java.time.Instant
  * 여기서 처음으로 확인되는 것들이다.
  * - 손자까지 있는 애그리거트(course → step → exercise)가 한 번의 save 로 오가는가
  * - @Table(schema = "course") 가 실제로 먹었는가
- * - (member_id, target_pose_id) 유니크가 처방 멱등성을 실제로 강제하는가
+ * - (member_id, target_pose_id) 유니크가 추천 멱등성을 실제로 강제하는가
  * - 도장 유니크가 중복 부여를 막는가
  */
 @Testcontainers
@@ -128,7 +128,7 @@ class CourseRepositoryIntegrationTest {
 
     @Test
     fun `손자까지 있는 애그리거트가 한 번에 저장되고 되읽힌다`() {
-        val saved = courseRepository.save(prescribed())
+        val saved = courseRepository.save(recommended())
         val identity = saved.identity.shouldNotBeNull()
 
         val found = courseRepository.findByIdentity(identity).shouldNotBeNull()
@@ -153,21 +153,21 @@ class CourseRepositoryIntegrationTest {
     }
 
     /**
-     * 하나의 핀포즈가 하나의 코스다. 처방이 재시도돼도 코스가 늘지 않아야 한다
+     * 하나의 핀포즈가 하나의 코스다. 추천이 재시도돼도 코스가 늘지 않아야 한다
      * (docs/domains.md §4-4).
      */
     @Test
     fun `같은 회원의 같은 자세로 코스를 두 개 만들지 못한다`() {
-        courseRepository.save(prescribed())
+        courseRepository.save(recommended())
 
         assertThrows<DataIntegrityViolationException> {
-            courseRepository.save(prescribed())
+            courseRepository.save(recommended())
         }
     }
 
     @Test
     fun `회원과 자세로 기존 코스를 찾는다`() {
-        val saved = courseRepository.save(prescribed())
+        val saved = courseRepository.save(recommended())
 
         courseRepository
             .findByMemberIdAndTargetPoseId(MEMBER_ID, TARGET_POSE_ID)
@@ -178,7 +178,7 @@ class CourseRepositoryIntegrationTest {
 
     @Test
     fun `스텝을 완료하면 진행도가 저장된다`() {
-        val saved = courseRepository.save(prescribed())
+        val saved = courseRepository.save(recommended())
         val identity = saved.identity.shouldNotBeNull()
 
         courseRepository.save(saved.completeStep(stepOrder = 1, at = AT))
@@ -194,7 +194,7 @@ class CourseRepositoryIntegrationTest {
      */
     @Test
     fun `완료 상태인데 완료 시각이 없으면 DB 가 막는다`() {
-        val saved = courseRepository.save(prescribed())
+        val saved = courseRepository.save(recommended())
 
         assertThrows<DataIntegrityViolationException> {
             jdbcClient
@@ -212,7 +212,7 @@ class CourseRepositoryIntegrationTest {
      */
     @Test
     fun `도장은 자세당 한 번만 붙고 두 번째 저장은 false 다`() {
-        val saved = courseRepository.save(prescribed())
+        val saved = courseRepository.save(recommended())
         val courseId = saved.identity.shouldNotBeNull().value
         val stamp = Stamp.acquire(MEMBER_ID, TARGET_POSE_ID, courseId, AT)
 
@@ -235,7 +235,7 @@ class CourseRepositoryIntegrationTest {
      */
     @Test
     fun `같은 버전을 읽은 두 저장 중 나중 것이 낙관적 락에 걸린다`() {
-        val saved = courseRepository.save(prescribed())
+        val saved = courseRepository.save(recommended())
         val identity = saved.identity.shouldNotBeNull()
 
         val first = courseRepository.findByIdentity(identity).shouldNotBeNull()
@@ -256,7 +256,7 @@ class CourseRepositoryIntegrationTest {
 
     @Test
     fun `진행 중인 코스를 오늘의 코스로 집는다`() {
-        val saved = courseRepository.save(prescribed())
+        val saved = courseRepository.save(recommended())
 
         val skeleton = courseQueryRepository.findInProgressCourseSkeleton(MEMBER_ID).shouldNotBeNull()
 
@@ -281,7 +281,7 @@ class CourseRepositoryIntegrationTest {
      */
     @Test
     fun `남의 코스는 식별자로도 읽지 못한다`() {
-        val saved = courseRepository.save(prescribed())
+        val saved = courseRepository.save(recommended())
         val courseId = saved.identity.shouldNotBeNull().value
 
         courseQueryRepository.findCourseSkeleton(courseId, MEMBER_ID).shouldNotBeNull()
@@ -293,7 +293,7 @@ class CourseRepositoryIntegrationTest {
      */
     @Test
     fun `도전 현황이 완료 스텝 수를 집계한다`() {
-        val saved = courseRepository.save(prescribed())
+        val saved = courseRepository.save(recommended())
         courseRepository.save(saved.completeStep(stepOrder = 1, at = AT))
 
         val progress = courseQueryRepository.findAllCourseSkeletons(MEMBER_ID).single()
@@ -308,7 +308,7 @@ class CourseRepositoryIntegrationTest {
 
     @Test
     fun `모든 스텝을 완료하면 도전 현황이 완성으로 나온다`() {
-        var course = courseRepository.save(prescribed())
+        var course = courseRepository.save(recommended())
         course = courseRepository.save(course.completeStep(stepOrder = 1, at = AT))
         courseRepository.save(course.completeStep(stepOrder = 2, at = AT))
 
@@ -319,8 +319,8 @@ class CourseRepositoryIntegrationTest {
         progress.currentStepOrder.shouldBeNull()
     }
 
-    private fun prescribed(): Course =
-        Course.prescribe(
+    private fun recommended(): Course =
+        Course.recommend(
             memberId = MEMBER_ID,
             template = courseTemplateRepository.findByTargetPoseId(TARGET_POSE_ID)!!,
             causeCode = "WEAK_BACK",

@@ -4,7 +4,7 @@ package team.aligner.course.infrastructure
  * 회원의 최신 진단 원인을 읽는 out-port. `course/adapter-screening` 이 구현한다
  * (docs/domains.md §3).
  *
- * **클라이언트가 원인을 들고 오지 않는다.** 처방 요청은 course 가 받고 그 회원의 최신 원인을
+ * **클라이언트가 원인을 들고 오지 않는다.** 추천 요청은 course 가 받고 그 회원의 최신 원인을
  * 여기서 읽어 검증한다. 원인을 요청 본문으로 받으면 위조가 가능하다 (§2).
  */
 interface CauseLookupPort {

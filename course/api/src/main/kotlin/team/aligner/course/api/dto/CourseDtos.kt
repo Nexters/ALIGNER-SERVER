@@ -4,20 +4,21 @@ import io.swagger.v3.oas.annotations.media.Schema
 import team.aligner.course.model.view.CourseDetailView
 import team.aligner.course.model.view.CourseStepExerciseView
 import team.aligner.course.model.view.CourseStepView
+import team.aligner.course.model.view.TargetPoseProgressSummaryView
 import team.aligner.course.model.view.TargetPoseProgressView
 import team.aligner.course.model.view.TodayCourseView
 import java.time.Instant
 
 /**
- * 처방 요청.
+ * 추천 요청.
  *
  * **자세 식별자를 받지 않는다.** 부위와 난이도만 받고 자세는 서버가 catalog 에서 찾는다 —
  * 클라이언트가 자세를 지정하면 고르지 않은 난이도의 코스를 받아갈 수 있다.
  *
  * **원인도 받지 않는다.** 서버가 최신 진단으로 검증한다 (docs/domains.md §2).
  */
-@Schema(description = "코스 처방 요청")
-data class PrescribeCourseRequest(
+@Schema(description = "코스 추천 요청")
+data class RecommendCourseRequest(
     @field:Schema(
         description = "강화할 부위 코드. `GET /screening/body-parts` 의 값이다",
         requiredMode = Schema.RequiredMode.REQUIRED,
@@ -31,8 +32,8 @@ data class PrescribeCourseRequest(
     val level: Int,
 )
 
-@Schema(description = "처방된 코스 식별자")
-data class PrescribeCourseResponse(
+@Schema(description = "추천된 코스 식별자")
+data class RecommendCourseResponse(
     @field:Schema(description = "코스 식별자", example = "20")
     val courseId: Long,
 )
@@ -231,35 +232,78 @@ data class CourseStepExerciseResponse(
 }
 
 /**
+ * 자세 도전 현황 전체.
+ *
+ * **집계 셋은 `completed` 필터와 무관하게 언제나 전체 기준이다.** 화면의 칩이
+ * `전체 9 / 도전 중 3 / 완성 2` 를 함께 보여주므로 걸러진 목록으로 세면 나머지 칩을
+ * 그릴 수 없다.
+ */
+@Schema(description = "자세 도전 현황")
+data class TargetPoseProgressResponse(
+    @field:Schema(description = "서비스가 제공하는 자세 전체 개수. 화면의 \"전체\" 칩이다", example = "9")
+    val totalCount: Int,
+    @field:Schema(description = "시작했고 아직 완성하지 않은 자세 수. 화면의 \"도전 중\" 칩이다", example = "3")
+    val inProgressCount: Int,
+    @field:Schema(description = "완성한 자세 수. 화면의 \"완성\" 칩이다", example = "2")
+    val completedCount: Int,
+    @field:Schema(
+        description =
+            "부위·레벨 순으로 정렬된 자세 목록. **부위 섹션의 노출 순서는 `GET /screening/body-parts` 가 정한다.** " +
+                "`completed` 파라미터를 주면 이 목록만 걸러지고 위의 집계 셋은 그대로다",
+    )
+    val targetPoses: List<TargetPoseProgressItem>,
+) {
+    companion object {
+        fun from(view: TargetPoseProgressSummaryView) =
+            TargetPoseProgressResponse(
+                totalCount = view.totalCount,
+                inProgressCount = view.inProgressCount,
+                completedCount = view.completedCount,
+                targetPoses = view.targetPoses.map(TargetPoseProgressItem::from),
+            )
+    }
+}
+
+/**
  * 자세 도전 현황 한 줄. "낙타자세 3 / 4 · 도전 중" 이다.
  *
  * **`3 / 4` 는 코스 안에서 완료한 스텝 개수**다. 자세 포인트 체크가 아니다
  * (docs/domains.md §7-8).
+ *
+ * **아직 시작하지 않은 자세는 `courseId` · `completedStepCount` · `totalStepCount` 가 null**
+ * 이다. `0 / 4` 가 아니다 — 0/4 는 "시작했는데 아직 한 스텝도 안 함" 이고 null 은 "아직
+ * 열지 않음" 이라 화면이 둘을 다르게 그린다.
  */
 @Schema(description = "자세 도전 현황 한 줄")
-data class TargetPoseProgressResponse(
-    @field:Schema(description = "이 자세의 코스 식별자", example = "20")
-    val courseId: Long,
+data class TargetPoseProgressItem(
     @field:Schema(description = "목표 자세 식별자", example = "3")
     val targetPoseId: Long,
     @field:Schema(description = "목표 자세 이름", example = "낙타자세")
     val targetPoseName: String,
     @field:Schema(description = "목표 자세 이미지 asset 키", nullable = true)
     val targetPoseImageAssetKey: String?,
-    @field:Schema(description = "완료한 스텝 수", example = "3")
-    val completedStepCount: Int,
-    @field:Schema(description = "전체 스텝 수", example = "4")
-    val totalStepCount: Int,
-    @field:Schema(description = "완성 여부. false 면 도전 중이다", example = "false")
+    @field:Schema(description = "이 자세가 속한 부위. 화면의 섹션 구분이다")
+    val bodyPartCode: BodyPartCode,
+    @field:Schema(description = "난이도 단계. 부위 안에서 작을수록 쉽다", example = "1")
+    val level: Int,
+    @field:Schema(description = "이 자세의 코스 식별자. 아직 시작하지 않았으면 null 이다", example = "20", nullable = true)
+    val courseId: Long?,
+    @field:Schema(description = "완료한 스텝 수. 아직 시작하지 않았으면 null 이다", example = "3", nullable = true)
+    val completedStepCount: Int?,
+    @field:Schema(description = "전체 스텝 수. 아직 시작하지 않았으면 null 이다", example = "4", nullable = true)
+    val totalStepCount: Int?,
+    @field:Schema(description = "완성 여부. 시작하지 않았어도 false 다", example = "false")
     val completed: Boolean,
 ) {
     companion object {
         fun from(view: TargetPoseProgressView) =
-            TargetPoseProgressResponse(
-                courseId = view.courseId,
+            TargetPoseProgressItem(
                 targetPoseId = view.targetPoseId,
                 targetPoseName = view.targetPoseName,
                 targetPoseImageAssetKey = view.targetPoseImageAssetKey,
+                bodyPartCode = BodyPartCode.from(view.bodyPartCode),
+                level = view.level,
+                courseId = view.courseId,
                 completedStepCount = view.completedStepCount,
                 totalStepCount = view.totalStepCount,
                 completed = view.completed,

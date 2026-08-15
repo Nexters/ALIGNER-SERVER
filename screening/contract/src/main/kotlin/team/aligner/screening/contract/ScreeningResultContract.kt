@@ -1,7 +1,7 @@
 package team.aligner.screening.contract
 
 /**
- * `course` 가 코스를 처방할 때 쓰는 계약. 통합 전용으로 좁게 만든다.
+ * `course` 가 코스를 추천할 때 쓰는 계약. 통합 전용으로 좁게 만든다.
  *
  * 식별자를 원시 타입으로 받고 자기 발행 DTO 로 반환한다 (docs/architecture.md §7).
  * `screening:model` 을 의존하지 않는 이유가 이것이다 — 계약이 도메인 모델을 노출하면

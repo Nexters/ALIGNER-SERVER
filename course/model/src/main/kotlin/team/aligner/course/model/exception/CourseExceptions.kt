@@ -15,6 +15,4 @@ class CourseTemplateNotFoundException : BaseException(CourseErrorCode.COURSE_TEM
 
 class ScreeningRequiredException : BaseException(CourseErrorCode.SCREENING_REQUIRED)
 
-class BodyPartNotInScreeningException : BaseException(CourseErrorCode.BODY_PART_NOT_IN_SCREENING)
-
 class EmptyCourseTemplateException : BaseException(CourseErrorCode.EMPTY_COURSE_TEMPLATE)

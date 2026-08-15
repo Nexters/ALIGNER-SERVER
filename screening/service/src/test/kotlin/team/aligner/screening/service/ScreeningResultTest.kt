@@ -172,7 +172,7 @@ class ScreeningResultTest :
             }
 
             it("걸리는 규칙이 하나도 없으면 빈 결과를 저장하지 않고 막는다") {
-                // 원인 0 개인 진단이 남으면 course 가 처방할 것을 못 찾는다.
+                // 원인 0 개인 진단이 남으면 course 가 추천할 것을 못 찾는다.
                 shouldThrow<CauseNotDeterminedException> {
                     submit(listOf(answer(1L, PerceivedDifficulty.HARD))).determineCauses(emptyList())
                 }

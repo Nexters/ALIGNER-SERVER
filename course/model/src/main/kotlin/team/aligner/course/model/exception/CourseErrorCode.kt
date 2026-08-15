@@ -26,7 +26,7 @@ enum class CourseErrorCode(
     COURSE_TEMPLATE_NOT_FOUND(422, "COURSE_TEMPLATE_NOT_FOUND", "고른 부위와 난이도로는 코스를 만들 수 없습니다"),
 
     /**
-     * 진단하지 않은 회원이 처방을 요청했다. 화면은 이때 온보딩으로 보낸다.
+     * 진단하지 않은 회원이 추천을 요청했다. 화면은 이때 온보딩으로 보낸다.
      */
     SCREENING_REQUIRED(409, "SCREENING_REQUIRED", "먼저 자가 스크리닝을 받아야 합니다"),
 
@@ -36,7 +36,6 @@ enum class CourseErrorCode(
      * 클라이언트가 원인을 들고 오지 않고 서버가 최신 진단으로 검증한다 (docs/domains.md §2).
      * 이 검증이 없으면 원인을 위조해 아무 코스나 받아갈 수 있다.
      */
-    BODY_PART_NOT_IN_SCREENING(400, "BODY_PART_NOT_IN_SCREENING", "진단 결과에 없는 부위입니다"),
 
     EMPTY_COURSE_TEMPLATE(422, "EMPTY_COURSE_TEMPLATE", "코스 템플릿에 스텝이 없습니다"),
 }

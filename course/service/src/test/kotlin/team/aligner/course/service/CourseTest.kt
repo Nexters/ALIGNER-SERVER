@@ -16,7 +16,7 @@ import team.aligner.course.model.exception.EmptyCourseTemplateException
 import java.time.Instant
 
 /**
- * 애그리거트의 처방·진행도·멱등성을 고정한다.
+ * 애그리거트의 추천·진행도·멱등성을 고정한다.
  *
  * 진행도를 SQL 집계가 아니라 도메인에 둔 이유가 이 테스트다 — 컨테이너 없이 확인할 수 있다.
  */
@@ -47,11 +47,11 @@ class CourseTest :
                     },
             )
 
-        fun prescribe(stepCount: Int = 4) = Course.prescribe(memberId = 1L, template = template(stepCount), causeCode = "WEAK_BACK")
+        fun recommend(stepCount: Int = 4) = Course.recommend(memberId = 1L, template = template(stepCount), causeCode = "WEAK_BACK")
 
-        describe("prescribe") {
+        describe("recommend") {
             it("템플릿 스텝을 그대로 복사하고 진행 중으로 시작한다") {
-                val course = prescribe()
+                val course = recommend()
 
                 course.status shouldBe CourseStatus.IN_PROGRESS
                 course.totalStepCount shouldBe 4
@@ -64,14 +64,14 @@ class CourseTest :
             /**
              * 스텝이 없으면 진행도의 분모가 0 이 되어 "다 했는데 완성이 아닌" 코스가 남는다.
              */
-            it("스텝이 없는 템플릿은 처방하지 않는다") {
-                shouldThrow<EmptyCourseTemplateException> { prescribe(stepCount = 0) }
+            it("스텝이 없는 템플릿은 추천하지 않는다") {
+                shouldThrow<EmptyCourseTemplateException> { recommend(stepCount = 0) }
             }
         }
 
         describe("completeStep") {
             it("스텝을 완료하면 진행도가 오르고 다음 스텝을 가리킨다") {
-                val course = prescribe().completeStep(stepOrder = 1, at = at)
+                val course = recommend().completeStep(stepOrder = 1, at = at)
 
                 course.completedStepCount shouldBe 1
                 course.currentStepOrder shouldBe 2
@@ -81,7 +81,7 @@ class CourseTest :
 
             it("순서와 무관하게 완료할 수 있다") {
                 val course =
-                    prescribe()
+                    recommend()
                         .completeStep(stepOrder = 3, at = at)
                         .completeStep(stepOrder = 1, at = at)
 
@@ -95,7 +95,7 @@ class CourseTest :
              * 오르면 안 된다 (docs/domains.md §7-8).
              */
             it("같은 스텝을 두 번 완료해도 진행도가 두 번 오르지 않는다") {
-                val once = prescribe().completeStep(stepOrder = 1, at = at)
+                val once = recommend().completeStep(stepOrder = 1, at = at)
                 val twice = once.completeStep(stepOrder = 1, at = at.plusSeconds(60))
 
                 twice.completedStepCount shouldBe 1
@@ -104,7 +104,7 @@ class CourseTest :
             }
 
             it("마지막 스텝을 완료하면 코스가 완성된다") {
-                var course = prescribe(stepCount = 2)
+                var course = recommend(stepCount = 2)
                 course = course.completeStep(stepOrder = 1, at = at)
                 course.status shouldBe CourseStatus.IN_PROGRESS
 
@@ -118,7 +118,7 @@ class CourseTest :
 
             it("완성된 코스에 같은 스텝이 다시 들어와도 완료 시각이 밀리지 않는다") {
                 val completed =
-                    prescribe(stepCount = 1)
+                    recommend(stepCount = 1)
                         .completeStep(stepOrder = 1, at = at)
                 val again = completed.completeStep(stepOrder = 1, at = at.plusSeconds(600))
 
@@ -127,12 +127,12 @@ class CourseTest :
 
             it("없는 스텝이면 막는다") {
                 shouldThrow<CourseStepNotFoundException> {
-                    prescribe().completeStep(stepOrder = 99, at = at)
+                    recommend().completeStep(stepOrder = 99, at = at)
                 }
             }
 
             it("완료한 스텝의 상태가 실제로 바뀐다") {
-                val course = prescribe().completeStep(stepOrder = 2, at = at)
+                val course = recommend().completeStep(stepOrder = 2, at = at)
 
                 course.steps.first { it.stepOrder == 2 }.status shouldBe CourseStepStatus.COMPLETED
                 course.steps.first { it.stepOrder == 1 }.status shouldBe CourseStepStatus.NOT_STARTED

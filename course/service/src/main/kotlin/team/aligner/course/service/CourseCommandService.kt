@@ -14,16 +14,15 @@ import team.aligner.course.model.Course
 import team.aligner.course.model.CourseIdentity
 import team.aligner.course.model.CourseStatus
 import team.aligner.course.model.Stamp
-import team.aligner.course.model.exception.BodyPartNotInScreeningException
 import team.aligner.course.model.exception.CourseNotFoundException
 import team.aligner.course.model.exception.CourseTemplateNotFoundException
 import team.aligner.course.model.exception.ScreeningRequiredException
 import java.time.Instant
 
 interface CourseCommandService {
-    fun prescribe(
+    fun recommend(
         memberId: Long,
-        command: PrescribeCourseCommand,
+        command: RecommendCourseCommand,
     ): CourseIdentity
 
     fun completeStep(
@@ -50,7 +49,7 @@ internal class CourseCommandServiceImpl(
     private val targetPoseCatalogPort: TargetPoseCatalogPort,
 ) : CourseCommandService {
     /**
-     * (강화 부위, 난이도)로 코스를 처방한다.
+     * (강화 부위, 난이도)로 코스를 추천한다.
      *
      * **난이도가 곧 자세 레벨이다.** 회원이 고른 값이 `catalog.target_pose` 의 (부위, 레벨)이고
      * 그 자세의 템플릿으로 코스를 만든다. 하나의 핀포즈가 곧 하나의 코스다
@@ -62,11 +61,11 @@ internal class CourseCommandServiceImpl(
      * **멱등하다.** 같은 자세의 코스가 이미 있으면 새로 만들지 않고 그것을 돌려준다 —
      * `(member_id, target_pose_id)` 유니크가 DB 에서도 같은 것을 막는다.
      */
-    override fun prescribe(
+    override fun recommend(
         memberId: Long,
-        command: PrescribeCourseCommand,
+        command: RecommendCourseCommand,
     ): CourseIdentity {
-        val causeCode = verifyBodyPart(memberId, command.bodyPartCode)
+        val causeCode = findCauseCode(memberId, command.bodyPartCode)
 
         // 부위·레벨 → 자세 해석은 catalog 의 일이다. 여기서 SQL 을 짜면 도메인 간 조인이
         // 생긴다 (docs/domains.md §6).
@@ -83,7 +82,7 @@ internal class CourseCommandServiceImpl(
         return try {
             val saved =
                 courseRepository.save(
-                    Course.prescribe(memberId = memberId, template = template, causeCode = causeCode),
+                    Course.recommend(memberId = memberId, template = template, causeCode = causeCode),
                 )
             checkNotNull(saved.identity) { "저장된 코스에 식별자가 없다" }
         } catch (e: DataIntegrityViolationException) {
@@ -225,28 +224,30 @@ internal class CourseCommandServiceImpl(
             ?.let { checkNotNull(it.identity) { "저장된 코스에 식별자가 없다" } }
 
     /**
-     * 회원이 고른 부위가 자기 진단 결과에 있는지 확인하고, 그 부위의 원인 코드를 돌려준다.
+     * 진단에서 이 부위의 원인을 찾아 스냅샷으로 남긴다. **없어도 막지 않는다.**
      *
-     * 진단한 적이 없으면 409 다. 화면은 이때 온보딩으로 보낸다 — 400 으로 내리면 요청이
-     * 잘못된 것처럼 보이는데 실제로는 순서를 건너뛴 것이다.
+     * 코스는 추천이지 처방이 아니다. 온보딩에서 한 번 제안할 뿐이고, 그 뒤 「자세 도전 현황」이
+     * 핀포즈 전체를 펼쳐두면 회원은 진단에 없던 부위도 눌러 시작한다. 여기서 거절하면 화면에
+     * 보이는 자세가 시작되지 않는다.
+     *
+     * 진단을 **한 번도 하지 않은** 회원은 여전히 막는다. 그건 부위 선택의 문제가 아니라 온보딩을
+     * 건너뛴 것이고, 409 라 화면이 온보딩으로 되돌린다 — 400 으로 내리면 요청이 잘못된 것처럼
+     * 보이는데 실제로는 순서를 건너뛴 것이다.
      */
-    private fun verifyBodyPart(
+    private fun findCauseCode(
         memberId: Long,
         bodyPartCode: String,
-    ): String {
+    ): String? {
         val causes = causeLookupPort.findLatestCauses(memberId)
         if (causes.isEmpty()) {
             throw ScreeningRequiredException()
         }
-        return causes
-            .find { it.bodyPartCode == bodyPartCode }
-            ?.causeCode
-            ?: throw BodyPartNotInScreeningException()
+        return causes.find { it.bodyPartCode == bodyPartCode }?.causeCode
     }
 }
 
 /**
- * 처방 입력.
+ * 추천 입력.
  *
  * **자세 식별자를 받지 않는다.** 부위와 난이도만 받고 자세는 서버가 catalog 에서 찾는다 —
  * 클라이언트가 자세를 지정하면 고르지 않은 난이도의 코스를 받아갈 수 있다.
@@ -255,7 +256,7 @@ internal class CourseCommandServiceImpl(
  * 명령에 섞으면 클라이언트가 보낸 본문으로 남의 회원 식별자를 넣을 여지가 생긴다
  * (docs/architecture.md §9).
  */
-data class PrescribeCourseCommand(
+data class RecommendCourseCommand(
     val bodyPartCode: String,
     val level: Int,
 )
