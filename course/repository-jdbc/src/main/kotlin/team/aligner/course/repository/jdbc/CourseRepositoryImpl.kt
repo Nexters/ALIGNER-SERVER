@@ -47,6 +47,7 @@ private fun Course.toEntity(now: Instant): CourseEntity =
         status = status.name,
         createdAt = createdAt ?: now,
         completedAt = completedAt?.truncatedTo(ChronoUnit.MICROS),
+        attemptNo = attemptNo,
         version = version,
         steps =
             steps
@@ -105,5 +106,6 @@ private fun CourseEntity.toModel(): Course =
                 }.sortedBy { it.stepOrder },
         createdAt = createdAt,
         completedAt = completedAt,
+        attemptNo = attemptNo,
         version = version,
     )

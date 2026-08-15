@@ -8,6 +8,7 @@ import team.aligner.course.infrastructure.ExerciseCatalogPort
 import team.aligner.course.infrastructure.MemberBodyPort
 import team.aligner.course.infrastructure.TargetPoseCatalogEntry
 import team.aligner.course.infrastructure.TargetPoseCatalogPort
+import team.aligner.course.model.Stamp
 import team.aligner.course.model.exception.CourseNotFoundException
 import team.aligner.course.model.exception.InProgressCourseNotFoundException
 import team.aligner.course.model.view.CourseDetailView
@@ -142,6 +143,10 @@ internal class CourseQueryServiceImpl(
      * 코스는 추천이라 회원이 아직 시작하지 않은 자세도 화면에 나와야 한다. 시작하지 않은
      * 자세는 코스 쪽 값이 전부 null 로 나간다.
      *
+     * **`3 / 4` 는 파이어로그다.** 코스를 한 번 완주할 때마다 도장이 하나 붙고, 4 개를 채워야
+     * `completed` 다 — 코스 안에서 완료한 스텝 수가 아니다. 그래서 코스 뼈대만으로는 이 화면을
+     * 그릴 수 없고 도장 수를 함께 읽는다.
+     *
      * 집계는 **거르기 전 전체**로 센다. 칩 세 개가 언제나 함께 보이므로 걸러진 목록으로
      * 세면 나머지 칩을 그릴 수 없다.
      *
@@ -158,12 +163,19 @@ internal class CourseQueryServiceImpl(
             courseQueryRepository
                 .findAllCourseSkeletons(memberId)
                 .associateBy { it.targetPoseId }
+        val stampCountsByTargetPoseId =
+            courseQueryRepository
+                .findStampCounts(memberId)
+                .associate { it.targetPoseId to it.acquiredStampCount }
 
         // catalog 가 (부위, 레벨, 식별자) 순으로 정렬해 준다. 부위 섹션의 노출 순서는
         // 화면이 GET /screening/body-parts 로 정하므로 여기서 다시 정렬하지 않는다.
         val all =
             targetPoseCatalogPort.findAll().map { pose ->
                 val course = coursesByTargetPoseId[pose.targetPoseId]
+                // 도장이 없으면 0 이다. 다만 코스를 아직 시작하지 않았으면 0 이 아니라 null 로
+                // 내린다 — 0/4 는 "시작했는데 아직 완주 못 함" 이라 뜻이 다르다.
+                val stampCount = stampCountsByTargetPoseId[pose.targetPoseId] ?: 0
                 TargetPoseProgressView(
                     targetPoseId = pose.targetPoseId,
                     targetPoseName = pose.name,
@@ -173,7 +185,9 @@ internal class CourseQueryServiceImpl(
                     courseId = course?.courseId,
                     completedStepCount = course?.completedStepCount,
                     totalStepCount = course?.totalStepCount,
-                    completed = course?.completed ?: false,
+                    acquiredStampCount = course?.let { stampCount },
+                    requiredStampCount = Stamp.REQUIRED_COUNT,
+                    completed = stampCount >= Stamp.REQUIRED_COUNT,
                 )
             }
 

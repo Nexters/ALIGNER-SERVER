@@ -54,12 +54,18 @@ data class PerformedExerciseCommand(
     val performedDurationSeconds: Int?,
 )
 
+/**
+ * 완료 리포트가 그대로 쓰는 값이다. 진행도뿐 아니라 **헤더의 자세 정보와 파이어로그**까지
+ * 함께 싣는다 — 셋 다 course 가 이미 들고 있는 값이라, training 이 따로 조회하면 같은 값을
+ * 다른 시점에 읽게 된다.
+ */
 data class CourseProgressResponse(
     val courseId: Long,
     val completedStepCount: Int,
     val totalStepCount: Int,
+    /** 이번 회차의 모든 스텝을 끝냈는지. **자세 완성과 다르다** — 완성은 4 회 완주다. */
     val courseCompleted: Boolean,
-    /** 이 호출로 도장이 새로 붙었는지. 재시도로 들어온 호출에서는 false 다. */
+    /** 이 호출로 이번 회차의 도장이 새로 붙었는지. 재시도로 들어온 호출에서는 false 다. */
     val stampAcquired: Boolean,
     /**
      * **이번 세션의** 소모 칼로리. 코스 누적이 아니다 — 완료 리포트가 방금 한 운동의 스탯을
@@ -68,4 +74,21 @@ data class CourseProgressResponse(
      * 몸무게나 MET 이 없거나 수행 시간을 모르면 **0 이 아니라 null** 이다 (`CalorieCalculator`).
      */
     val estimatedKcal: Int?,
+    /** 이 코스의 목표 자세. 리포트 헤더가 그린다. */
+    val targetPoseId: Long,
+    /** catalog 에 자세가 없으면 빈 문자열이다. 리포트를 실패시키지 않는다. */
+    val targetPoseName: String,
+    /** 리포트 헤더의 `골반 난이도 상`. catalog 에 자세가 없으면 null 이다. */
+    val bodyPartCode: String?,
+    val level: Int?,
+    /**
+     * 이 자세에 지금까지 붙은 도장 수. 리포트의 **"파이어로그 N / 4회"** 의 N 이다.
+     *
+     * 코스 안 스텝 수가 아니다 — 한 번 완주할 때마다 하나씩 오른다.
+     */
+    val acquiredStampCount: Int,
+    /** 세그먼트 개수. 화면이 4 를 하드코딩하지 않게 서버가 함께 내린다. */
+    val requiredStampCount: Int,
+    /** 도장을 다 채웠는지. 자세 완성 축하 화면의 신호다. */
+    val targetPoseCompleted: Boolean,
 )

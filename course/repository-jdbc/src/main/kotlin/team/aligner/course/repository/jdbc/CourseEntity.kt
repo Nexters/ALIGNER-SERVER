@@ -32,6 +32,8 @@ internal data class CourseEntity(
     val status: String,
     val createdAt: Instant,
     val completedAt: Instant?,
+    /** 몇 번째 도전인가. 완주한 코스를 다시 시작하면 하나 오른다. */
+    val attemptNo: Int,
     /**
      * 낙관적 락. **@Version 이 붙으면 Spring Data JDBC 가 "새 행인가" 를 식별자가 아니라 이
      * 값으로 판단한다** — null 이면 insert, 값이 있으면 version 을 조건에 넣은 update 다.
@@ -73,5 +75,6 @@ internal data class StampEntity(
     val memberId: Long,
     val targetPoseId: Long,
     val courseId: Long,
+    val attemptNo: Int,
     val acquiredAt: Instant,
 )

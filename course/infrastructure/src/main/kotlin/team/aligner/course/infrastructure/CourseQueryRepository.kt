@@ -16,7 +16,21 @@ interface CourseQueryRepository {
     ): CourseSkeleton?
 
     fun findAllCourseSkeletons(memberId: Long): List<CourseSkeleton>
+
+    /**
+     * 자세별로 지금까지 붙은 도장 수. 「자세 도전 현황」의 `3 / 4` 다.
+     *
+     * 코스 뼈대 조회에 합치지 않는다. 도장은 코스와 다른 애그리거트이고, 시작하지 않은 자세는
+     * 코스 행 자체가 없어 같은 쿼리에 얹으면 LEFT JOIN 이 하나 더 붙기만 한다.
+     */
+    fun findStampCounts(memberId: Long): List<TargetPoseStampCount>
 }
+
+/** 자세 하나에 붙은 도장 수. 도장이 없는 자세는 목록에 실리지 않는다. */
+data class TargetPoseStampCount(
+    val targetPoseId: Long,
+    val acquiredStampCount: Int,
+)
 
 /**
  * 조회 모델을 만들기 전의 중간 형태. course 스키마만으로 알 수 있는 값이다.

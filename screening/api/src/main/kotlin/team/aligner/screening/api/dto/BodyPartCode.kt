@@ -8,8 +8,8 @@ import io.swagger.v3.oas.annotations.media.Schema
  *
  * **도메인마다 따로 정의한다.** 도메인 간 직접 참조가 금지고(docs/architecture.md §7),
  * `support-core`·`support-web` 에는 도메인 모델을 둘 수 없다(§9). 그래서 catalog·course·
- * member·screening 의 `api` 모듈이 값이 같은 enum 을 각자 갖는다. **네 정의가 완전히 같아야
- * OpenAPI 스키마가 하나로 합쳐지므로, 값을 바꿀 때는 네 곳을 함께 바꾼다.**
+ * member·screening·training 의 `api` 모듈이 값이 같은 enum 을 각자 갖는다. **다섯 정의가
+ * 완전히 같아야 OpenAPI 스키마가 하나로 합쳐지므로, 값을 바꿀 때는 다섯 곳을 함께 바꾼다.**
  *
  * `service` 이하는 `String` 을 그대로 쓴다. 변환은 `api` 경계에서만 한다 — 어휘 소유자는
  * 여전히 screening 이고, 여기서 막는 것은 "프론트가 못 볼 값이 들어오는 것" 뿐이다.

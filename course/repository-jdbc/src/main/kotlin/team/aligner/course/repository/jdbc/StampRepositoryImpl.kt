@@ -27,13 +27,16 @@ internal class StampRepositoryImpl(
             jdbcClient
                 .sql(
                     """
-                    INSERT INTO course.stamp (member_id, target_pose_id, course_id, acquired_at)
-                    VALUES (:memberId, :targetPoseId, :courseId, :acquiredAt)
-                    ON CONFLICT (member_id, target_pose_id) DO NOTHING
+                    INSERT INTO course.stamp (member_id, target_pose_id, course_id, attempt_no, acquired_at)
+                    VALUES (:memberId, :targetPoseId, :courseId, :attemptNo, :acquiredAt)
+                    ON CONFLICT (member_id, target_pose_id, attempt_no) DO NOTHING
                     """.trimIndent(),
                 ).param("memberId", stamp.memberId)
                 .param("targetPoseId", stamp.targetPoseId)
                 .param("courseId", stamp.courseId)
+                // 회차가 키에 들어간다. 같은 회차의 완료 push 가 재시도돼도 도장은 하나이고,
+                // 다시 시작한 코스를 또 완주하면 다음 회차로 새 도장이 붙는다.
+                .param("attemptNo", stamp.attemptNo)
                 // Instant 를 그대로 넘기면 드라이버가 SQL 타입을 추론하지 못한다. Spring Data JDBC
                 // 경로에는 변환기가 있지만 JdbcClient 는 값을 그대로 넘긴다. TIMESTAMPTZ 에
                 // 대응하는 OffsetDateTime 으로 바꿔 넘긴다.
@@ -51,4 +54,20 @@ internal class StampRepositoryImpl(
         // DO NOTHING 이 걸리면 0 행이다. 그것이 "이미 있었다" 는 뜻이다.
         return inserted > 0
     }
+
+    override fun countAcquired(
+        memberId: Long,
+        targetPoseId: Long,
+    ): Int =
+        jdbcClient
+            .sql(
+                """
+                SELECT count(*)
+                FROM course.stamp
+                WHERE member_id = :memberId AND target_pose_id = :targetPoseId
+                """.trimIndent(),
+            ).param("memberId", memberId)
+            .param("targetPoseId", targetPoseId)
+            .query(Int::class.java)
+            .single()
 }

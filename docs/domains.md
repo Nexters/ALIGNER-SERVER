@@ -19,7 +19,7 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 | PostgreSQL schema | 도메인명과 동일 (`member` `screening` `catalog` `course` `training`) |
 | 도메인 간 의존 | **단방향** — `catalog` ← `course` ← `training`, `screening` ← `course`, `member` ← `course` |
 | 마스터 데이터 소유 | 운동·자세·근육은 `catalog`, 자세 체감 → 원인 분기 규칙은 `screening`, 추천 규칙은 `course` |
-| 도장(`Stamp`) | `course` 소유 (달성 판단은 `course`, 수행 기록은 `training`). **판정 = 코스의 전체 스텝 완료** (§7-8) |
+| 도장(`Stamp`) | `course` 소유 (달성 판단은 `course`, 수행 기록은 `training`). **완주 1 회 = 도장 1 개, 4 개를 채우면 자세 완성** (§7-8) |
 | 자세 포인트(`PoseCheckpoint`) | **만들지 않는다.** 완료 판정은 "운동 수행 + 시간 종료"다 (§4-3) |
 | 총 모듈 수 | **45개** — 도메인 41 + 루트 4. `course`에 `adapter-member`가 늘었다(§3) |
 | 외부 시스템 | **YMove** — 영상·썸네일. `catalog`만 접근한다 (§4-3-1). **음성 큐잉 대본은 `catalog`가 소유한다** |
@@ -596,13 +596,15 @@ course.template_step_exercise   template_step_exercise_id(pk), template_step_id,
                                 duration_seconds, set_count                       [seed]
 
 course.course                   course_id(pk), member_id, template_id, target_pose_id,
-                                cause_code(null), status, created_at, completed_at
+                                cause_code(null), status, created_at, completed_at,
+                                attempt_no, version
                                 UNIQUE (member_id, target_pose_id)
 course.course_step              course_step_id(pk), course_id, step_order, status, completed_at
 course.course_step_exercise     course_step_exercise_id(pk), course_step_id, exercise_id,
                                 display_order, duration_seconds, set_count
-course.stamp                    stamp_id(pk), member_id, target_pose_id, course_id, acquired_at
-                                UNIQUE (member_id, target_pose_id)
+course.stamp                    stamp_id(pk), member_id, target_pose_id, course_id,
+                                attempt_no, acquired_at
+                                UNIQUE (member_id, target_pose_id, attempt_no)
 ```
 
 `course.course`에 `version`이 있다. **동시 세션 완료가 서로를 덮지 않게 하는 낙관적 락**이다 —
@@ -628,13 +630,22 @@ course.stamp                    stamp_id(pk), member_id, target_pose_id, course_
 - **도장은 `ON CONFLICT DO NOTHING` 한 문장으로 넣는다.** "있는지 보고 없으면 넣는다" 로
   짜면 두 요청이 확인을 함께 통과해 유니크 제약에 걸린다. 새로 붙었는지는 저장 결과가 알려주고,
   서비스가 "방금 완료됐나" 로 짐작하지 않는다.
+- **도장은 자세당 하나가 아니라 완주마다 하나다.** 완료 리포트의 `파이어로그 1 / 4회` 가 그
+  개수이고, `Stamp.REQUIRED_COUNT`(=4) 를 채우면 그 자세가 **완성**이다. 상한 4 는 감수
+  데이터가 아니라 화면 규칙이라 DDL 의 `CHECK` 이 아니라 코드 상수로 둔다.
+- **완주한 코스는 `POST /courses` 가 다시 연다.** 4 회를 채우려면 같은 코스를 다시 돌아야
+  하는데, 다시 열면 스텝이 전부 `NOT_STARTED` 로 돌아가 회차를 스텝 상태로는 알 수 없다.
+  그래서 `course.attempt_no` 를 두고 도장의 중복 방지 키에도 넣는다 — 같은 회차의 완료 push 가
+  재시도돼도 도장은 하나이고, 다음 회차는 새 도장이 된다. 진행 중인 코스는 다시 열지 않고,
+  4 개를 채운 자세도 다시 열지 않는다.
 - **`IN_PROGRESS` 코스는 회원당 여럿일 수 있다.** 도전 현황 화면이 `도전 중 3`을 동시에
   보여주므로 하나로 제한하지 않는다. 홈의 "오늘의 코스" 는 그중 **가장 최근에 추천된 것**이다.
 - **자세 도전 현황은 `catalog`의 자세 전체가 목록이고 회원 코스는 그 위에 얹는다.** 시작한
   코스만 내리면 화면의 "전체 9"가 성립하지 않는다. 시작하지 않은 자세는 코스 쪽 값이 전부
   null 로 나가고 `0 / 4` 가 아니다 — 0/4 는 "시작했는데 아직 한 스텝도 안 함"이라 다르다.
-- **진행도는 `course_step`의 완료 개수 / 전체 개수**다. 자세 도전 현황의 `3 / 4`가 이 값이고,
-  전부 완료하면 `Stamp`가 붙는다(§7-8 해소). 별도의 "필요 횟수" seed가 필요 없다.
+- **코스 안 진행도는 `course_step`의 완료 개수 / 전체 개수**이고, 전부 완료하면 그 회차의
+  `Stamp`가 붙는다(§7-8 해소). **자세 도전 현황의 `3 / 4`는 이 값이 아니라 붙은 도장 수**다 —
+  완주 횟수라 코스 스텝 수와 무관하다. "필요 횟수" seed 는 여전히 없다. 4 는 코드 상수다.
 - `current_step_order` 컬럼을 두지 않는다. 스텝 상태에서 계산한다 — 컬럼으로 두면 스텝 완료와
   커서 갱신이 어긋날 수 있는데 그 상태를 표현할 이유가 없다.
 - `duration_seconds` `set_count`는 nullable이며 비어 있으면 `catalog.exercise`의 기본값을 쓴다.
@@ -785,10 +796,15 @@ training:    model infrastructure service repository-jdbc api schema
    볼지도 여기서 같이 정한다.
 7. **고민 유형(`Concern`)은 P1**이다(`AGENTS.md` §3). `screening.body_part` 아래 자리만 비워두고
    지금 만들지 않는다. 추가될 때 `screening.concern` + `cause_rule`에 `concern_code`가 붙는다.
-8. ~~**완수·도장의 판정 기준.**~~ **해소.** 하나의 핀포즈가 하나의 코스이고, 도전 현황의
-   `3 / 4`는 **그 코스 안에서 완료한 스텝 개수**다. 전부 완료하면 `완성`이고 그때 `Stamp`가
-   붙는다. 자세 포인트도, `target_pose`의 "필요 횟수" seed도 필요 없다 — 진행도는
-   `course_step` 완료 상태의 집계다.
+8. ~~**완수·도장의 판정 기준.**~~ **해소. 2026-08-15 개정.** 하나의 핀포즈가 하나의 코스이고,
+   코스의 스텝을 전부 완료하면 그 회차의 `Stamp`가 붙는다. **도전 현황과 완료 리포트의
+   `3 / 4`는 붙은 도장 수 — 완주 횟수(파이어로그)** 이고, 4 개를 채워야 `완성`이다.
+   ~~그 코스 안에서 완료한 스텝 개수~~ 가 아니다. 자세 포인트도, `target_pose`의 "필요 횟수"
+   seed도 여전히 필요 없다 — 상한 4 는 화면 규칙이라 코드 상수(`Stamp.REQUIRED_COUNT`)다.
+
+   4 회를 채우려면 완주한 코스를 다시 돌아야 하므로 `POST /courses`가 완주한 코스를 처음
+   상태로 되돌린다(`course.attempt_no` +1). 새 코스를 만들지 않아 `(member_id,
+   target_pose_id)` 유니크와 추천 멱등성은 그대로다.
 
    `CourseProgressContract`도 확정했다. `completeSession`을 **단일 진입점**으로 두고
    `completeStep`은 만들지 않는다 — 스텝 완료를 세션 완료와 따로 부를 주체가 이 설계에 없다.
