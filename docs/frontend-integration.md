@@ -738,6 +738,8 @@ Content-Type: application/json
 ```json
 {
   "courseId": 20,
+  "completed": false,
+  "tomorrowPreview": null,
   "targetPoseId": 3,
   "targetPoseName": "낙타 자세",
   "targetPoseImageAssetKey": "target-pose/camel",
@@ -754,8 +756,55 @@ Content-Type: application/json
 }
 ```
 
-**진행 중인 코스가 없으면 404 `IN_PROGRESS_COURSE_NOT_FOUND`다.** 화면은 이 404를 "코스를
-추천받아야 한다"는 신호로 읽는다.
+**진행 중인 코스도 오늘 완주한 코스도 없으면 404 `IN_PROGRESS_COURSE_NOT_FOUND`다.** 화면은
+이 404를 "코스를 추천받아야 한다"는 신호로 읽는다.
+
+#### 완주하면 `completed: true`와 「내일 운동 미리보기」가 온다
+
+**완주해도 404가 되지 않는다.** 마지막 스텝을 끝내면 코스 상태가 바뀌지만 그날 안에는 계속
+오늘의 코스로 내려온다 — 홈의 완료 상태 화면(동작 진행도 `6/6`)을 그려야 하기 때문이다.
+**다음 날이 되면 404**이고 화면은 다시 추천으로 보낸다. 하루 경계는 서버가 한국 시간으로
+계산하므로 화면이 판단하지 않는다.
+
+```json
+{
+  "courseId": 20,
+  "completed": true,
+  "currentStepOrder": null,
+  "completedStepCount": 6,
+  "totalStepCount": 6,
+  "tomorrowPreview": {
+    "targetPoseId": 4,
+    "targetPoseName": "비둘기 자세",
+    "targetPoseImageAssetKey": "target-pose/pigeon",
+    "bodyPartCode": "BACK",
+    "level": 2,
+    "name": "비둘기자세 정복하기",
+    "recommendationReason": "등과 골반 근육 강화에 집중해 보세요",
+    "totalStepCount": 6,
+    "exerciseCount": 6,
+    "totalSetCount": 6,
+    "estimatedDurationSeconds": 900,
+    "estimatedKcal": 72
+  }
+}
+```
+
+`tomorrowPreview`는 **`completed`가 `true`일 때만** 있다. 진행 중이면 `null`이다.
+
+- 대상은 **오늘의 코스와 같은 부위**에서 아직 4번 완수하지 못한(도장 4개를 못 채운) 자세다.
+- 그중 **무작위 하나**다. 서버가 저장하지는 않지만 **같은 날 같은 회원에게는 같은 자세가
+  온다** — 홈을 다시 불러올 때마다 카드가 바뀌지 않는다. 날이 바뀌면 다른 자세가 올 수 있으니
+  화면이 이 값을 오래 캐시해 두고 "내일의 코스"로 고정하지는 않는다.
+- **방금 완주한 자세도 후보다.** 자세 하나를 완성하려면 같은 코스를 4번 완주해야 하므로 같은
+  자세가 다시 나오는 것이 정상이다.
+- 그 부위를 모두 완성했으면 `completed`가 `true`여도 `tomorrowPreview`는 `null`이다.
+  미리보기 자리를 비우고 「자세 도전 현황」으로 유도하면 된다.
+
+**`courseId`가 없다.** 카드를 눌렀을 때는 `bodyPartCode`와 `level`을 그대로 실어
+`POST /courses`를 호출한다. 아직 시작하지 않은 자세는 코스 자체가 없고, 이미 완주한 코스를
+식별자로 열면 끝난 상태가 보이기 때문이다. 추천은 멱등해서 이미 있는 코스면 그것이 오고,
+완주한 코스는 그때 다음 회차로 다시 열린다.
 
 **모르는 값에 서버가 0을 넣지 않는다.** `estimatedKcal` · `estimatedDurationSeconds` ·
 `targetPoseLevel`은 계산이나 조회가 성립하지 않으면 `null`이다.

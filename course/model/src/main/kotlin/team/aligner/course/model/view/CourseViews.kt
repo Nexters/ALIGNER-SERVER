@@ -30,6 +30,43 @@ data class TodayCourseView(
     val totalSetCount: Int,
     val estimatedDurationSeconds: Int?,
     val estimatedKcal: Int?,
+    /** 오늘 이 코스를 완주했는지. 화면이 완료 상태 홈으로 갈아타는 신호다. */
+    val completed: Boolean,
+    /** 완주하지 않았으면 null 이다. [TomorrowCoursePreviewView] 참고. */
+    val tomorrowPreview: TomorrowCoursePreviewView?,
+)
+
+/**
+ * 「내일 운동 미리보기」. **오늘의 코스를 완주했을 때만 있다.**
+ *
+ * 같은 부위에서 아직 4 번 완수하지 못한 자세 중 하나를 무작위로 고른 것이다. 다음에 무엇을
+ * 할지 서버가 정해 주는 예약이 아니라 **제안**이다 — 저장하지 않고 조회할 때마다 다시
+ * 고른다. 코스에 일자 개념이 생긴 것이 아니다 — `course.scheduled_on` 은 여전히 없다
+ * (docs/domains.md §7-9).
+ *
+ * 다만 **같은 날 같은 회원에게는 같은 자세가 나온다.** 난수의 씨앗을 회원과 날짜로 고정해서,
+ * 홈을 다시 불러올 때마다 카드가 바뀌지 않는다.
+ *
+ * **방금 완주한 자세도 후보다.** 자세 하나를 완성하려면 같은 코스를 4 번 완주해야 하므로
+ * 같은 자세가 다시 나오는 것이 정상 루프다.
+ *
+ * **코스 식별자를 싣지 않는다.** 아직 시작하지 않은 자세는 코스가 없고, 이미 완주한 코스는
+ * 그대로 열면 끝난 상태가 보인다. 화면은 `bodyPartCode` · `level` 로 코스 추천을 호출한다 —
+ * 추천은 멱등하고 완주한 코스는 그때 다음 회차로 다시 열린다.
+ */
+data class TomorrowCoursePreviewView(
+    val targetPoseId: Long,
+    val targetPoseName: String,
+    val targetPoseImageAssetKey: String?,
+    val bodyPartCode: String,
+    val level: Int,
+    val name: String,
+    val recommendationReason: String?,
+    val totalStepCount: Int,
+    val exerciseCount: Int,
+    val totalSetCount: Int,
+    val estimatedDurationSeconds: Int?,
+    val estimatedKcal: Int?,
 )
 
 /**

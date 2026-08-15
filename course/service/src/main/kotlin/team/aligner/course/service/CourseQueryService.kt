@@ -2,9 +2,9 @@ package team.aligner.course.service
 
 import org.springframework.transaction.annotation.Transactional
 import team.aligner.course.infrastructure.CourseQueryRepository
-import team.aligner.course.infrastructure.CourseSkeleton
 import team.aligner.course.infrastructure.ExerciseCatalogEntry
 import team.aligner.course.infrastructure.ExerciseCatalogPort
+import team.aligner.course.infrastructure.ExerciseComposition
 import team.aligner.course.infrastructure.MemberBodyPort
 import team.aligner.course.infrastructure.TargetPoseCatalogEntry
 import team.aligner.course.infrastructure.TargetPoseCatalogPort
@@ -17,6 +17,12 @@ import team.aligner.course.model.view.CourseStepView
 import team.aligner.course.model.view.TargetPoseProgressSummaryView
 import team.aligner.course.model.view.TargetPoseProgressView
 import team.aligner.course.model.view.TodayCourseView
+import team.aligner.course.model.view.TomorrowCoursePreviewView
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import kotlin.random.Random
 
 interface CourseQueryService {
     fun getTodayCourse(memberId: Long): TodayCourseView
@@ -48,20 +54,29 @@ internal class CourseQueryServiceImpl(
     private val targetPoseCatalogPort: TargetPoseCatalogPort,
     private val exerciseCatalogPort: ExerciseCatalogPort,
     private val memberBodyPort: MemberBodyPort,
+    /**
+     * "오늘" 의 경계를 정하는 데만 쓴다. 기본값을 두는 것은 이 판단이 설정이 아니라 도메인
+     * 규칙이어서다 — 배포 서버의 시간대가 무엇이든 회원의 하루는 한국 기준이다.
+     */
+    private val clock: Clock = Clock.system(SEOUL),
 ) : CourseQueryService {
     /**
      * 홈 카드. **"오늘의 코스" 는 진행 중인 코스의 다른 이름**이다 — 일자 개념이 없다
      * (docs/domains.md §4-4).
+     *
+     * 다만 **오늘 완주한 코스까지는 오늘의 코스로 본다.** 마지막 스텝을 끝내는 순간 코스가
+     * COMPLETED 가 되는데 거기서 404 를 내면 홈이 완료 상태를 그릴 수 없다. 완주한 코스에는
+     * 「내일 운동 미리보기」가 함께 실린다.
      */
     override fun getTodayCourse(memberId: Long): TodayCourseView {
         val skeleton =
-            courseQueryRepository.findInProgressCourseSkeleton(memberId)
+            courseQueryRepository.findTodayCourseSkeleton(memberId, startOfToday())
                 ?: throw InProgressCourseNotFoundException()
 
         val pose = targetPoseCatalogPort.findAllByIds(listOf(skeleton.targetPoseId)).firstOrNull()
-        val exercises = loadExercises(skeleton)
+        val rows = skeleton.steps.flatMap { it.exercises }
         val weightKg = memberBodyPort.findWeightKg(memberId)
-        val totals = totalsOf(skeleton, exercises, weightKg)
+        val totals = totalsOf(rows, loadExercises(rows), weightKg)
 
         return TodayCourseView(
             courseId = skeleton.courseId,
@@ -78,6 +93,96 @@ internal class CourseQueryServiceImpl(
             totalSetCount = totals.setCount,
             estimatedDurationSeconds = totals.durationSeconds,
             estimatedKcal = totals.kcal,
+            completed = skeleton.completed,
+            // 진행 중인 코스에는 미리보기가 없다. 오늘 할 일이 남아 있는데 내일 것을 먼저
+            // 보여줄 자리가 화면에 없다.
+            tomorrowPreview =
+                when {
+                    skeleton.completed -> findTomorrowPreview(memberId, pose, weightKg)
+                    else -> null
+                },
+        )
+    }
+
+    /**
+     * 「내일 운동 미리보기」의 후보를 고르고 카드를 만든다.
+     *
+     * **같은 부위에서 아직 4 번 완수하지 못한 자세 중 하나를 무작위로** 집는다. 방금 완주한
+     * 자세도 후보에 남긴다 — 자세 하나를 완성하려면 같은 코스를 4 번 완주해야 하므로 같은
+     * 자세가 다시 나오는 것이 정상 루프다.
+     *
+     * **난수는 회원과 날짜로 고정한다.** 매번 새로 뽑으면 홈을 다시 불러올 때마다 카드의
+     * 자세가 바뀐다 — 회원은 그것을 "내일 할 운동" 으로 읽으므로 하루 안에서는 같은 답이
+     * 나와야 한다. 저장하지 않고 씨앗만 고정하는 것이라 예약이 생긴 것은 아니다.
+     *
+     * **미리보기가 없어도 홈은 그려진다.** 부위를 알 수 없거나(catalog 에 자세가 없다) 그
+     * 부위를 모두 완성했거나 코스 템플릿 seed 가 없으면 null 이다. 미리보기 하나 때문에
+     * 완료 화면 전체를 실패시키지 않는다.
+     */
+    private fun findTomorrowPreview(
+        memberId: Long,
+        todayPose: TargetPoseCatalogEntry?,
+        weightKg: Int?,
+    ): TomorrowCoursePreviewView? {
+        val bodyPartCode = todayPose?.bodyPartCode ?: return null
+        val stampCounts =
+            courseQueryRepository
+                .findStampCounts(memberId)
+                .associate { it.targetPoseId to it.acquiredStampCount }
+
+        val picked =
+            targetPoseCatalogPort
+                .findAll()
+                .filter { pose ->
+                    pose.bodyPartCode == bodyPartCode &&
+                        (stampCounts[pose.targetPoseId] ?: 0) < Stamp.REQUIRED_COUNT
+                }.randomOrNull(Random(previewSeed(memberId))) ?: return null
+
+        val composition = compositionOf(memberId, picked.targetPoseId) ?: return null
+        val totals = totalsOf(composition.exercises, loadExercises(composition.exercises), weightKg)
+
+        return TomorrowCoursePreviewView(
+            targetPoseId = picked.targetPoseId,
+            targetPoseName = picked.name,
+            targetPoseImageAssetKey = picked.imageAssetKey,
+            bodyPartCode = picked.bodyPartCode,
+            level = picked.level,
+            name = composition.name,
+            recommendationReason = composition.recommendationReason,
+            totalStepCount = composition.totalStepCount,
+            exerciseCount = totals.exerciseCount,
+            totalSetCount = totals.setCount,
+            estimatedDurationSeconds = totals.durationSeconds,
+            estimatedKcal = totals.kcal,
+        )
+    }
+
+    /**
+     * 미리보기가 셀 코스 구성. **회원의 코스가 있으면 그것이 먼저다.**
+     *
+     * 코스 스텝은 추천 시점에 템플릿에서 복사되므로 seed 가 나중에 바뀌면 둘이 갈린다.
+     * 회원이 내일 실제로 수행할 것은 복사본 쪽이라, 템플릿 숫자를 보여주면 카드와 실제
+     * 코스가 어긋난다. 한 번도 열지 않은 자세만 템플릿에서 센다.
+     */
+    private fun compositionOf(
+        memberId: Long,
+        targetPoseId: Long,
+    ): PreviewComposition? {
+        courseQueryRepository.findCourseSkeletonByTargetPoseId(memberId, targetPoseId)?.let { course ->
+            return PreviewComposition(
+                name = course.templateName,
+                recommendationReason = course.recommendationReason,
+                totalStepCount = course.totalStepCount,
+                exercises = course.steps.flatMap { it.exercises },
+            )
+        }
+
+        val template = courseQueryRepository.findTemplateSkeleton(targetPoseId) ?: return null
+        return PreviewComposition(
+            name = template.templateName,
+            recommendationReason = template.recommendationReason,
+            totalStepCount = template.totalStepCount,
+            exercises = template.exercises,
         )
     }
 
@@ -90,9 +195,10 @@ internal class CourseQueryServiceImpl(
                 ?: throw CourseNotFoundException()
 
         val pose = targetPoseCatalogPort.findAllByIds(listOf(skeleton.targetPoseId)).firstOrNull()
-        val exercises = loadExercises(skeleton)
+        val rows = skeleton.steps.flatMap { it.exercises }
+        val exercises = loadExercises(rows)
         val weightKg = memberBodyPort.findWeightKg(memberId)
-        val totals = totalsOf(skeleton, exercises, weightKg)
+        val totals = totalsOf(rows, exercises, weightKg)
 
         return CourseDetailView(
             courseId = skeleton.courseId,
@@ -203,11 +309,24 @@ internal class CourseQueryServiceImpl(
         )
     }
 
+    /** 오늘의 시작 시각. 회원의 하루는 배포 서버의 시간대가 아니라 한국 기준이다. */
+    private fun startOfToday(): Instant = today().atStartOfDay(SEOUL).toInstant()
+
+    private fun today(): LocalDate = LocalDate.ofInstant(clock.instant(), SEOUL)
+
+    /**
+     * 미리보기 난수의 씨앗. 회원과 날짜가 같으면 같은 자세가 나오고 날이 바뀌면 달라진다.
+     *
+     * 회원 식별자만 쓰면 그 회원에게 영원히 같은 자세만 나오고, 날짜만 쓰면 모든 회원이 같은
+     * 자세를 본다. 둘을 섞는다.
+     */
+    private fun previewSeed(memberId: Long): Int = (memberId * 31 + today().toEpochDay()).toInt()
+
     /**
      * 코스에 실린 운동을 한 번에 읽는다. 스텝마다 부르면 조회가 스텝 수만큼 늘어난다.
      */
-    private fun loadExercises(skeleton: CourseSkeleton): Map<Long, ExerciseCatalogEntry> {
-        val ids = skeleton.steps.flatMap { step -> step.exercises.map { it.exerciseId } }.distinct()
+    private fun loadExercises(rows: List<ExerciseComposition>): Map<Long, ExerciseCatalogEntry> {
+        val ids = rows.map { it.exerciseId }.distinct()
         if (ids.isEmpty()) {
             return emptyMap()
         }
@@ -216,13 +335,15 @@ internal class CourseQueryServiceImpl(
 
     /**
      * 코스 카드의 합계. **칼로리는 스텝 합**이다 (docs/domains.md §4-3).
+     *
+     * 회원의 코스 스텝과 템플릿 스텝이 같은 계산을 탄다. 미리보기가 두 출처를 오가는데
+     * 합계 규칙이 갈리면 같은 화면에 다른 숫자가 나온다.
      */
     private fun totalsOf(
-        skeleton: CourseSkeleton,
+        rows: List<ExerciseComposition>,
         exercises: Map<Long, ExerciseCatalogEntry>,
         weightKg: Int?,
     ): CourseTotals {
-        val rows = skeleton.steps.flatMap { it.exercises }
         val durations = mutableListOf<Int?>()
         val kcals = mutableListOf<Int?>()
         var setCount = 0
@@ -252,7 +373,23 @@ internal class CourseQueryServiceImpl(
         val kcal: Int?,
     )
 
+    /** 미리보기 카드가 필요한 만큼의 코스 구성. 회원 코스와 템플릿이 같은 형태로 들어온다. */
+    private data class PreviewComposition(
+        val name: String,
+        val recommendationReason: String?,
+        val totalStepCount: Int,
+        val exercises: List<ExerciseComposition>,
+    )
+
     private companion object {
+        /**
+         * 회원의 하루 경계. 서버가 어디에 뜨든 "오늘" 은 한국 기준이다.
+         *
+         * MVP 사용자가 국내라 상수로 둔다. 회원별 시간대가 생기면 member 가 갖는 값이 되고
+         * 그때 이 상수가 사라진다.
+         */
+        val SEOUL: ZoneId = ZoneId.of("Asia/Seoul")
+
         /**
          * catalog 에 없는 자세·운동이 코스에 남아 있을 수 있다. 도메인 간 FK 가 없어
          * course seed 가 앞서갈 수 있기 때문이다 (docs/domains.md §6).

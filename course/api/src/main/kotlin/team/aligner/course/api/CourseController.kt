@@ -91,14 +91,21 @@ class CourseController(
         summary = "오늘의 코스",
         description =
             "홈 카드다. **\"오늘의 코스\" 는 진행 중인 코스의 다른 이름**이고 일자 개념이 없다. " +
-                "진행 중인 코스가 여럿이면 가장 최근에 추천된 것이다.",
+                "진행 중인 코스가 여럿이면 가장 최근에 추천된 것이다. " +
+                "**오늘 완주한 코스도 오늘의 코스다** — 완주 직후에도 404 가 아니라 `completed: true` 로 내려온다. " +
+                "그때만 「내일 운동 미리보기」(`tomorrowPreview`)가 함께 실린다. " +
+                "미리보기는 **같은 부위에서 아직 4 번 완수하지 못한 자세 중 무작위 하나**이고, 저장하지 않지만 " +
+                "같은 날 같은 회원에게는 같은 자세가 나온다. 그 부위를 모두 완성했으면 null 이다. " +
+                "미리보기 카드를 눌렀을 때는 `courseId` 가 아니라 `bodyPartCode` · `level` 로 코스 추천을 호출한다.",
     )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공"),
             ApiResponse(
                 responseCode = "404",
-                description = "`IN_PROGRESS_COURSE_NOT_FOUND` — 진행 중인 코스가 없다. 화면은 추천으로 보낸다",
+                description =
+                    "`IN_PROGRESS_COURSE_NOT_FOUND` — 진행 중인 코스도, 오늘 완주한 코스도 없다. " +
+                        "화면은 추천으로 보낸다",
                 content = [Content(mediaType = "application/json", schema = Schema(ref = ERROR_SCHEMA_REF))],
             ),
         ],

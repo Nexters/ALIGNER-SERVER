@@ -7,6 +7,7 @@ import team.aligner.course.model.view.CourseStepView
 import team.aligner.course.model.view.TargetPoseProgressSummaryView
 import team.aligner.course.model.view.TargetPoseProgressView
 import team.aligner.course.model.view.TodayCourseView
+import team.aligner.course.model.view.TomorrowCoursePreviewView
 import java.time.Instant
 
 /**
@@ -83,6 +84,16 @@ data class TodayCourseResponse(
     val estimatedDurationSeconds: Int?,
     @field:Schema(description = "예상 칼로리. 몸무게나 MET 이 없으면 null 이고 0 이 아니다", example = "69", nullable = true)
     val estimatedKcal: Int?,
+    @field:Schema(
+        description = "오늘 이 코스를 완주했는지. true 면 화면은 완료 상태 홈을 그린다",
+        example = "false",
+    )
+    val completed: Boolean,
+    @field:Schema(
+        description = "「내일 운동 미리보기」. **`completed` 가 true 일 때만 있다.** 진행 중이면 null 이다",
+        nullable = true,
+    )
+    val tomorrowPreview: TomorrowCoursePreviewResponse?,
 ) {
     companion object {
         fun from(view: TodayCourseView) =
@@ -96,6 +107,70 @@ data class TodayCourseResponse(
                 recommendationReason = view.recommendationReason,
                 currentStepOrder = view.currentStepOrder,
                 completedStepCount = view.completedStepCount,
+                totalStepCount = view.totalStepCount,
+                exerciseCount = view.exerciseCount,
+                totalSetCount = view.totalSetCount,
+                estimatedDurationSeconds = view.estimatedDurationSeconds,
+                estimatedKcal = view.estimatedKcal,
+                completed = view.completed,
+                tomorrowPreview = view.tomorrowPreview?.let(TomorrowCoursePreviewResponse::from),
+            )
+    }
+}
+
+/**
+ * 「내일 운동 미리보기」 카드.
+ *
+ * **예약이 아니라 제안이다.** 같은 부위에서 아직 4 번 완수하지 못한 자세 중 하나를 무작위로
+ * 고른 것이고 서버에 저장하지 않는다. 다만 같은 날 같은 회원에게는 같은 자세가 나온다 —
+ * 홈을 다시 불러올 때마다 카드가 바뀌면 안 되기 때문이다. 방금 완주한 자세도 후보에 남는다 —
+ * 자세 하나를 완성하려면 같은 코스를 4 번 완주해야 한다.
+ *
+ * **`courseId` 가 없다.** 아직 시작하지 않은 자세는 코스 자체가 없고, 이미 완주한 코스를
+ * 식별자로 열면 끝난 상태가 보인다. 이 카드를 눌렀을 때는 `bodyPartCode` · `level` 로
+ * `POST /courses` 를 호출한다 — 추천은 멱등하고 완주한 코스는 그때 다음 회차로 다시 열린다.
+ */
+@Schema(description = "내일 운동 미리보기. 오늘의 코스를 완주했을 때만 내려온다")
+data class TomorrowCoursePreviewResponse(
+    @field:Schema(description = "목표 자세 식별자", example = "4")
+    val targetPoseId: Long,
+    @field:Schema(description = "목표 자세 이름", example = "비둘기 자세")
+    val targetPoseName: String,
+    @field:Schema(description = "목표 자세 이미지 asset 키. URL 이 아니다", nullable = true)
+    val targetPoseImageAssetKey: String?,
+    @field:Schema(description = "이 자세의 부위. 오늘의 코스와 같은 부위다. **코스 추천 호출에 그대로 쓴다**")
+    val bodyPartCode: BodyPartCode,
+    @field:Schema(description = "난이도. **코스 추천의 level 로 그대로 쓴다**", example = "2")
+    val level: Int,
+    @field:Schema(description = "코스 이름", example = "비둘기자세 정복하기")
+    val name: String,
+    @field:Schema(description = "코스 추천 이유. 감수 문구다", nullable = true)
+    val recommendationReason: String?,
+    @field:Schema(description = "전체 스텝 수", example = "6")
+    val totalStepCount: Int,
+    @field:Schema(description = "운동 개수", example = "6")
+    val exerciseCount: Int,
+    @field:Schema(description = "세트 합계", example = "6")
+    val totalSetCount: Int,
+    @field:Schema(
+        description = "예상 수행 시간(초). 운동 하나라도 시간을 모르면 null 이고 0 이 아니다",
+        example = "900",
+        nullable = true,
+    )
+    val estimatedDurationSeconds: Int?,
+    @field:Schema(description = "예상 칼로리. 몸무게나 MET 이 없으면 null 이고 0 이 아니다", example = "72", nullable = true)
+    val estimatedKcal: Int?,
+) {
+    companion object {
+        fun from(view: TomorrowCoursePreviewView) =
+            TomorrowCoursePreviewResponse(
+                targetPoseId = view.targetPoseId,
+                targetPoseName = view.targetPoseName,
+                targetPoseImageAssetKey = view.targetPoseImageAssetKey,
+                bodyPartCode = BodyPartCode.from(view.bodyPartCode),
+                level = view.level,
+                name = view.name,
+                recommendationReason = view.recommendationReason,
                 totalStepCount = view.totalStepCount,
                 exerciseCount = view.exerciseCount,
                 totalSetCount = view.totalSetCount,
