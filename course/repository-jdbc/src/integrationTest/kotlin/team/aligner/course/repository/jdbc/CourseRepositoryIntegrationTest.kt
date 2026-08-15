@@ -24,6 +24,7 @@ import team.aligner.course.model.CourseStatus
 import team.aligner.course.model.Stamp
 import team.aligner.course.repository.jdbc.bootstrap.CourseRepositoryTestApplication
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 /**
  * 러너는 Kotest 가 아니라 JUnit5 다. kotest-extensions-spring 이 버전 카탈로그에 없다.
@@ -290,13 +291,14 @@ class CourseRepositoryIntegrationTest {
     fun `진행 중인 코스를 오늘의 코스로 집는다`() {
         val saved = courseRepository.save(recommended())
 
-        val skeleton = courseQueryRepository.findInProgressCourseSkeleton(MEMBER_ID).shouldNotBeNull()
+        val skeleton = courseQueryRepository.findTodayCourseSkeleton(MEMBER_ID, TODAY_START).shouldNotBeNull()
 
         skeleton.courseId shouldBe saved.identity.shouldNotBeNull().value
         skeleton.templateName shouldBe "낙타자세 정복하기"
         skeleton.totalStepCount shouldBe 2
         skeleton.completedStepCount shouldBe 0
         skeleton.currentStepOrder shouldBe 1
+        skeleton.completed shouldBe false
         skeleton.steps
             .first()
             .exercises
@@ -304,8 +306,112 @@ class CourseRepositoryIntegrationTest {
     }
 
     @Test
-    fun `진행 중인 코스가 없으면 null 이다`() {
-        courseQueryRepository.findInProgressCourseSkeleton(MEMBER_ID).shouldBeNull()
+    fun `코스가 하나도 없으면 null 이다`() {
+        courseQueryRepository.findTodayCourseSkeleton(MEMBER_ID, TODAY_START).shouldBeNull()
+    }
+
+    /**
+     * 완주하는 순간 status 가 COMPLETED 로 바뀌는데 거기서 사라지면 홈의 완료 상태 화면
+     * (「내일 운동 미리보기」가 붙는 자리)을 그릴 수 없다.
+     */
+    @Test
+    fun `오늘 완주한 코스도 오늘의 코스로 집는다`() {
+        completedCourse(at = AT)
+
+        val skeleton = courseQueryRepository.findTodayCourseSkeleton(MEMBER_ID, TODAY_START).shouldNotBeNull()
+
+        skeleton.completed shouldBe true
+        skeleton.completedStepCount shouldBe 2
+    }
+
+    /**
+     * 어제 완주한 코스는 오늘 할 일이 아니라 지난 기록이다. 홈은 다시 추천 화면으로 간다.
+     */
+    @Test
+    fun `어제 완주한 코스는 오늘의 코스가 아니다`() {
+        completedCourse(at = AT.minus(1, ChronoUnit.DAYS))
+
+        courseQueryRepository.findTodayCourseSkeleton(MEMBER_ID, TODAY_START).shouldBeNull()
+    }
+
+    /**
+     * 완주한 뒤 다른 자세를 새로 시작한 회원의 홈은 새 코스여야 한다. 완주 시각이 더
+     * 최근이라도 진행 중인 쪽이 이긴다.
+     */
+    @Test
+    fun `진행 중인 코스가 오늘 완주한 코스보다 우선이다`() {
+        completedCourse(at = AT)
+        insertTemplate(templateId = 2L, targetPoseId = OTHER_TARGET_POSE_ID, name = "휠 정복하기")
+        insertTemplateStep(templateStepId = 3L, templateId = 2L, stepOrder = 1)
+        insertTemplateStepExercise(3L, exerciseId = 12L, displayOrder = 1, durationSeconds = 60, setCount = 1)
+        val inProgress =
+            courseRepository.save(
+                Course.recommend(
+                    memberId = MEMBER_ID,
+                    template = courseTemplateRepository.findByTargetPoseId(OTHER_TARGET_POSE_ID)!!,
+                    causeCode = null,
+                ),
+            )
+
+        val skeleton = courseQueryRepository.findTodayCourseSkeleton(MEMBER_ID, TODAY_START).shouldNotBeNull()
+
+        skeleton.courseId shouldBe inProgress.identity.shouldNotBeNull().value
+        skeleton.completed shouldBe false
+    }
+
+    /**
+     * 「내일 운동 미리보기」가 이미 시작한 자세를 골랐을 때 쓰는 조회다. 회원이 내일 실제로
+     * 수행할 것은 추천 시점에 복사된 스텝이라 템플릿이 아니라 여기서 센다.
+     */
+    @Test
+    fun `자세로 회원의 코스를 찾는다`() {
+        val saved = courseRepository.save(recommended())
+
+        val skeleton =
+            courseQueryRepository
+                .findCourseSkeletonByTargetPoseId(MEMBER_ID, TARGET_POSE_ID)
+                .shouldNotBeNull()
+
+        skeleton.courseId shouldBe saved.identity.shouldNotBeNull().value
+        skeleton.steps.flatMap { it.exercises }.map { it.exerciseId } shouldBe listOf(10L, 11L)
+        courseQueryRepository.findCourseSkeletonByTargetPoseId(MEMBER_ID, OTHER_TARGET_POSE_ID).shouldBeNull()
+        // 남의 코스는 보이지 않는다.
+        courseQueryRepository.findCourseSkeletonByTargetPoseId(MEMBER_ID + 1, TARGET_POSE_ID).shouldBeNull()
+    }
+
+    /**
+     * 미리보기 후보가 회원이 한 번도 열지 않은 자세일 수 있다. 그때는 course.course 행이
+     * 없어 템플릿이 유일한 근거다.
+     */
+    @Test
+    fun `코스가 없는 자세는 템플릿에서 구성을 읽는다`() {
+        val template = courseQueryRepository.findTemplateSkeleton(TARGET_POSE_ID).shouldNotBeNull()
+
+        template.templateName shouldBe "낙타자세 정복하기"
+        template.recommendationReason shouldBe "등과 골반 근육 강화에 집중해 보세요"
+        template.totalStepCount shouldBe 2
+        template.exercises.map { it.exerciseId } shouldBe listOf(10L, 11L)
+        // override 가 없는 행은 null 로 온다 — catalog 기본값은 service 가 붙인다.
+        template.exercises.map { it.durationSeconds } shouldBe listOf(120, null)
+    }
+
+    @Test
+    fun `템플릿 seed 가 없는 자세는 null 이다`() {
+        courseQueryRepository.findTemplateSkeleton(OTHER_TARGET_POSE_ID).shouldBeNull()
+    }
+
+    /**
+     * 스텝이 없는 템플릿에서도 LEFT JOIN 이 행 하나를 남긴다. 여기서 null 이 되면 조립하는
+     * 쪽이 "seed 가 없다" 와 "스텝이 비었다" 를 구분하지 못한다.
+     */
+    @Test
+    fun `스텝이 없는 템플릿도 구성이 돌아온다`() {
+        insertTemplate(templateId = 2L, targetPoseId = OTHER_TARGET_POSE_ID, name = "휠 정복하기")
+
+        val template = courseQueryRepository.findTemplateSkeleton(OTHER_TARGET_POSE_ID).shouldNotBeNull()
+
+        template.totalStepCount shouldBe 0
+        template.exercises shouldBe emptyList()
     }
 
     /**
@@ -349,6 +455,13 @@ class CourseRepositoryIntegrationTest {
         progress.completed shouldBe true
         progress.completedStepCount shouldBe 2
         progress.currentStepOrder.shouldBeNull()
+    }
+
+    /** 모든 스텝을 완료한 코스. `at` 이 완주 시각이 된다. */
+    private fun completedCourse(at: Instant): Course {
+        var course = courseRepository.save(recommended())
+        course = courseRepository.save(course.completeStep(stepOrder = 1, at = at))
+        return courseRepository.save(course.completeStep(stepOrder = 2, at = at))
     }
 
     private fun recommended(): Course =
@@ -411,7 +524,11 @@ class CourseRepositoryIntegrationTest {
     companion object {
         private const val MEMBER_ID = 1L
         private const val TARGET_POSE_ID = 3L
+        private const val OTHER_TARGET_POSE_ID = 4L
         private val AT: Instant = Instant.parse("2026-08-09T00:00:00Z")
+
+        /** AT 이 속한 하루의 시작. 경계 계산은 service 의 몫이라 여기서는 값으로 준다. */
+        private val TODAY_START: Instant = AT.truncatedTo(ChronoUnit.DAYS)
 
         @Container
         @ServiceConnection

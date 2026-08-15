@@ -5,7 +5,10 @@ import team.aligner.course.infrastructure.CourseQueryRepository
 import team.aligner.course.infrastructure.CourseSkeleton
 import team.aligner.course.infrastructure.CourseStepExerciseSkeleton
 import team.aligner.course.infrastructure.CourseStepSkeleton
+import team.aligner.course.infrastructure.CourseTemplateSkeleton
 import team.aligner.course.infrastructure.TargetPoseStampCount
+import team.aligner.course.infrastructure.TemplateStepExerciseSkeleton
+import java.sql.Timestamp
 import java.time.Instant
 
 /**
@@ -25,24 +28,128 @@ internal class CourseQueryRepositoryImpl(
      *
      * 진행 중인 코스가 여럿이면 가장 최근에 추천된 것을 집는다. 회원이 난이도를 바꿔 다른
      * 자세의 코스를 새로 받으면 그것이 지금 하고 있는 코스이기 때문이다.
+     *
+     * **진행 중인 코스가 없으면 오늘 완주한 코스를 집는다.** 완주하는 순간 status 가
+     * COMPLETED 로 바뀌는데 그때 404 를 내면 홈의 완료 상태 화면을 그릴 수 없다. 진행 중인
+     * 쪽이 언제나 우선이다 — 완주한 뒤 다른 자세를 새로 시작한 회원의 홈은 새 코스여야 한다.
+     *
+     * 완주 코스끼리는 `completed_at` 이, 진행 중 코스끼리는 `created_at` 이 최신 판단 기준이다.
+     * 정렬에서 두 무리가 섞이지 않으므로 COALESCE 하나로 둘을 함께 다룬다.
      */
-    override fun findInProgressCourseSkeleton(memberId: Long): CourseSkeleton? {
+    override fun findTodayCourseSkeleton(
+        memberId: Long,
+        completedOnOrAfter: Instant,
+    ): CourseSkeleton? {
         val courseId =
             jdbcClient
                 .sql(
                     """
                     SELECT course_id
                     FROM course.course
-                    WHERE member_id = :memberId AND status = 'IN_PROGRESS'
-                    ORDER BY created_at DESC, course_id DESC
+                    WHERE member_id = :memberId
+                      AND (status = 'IN_PROGRESS'
+                           OR (status = 'COMPLETED' AND completed_at >= :completedOnOrAfter))
+                    ORDER BY CASE WHEN status = 'IN_PROGRESS' THEN 0 ELSE 1 END,
+                             COALESCE(completed_at, created_at) DESC,
+                             course_id DESC
                     LIMIT 1
                     """.trimIndent(),
                 ).param("memberId", memberId)
+                .param("completedOnOrAfter", Timestamp.from(completedOnOrAfter))
                 .query(Long::class.java)
                 .optional()
                 .orElse(null) ?: return null
 
         return findCourseSkeleton(courseId, memberId)
+    }
+
+    /**
+     * 자세로 회원의 코스를 찾는다. `(member_id, target_pose_id)` 가 유니크라 최대 하나다.
+     *
+     * 「내일 운동 미리보기」가 이미 시작한 자세를 골랐을 때 쓴다. 회원이 내일 실제로 수행할
+     * 것은 추천 시점에 복사된 이 스텝들이지 지금의 템플릿 seed 가 아니다.
+     */
+    override fun findCourseSkeletonByTargetPoseId(
+        memberId: Long,
+        targetPoseId: Long,
+    ): CourseSkeleton? {
+        val courseId =
+            jdbcClient
+                .sql(
+                    """
+                    SELECT course_id
+                    FROM course.course
+                    WHERE member_id = :memberId AND target_pose_id = :targetPoseId
+                    """.trimIndent(),
+                ).param("memberId", memberId)
+                .param("targetPoseId", targetPoseId)
+                .query(Long::class.java)
+                .optional()
+                .orElse(null) ?: return null
+
+        return findCourseSkeleton(courseId, memberId)
+    }
+
+    /**
+     * 템플릿 마스터의 구성. 회원이 아직 열지 않은 자세의 미리보기가 이것으로 카드를 그린다.
+     *
+     * 스텝이 하나도 없는 템플릿도 행이 돌아온다 — LEFT JOIN 인 이유다. 그런 템플릿은
+     * 추천 시점에 EMPTY_COURSE_TEMPLATE 로 걸리지만, 미리보기는 그 판단까지 하지 않고
+     * "운동 0 개" 로 내려보내는 대신 조립하는 쪽이 후보에서 걸러낼 수 있게 그대로 돌려준다.
+     */
+    override fun findTemplateSkeleton(targetPoseId: Long): CourseTemplateSkeleton? {
+        data class Row(
+            val templateName: String,
+            val recommendationReason: String?,
+            val templateStepId: Long?,
+            val exercise: TemplateStepExerciseSkeleton?,
+        )
+
+        val rows =
+            jdbcClient
+                .sql(
+                    """
+                    SELECT t.name, t.recommendation_reason,
+                           s.template_step_id, e.exercise_id, e.duration_seconds, e.set_count
+                    FROM course.course_template t
+                    LEFT JOIN course.template_step s ON s.template_id = t.template_id
+                    LEFT JOIN course.template_step_exercise e ON e.template_step_id = s.template_step_id
+                    WHERE t.target_pose_id = :targetPoseId
+                    ORDER BY s.step_order, e.display_order
+                    """.trimIndent(),
+                ).param("targetPoseId", targetPoseId)
+                .query { rs, _ ->
+                    val templateStepId = rs.getLong("template_step_id")
+                    val hasStep = !rs.wasNull()
+                    val exerciseId = rs.getLong("exercise_id")
+                    // wasNull() 은 마지막으로 읽은 컬럼을 가리킨다. findSteps 와 같은 함정이라
+                    // 읽은 직후에 붙잡아 둔다.
+                    val hasExercise = !rs.wasNull()
+                    Row(
+                        templateName = rs.getString("name"),
+                        recommendationReason = rs.getString("recommendation_reason"),
+                        templateStepId = templateStepId.takeIf { hasStep },
+                        exercise =
+                            if (!hasExercise) {
+                                null
+                            } else {
+                                TemplateStepExerciseSkeleton(
+                                    exerciseId = exerciseId,
+                                    durationSeconds = rs.getIntOrNull("duration_seconds"),
+                                    setCount = rs.getIntOrNull("set_count"),
+                                )
+                            },
+                    )
+                }.list()
+
+        val head = rows.firstOrNull() ?: return null
+        return CourseTemplateSkeleton(
+            targetPoseId = targetPoseId,
+            templateName = head.templateName,
+            recommendationReason = head.recommendationReason,
+            totalStepCount = rows.mapNotNull { it.templateStepId }.distinct().size,
+            exercises = rows.mapNotNull { it.exercise },
+        )
     }
 
     /**
