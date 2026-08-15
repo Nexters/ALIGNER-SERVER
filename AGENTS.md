@@ -5,8 +5,8 @@ Aligner는 코치 없이 요가하는 사용자가 **원인**을 찾아 보강 �
 ## 1. 프로젝트 개요
 
 - MVP는 모바일 웹앱이며, 단일 배포 Spring 서버와 PostgreSQL을 사용한다.
-- 핵심 루프: `BodyPart` 선택 → `Screening` 응답 → `Cause` 판별 → `Course` 처방 → `Session` 기록 → `PoseCheckpoint` 확인 → `Stamp`/다음 코스 보강.
-- “느끼는 부위”가 아니라 원인 부위를 처방한다. 원인 매핑·문항·자세 포인트는 감수 전 데이터이므로 코드에 하드코딩하지 않는다.
+- 핵심 루프: `BodyPart` 선택 → `Screening` 응답 → `Cause` 판별 → `Course` 추천 → `Session` 기록 → `PoseCheckpoint` 확인 → `Stamp`/다음 코스 보강.
+- “느끼는 부위”가 아니라 원인 부위를 추천한다. 원인 매핑·문항·자세 포인트는 감수 전 데이터이므로 코드에 하드코딩하지 않는다.
 - 배경·사용자 리서치·IA는 `docs/context/user-research-insights.md`에서 필요한 범위만 읽는다.
 
 ## 2. 도메인 용어 (코드 네이밍 기준)
@@ -19,6 +19,7 @@ Aligner는 코치 없이 요가하는 사용자가 **원인**을 찾아 보강 �
 | 코스 / 스텝 / 보강 운동 | `Course` / `Step` / `Exercise` |
 | 코스 템플릿 / 코스 스텝 | `CourseTemplate` / `CourseStep` |
 | 목표 자세 / 자세 포인트 / 세션 / 도장 | `TargetPose` / `PoseCheckpoint` / `Session` / `Stamp` |
+| 코스 추천 | `recommend` — **처방이 아니다** |
 | 고민 유형 | `Concern` — **P1**, 현재 구현하지 않는다 |
 
 목표 자세는 `TargetPose`로 통일한다. `PeakPose`·`Pose`를 새로 쓰지 않는다 — 테이블·컬럼·계약
@@ -27,6 +28,10 @@ Aligner는 코치 없이 요가하는 사용자가 **원인**을 찾아 보강 �
 
 코스는 마스터(`CourseTemplate`)와 회원별 인스턴스(`Course`)가 다르다. 목록 상세는
 `docs/domains.md`가 정본이다.
+
+**코스는 추천이지 처방이 아니다.** 온보딩에서 한 번 제안할 뿐이고, 그 뒤 「자세 도전 현황」은
+핀포즈 전체를 펼쳐두고 회원이 아무거나 골라 시작하게 한다. 서버가 진단 결과에 없는 부위를
+거절하지 않는다. `prescribe`·“처방”을 새로 쓰지 않는다.
 
 ## 3. MVP 구현 범위 (P0)
 

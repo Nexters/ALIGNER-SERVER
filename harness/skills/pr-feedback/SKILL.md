@@ -70,7 +70,7 @@ gh api repos/{owner}/{repo}/pulls/<번호>/reviews \
 리뷰 반영은 **별도 커밋**으로 남긴다. 리뷰어가 무엇이 바뀌었는지 볼 수 있어야 한다.
 
 ```
-fix: 코스 처방 분기를 service 계층으로 이동
+fix: 코스 추천 분기를 service 계층으로 이동
 
 리뷰 반영 — 원인 판별이 컨트롤러에 있던 것을 CourseCommandService로 옮김
 ```

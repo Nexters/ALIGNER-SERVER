@@ -66,7 +66,7 @@ class CourseRecommendationTest :
             every { courseRepository.findByMemberIdAndTargetPoseId(1L, 3L) } returns null
         }
 
-        describe("prescribe") {
+        describe("recommend") {
             it("진단 결과에 없는 부위도 코스를 만든다") {
                 // 예전에는 여기서 400 BODY_PART_NOT_IN_SCREENING 이 났다.
                 every { causeLookupPort.findLatestCauses(1L) } returns
@@ -76,7 +76,7 @@ class CourseRecommendationTest :
                 every { courseRepository.save(capture(saved)) } answers
                     { saved.captured.copy(identity = CourseIdentity.of(20L)) }
 
-                service().prescribe(1L, PrescribeCourseCommand(bodyPartCode = "BACK", level = 1)) shouldBe
+                service().recommend(1L, RecommendCourseCommand(bodyPartCode = "BACK", level = 1)) shouldBe
                     CourseIdentity.of(20L)
 
                 // 맞는 원인이 없으면 스냅샷은 비운다. 저장을 막지는 않는다.
@@ -91,7 +91,7 @@ class CourseRecommendationTest :
                 every { courseRepository.save(capture(saved)) } answers
                     { saved.captured.copy(identity = CourseIdentity.of(20L)) }
 
-                service().prescribe(1L, PrescribeCourseCommand(bodyPartCode = "BACK", level = 1))
+                service().recommend(1L, RecommendCourseCommand(bodyPartCode = "BACK", level = 1))
 
                 saved.captured.causeCode shouldBe "THORACIC_STIFFNESS"
             }
@@ -100,7 +100,7 @@ class CourseRecommendationTest :
                 every { causeLookupPort.findLatestCauses(1L) } returns emptyList()
 
                 shouldThrow<ScreeningRequiredException> {
-                    service().prescribe(1L, PrescribeCourseCommand(bodyPartCode = "BACK", level = 1))
+                    service().recommend(1L, RecommendCourseCommand(bodyPartCode = "BACK", level = 1))
                 }
             }
         }

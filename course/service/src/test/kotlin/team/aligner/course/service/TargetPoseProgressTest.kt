@@ -14,7 +14,7 @@ import team.aligner.course.infrastructure.TargetPoseCatalogPort
 
 /**
  * 「자세 도전 현황」이 **회원이 시작한 코스가 아니라 서비스가 제공하는 핀포즈 전체**를 펼친다는
- * 것을 고정한다. 코스는 추천이지 처방이 아니라서, 아직 시작하지 않은 자세도 화면에 나온다.
+ * 것을 고정한다. 코스는 추천이라 아직 시작하지 않은 자세도 화면에 나온다.
  */
 class TargetPoseProgressTest :
     DescribeSpec({

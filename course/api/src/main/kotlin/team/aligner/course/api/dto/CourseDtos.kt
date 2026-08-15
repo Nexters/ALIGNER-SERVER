@@ -10,15 +10,15 @@ import team.aligner.course.model.view.TodayCourseView
 import java.time.Instant
 
 /**
- * 처방 요청.
+ * 추천 요청.
  *
  * **자세 식별자를 받지 않는다.** 부위와 난이도만 받고 자세는 서버가 catalog 에서 찾는다 —
  * 클라이언트가 자세를 지정하면 고르지 않은 난이도의 코스를 받아갈 수 있다.
  *
  * **원인도 받지 않는다.** 서버가 최신 진단으로 검증한다 (docs/domains.md §2).
  */
-@Schema(description = "코스 처방 요청")
-data class PrescribeCourseRequest(
+@Schema(description = "코스 추천 요청")
+data class RecommendCourseRequest(
     @field:Schema(
         description = "강화할 부위 코드. `GET /screening/body-parts` 의 값이다",
         requiredMode = Schema.RequiredMode.REQUIRED,
@@ -32,8 +32,8 @@ data class PrescribeCourseRequest(
     val level: Int,
 )
 
-@Schema(description = "처방된 코스 식별자")
-data class PrescribeCourseResponse(
+@Schema(description = "추천된 코스 식별자")
+data class RecommendCourseResponse(
     @field:Schema(description = "코스 식별자", example = "20")
     val courseId: Long,
 )

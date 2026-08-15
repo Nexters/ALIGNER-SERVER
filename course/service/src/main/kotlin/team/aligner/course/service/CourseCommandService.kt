@@ -20,9 +20,9 @@ import team.aligner.course.model.exception.ScreeningRequiredException
 import java.time.Instant
 
 interface CourseCommandService {
-    fun prescribe(
+    fun recommend(
         memberId: Long,
-        command: PrescribeCourseCommand,
+        command: RecommendCourseCommand,
     ): CourseIdentity
 
     fun completeStep(
@@ -49,7 +49,7 @@ internal class CourseCommandServiceImpl(
     private val targetPoseCatalogPort: TargetPoseCatalogPort,
 ) : CourseCommandService {
     /**
-     * (강화 부위, 난이도)로 코스를 처방한다.
+     * (강화 부위, 난이도)로 코스를 추천한다.
      *
      * **난이도가 곧 자세 레벨이다.** 회원이 고른 값이 `catalog.target_pose` 의 (부위, 레벨)이고
      * 그 자세의 템플릿으로 코스를 만든다. 하나의 핀포즈가 곧 하나의 코스다
@@ -61,9 +61,9 @@ internal class CourseCommandServiceImpl(
      * **멱등하다.** 같은 자세의 코스가 이미 있으면 새로 만들지 않고 그것을 돌려준다 —
      * `(member_id, target_pose_id)` 유니크가 DB 에서도 같은 것을 막는다.
      */
-    override fun prescribe(
+    override fun recommend(
         memberId: Long,
-        command: PrescribeCourseCommand,
+        command: RecommendCourseCommand,
     ): CourseIdentity {
         val causeCode = findCauseCode(memberId, command.bodyPartCode)
 
@@ -82,7 +82,7 @@ internal class CourseCommandServiceImpl(
         return try {
             val saved =
                 courseRepository.save(
-                    Course.prescribe(memberId = memberId, template = template, causeCode = causeCode),
+                    Course.recommend(memberId = memberId, template = template, causeCode = causeCode),
                 )
             checkNotNull(saved.identity) { "저장된 코스에 식별자가 없다" }
         } catch (e: DataIntegrityViolationException) {
@@ -247,7 +247,7 @@ internal class CourseCommandServiceImpl(
 }
 
 /**
- * 처방 입력.
+ * 추천 입력.
  *
  * **자세 식별자를 받지 않는다.** 부위와 난이도만 받고 자세는 서버가 catalog 에서 찾는다 —
  * 클라이언트가 자세를 지정하면 고르지 않은 난이도의 코스를 받아갈 수 있다.
@@ -256,7 +256,7 @@ internal class CourseCommandServiceImpl(
  * 명령에 섞으면 클라이언트가 보낸 본문으로 남의 회원 식별자를 넣을 여지가 생긴다
  * (docs/architecture.md §9).
  */
-data class PrescribeCourseCommand(
+data class RecommendCourseCommand(
     val bodyPartCode: String,
     val level: Int,
 )

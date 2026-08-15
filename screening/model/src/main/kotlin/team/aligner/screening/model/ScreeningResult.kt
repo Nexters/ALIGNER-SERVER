@@ -11,7 +11,7 @@ import java.time.Instant
  *
  * **부위를 입력으로 받지 않는다.** 온보딩이 자세 체감만 받고 부위는 판별 결과 이후에 고르는
  * 순서라, 이 애그리거트에 들어오는 것은 `answers` 뿐이다 (docs/domains.md §4-2). 판별된
- * **원인 부위**는 `causes` 가 갖는다 — "느끼는 부위가 아니라 원인 부위를 처방한다"(`AGENTS.md` §1)는
+ * **원인 부위**는 `causes` 가 갖는다 — "느끼는 부위가 아니라 원인 부위를 추천한다"(`AGENTS.md` §1)는
  * 이제 회원이 고른 부위와의 대비가 아니라 원인 판별 자체로 성립한다.
  *
  * Spring Data JDBC 에는 더티체킹이 없다. [determineCauses] 는 새 인스턴스를 반환하고 호출부가
@@ -42,7 +42,7 @@ data class ScreeningResult(
                 .fold(0) { sum, rule -> sum + rule.weight }
 
         if (scoreByCause.isEmpty()) {
-            // 빈 결과를 저장하면 "원인 0 개인 진단" 이 남아 course 가 처방할 것을 못 찾는다.
+            // 빈 결과를 저장하면 "원인 0 개인 진단" 이 남아 course 가 추천할 것을 못 찾는다.
             throw CauseNotDeterminedException()
         }
 

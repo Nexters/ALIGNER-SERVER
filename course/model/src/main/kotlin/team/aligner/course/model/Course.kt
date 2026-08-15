@@ -5,7 +5,7 @@ import team.aligner.course.model.exception.EmptyCourseTemplateException
 import java.time.Instant
 
 /**
- * 회원에게 처방된 코스. 애그리거트 루트다.
+ * 회원에게 추천된 코스. 애그리거트 루트다.
  *
  * **하나의 핀포즈가 곧 하나의 코스다.** 회원이 고른 (강화 부위, 난이도)가 곧
  * `catalog.target_pose` 의 (부위, 레벨)이고 그 자세의 템플릿으로 만들어진다
@@ -22,7 +22,7 @@ data class Course(
     val memberId: Long,
     val templateId: Long,
     val targetPoseId: Long,
-    /** 처방 시점에 검증에 쓴 원인의 스냅샷. 재진단으로 원인이 바뀌어도 남는다. */
+    /** 추천 시점에 검증에 쓴 원인의 스냅샷. 재진단으로 원인이 바뀌어도 남는다. */
     val causeCode: String?,
     val status: CourseStatus,
     val steps: List<CourseStep>,
@@ -32,7 +32,7 @@ data class Course(
      * 낙관적 락 버전. 저장 어댑터가 쓰는 값이라 도메인 규칙에는 관여하지 않는다.
      *
      * 애그리거트에 두는 것은 저장 시점에 "어떤 버전을 읽고 고쳤는가" 를 알아야 하기 때문이다.
-     * 새로 처방된 코스는 null 이고, 저장 뒤 값이 채워진다.
+     * 새로 추천된 코스는 null 이고, 저장 뒤 값이 채워진다.
      */
     val version: Long? = null,
 ) {
@@ -92,12 +92,12 @@ data class Course(
          * 템플릿을 회원의 코스로 복사한다.
          *
          * **복사하는 이유는 진행 상태가 회원별이기 때문**이고, 템플릿 seed 가 나중에 바뀌어도
-         * 이미 처방된 코스의 구성이 흔들리면 안 되기 때문이다.
+         * 이미 추천된 코스의 구성이 흔들리면 안 되기 때문이다.
          *
-         * 스텝이 없는 템플릿은 처방하지 않는다. 진행도의 분모가 0 이 되어 "완료했는데 완성이
+         * 스텝이 없는 템플릿은 추천하지 않는다. 진행도의 분모가 0 이 되어 "완료했는데 완성이
          * 아닌" 코스가 남는다.
          */
-        fun prescribe(
+        fun recommend(
             memberId: Long,
             template: CourseTemplate,
             causeCode: String?,

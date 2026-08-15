@@ -26,7 +26,7 @@ enum class CourseErrorCode(
     COURSE_TEMPLATE_NOT_FOUND(422, "COURSE_TEMPLATE_NOT_FOUND", "고른 부위와 난이도로는 코스를 만들 수 없습니다"),
 
     /**
-     * 진단하지 않은 회원이 처방을 요청했다. 화면은 이때 온보딩으로 보낸다.
+     * 진단하지 않은 회원이 추천을 요청했다. 화면은 이때 온보딩으로 보낸다.
      */
     SCREENING_REQUIRED(409, "SCREENING_REQUIRED", "먼저 자가 스크리닝을 받아야 합니다"),
 

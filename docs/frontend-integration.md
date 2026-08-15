@@ -14,7 +14,7 @@
 | `member` | 구현됨 | 프로필 조회, 온보딩 입력(경력·키·몸무게·강화 부위/난이도) 수정, 회원탈퇴 |
 | `catalog` | 구현됨 | 목표 자세 목록·상세, 운동 상세 조회 |
 | `screening` | 구현됨 | 부위 목록, 자세 체감 제출·원인 판별, 최신 결과 조회 |
-| `course` | 구현됨 | 코스 처방, 오늘의 코스, 코스 개요, 자세 도전 현황 |
+| `course` | 구현됨 | 코스 추천, 오늘의 코스, 코스 개요, 자세 도전 현황 |
 | `training` | 구현됨 | 세션 시작·복구·완료, 완료 리포트(소모 칼로리·연속 달성), 핀포즈 직후 체감 기록. 완료가 코스 진행도에 반영된다 |
 
 현재 Liquibase changelog는 다섯 도메인의 **테이블만 생성**한다. 감수 콘텐츠
@@ -542,7 +542,7 @@ function resolveTargetPoseImage(key: string | null): string | null {
 | 404 | `COURSE_STEP_NOT_FOUND` | 세션을 시작하려는 코스 스텝이 없음 |
 | 422 | `EMPTY_COURSE_STEP` | 스텝에 운동이 편성돼 있지 않음 |
 | 400 | `UNKNOWN_EXERCISE_RECORD` | 완료 요청에 이 세션에 없는 운동이 섞임 |
-| 404 | `IN_PROGRESS_COURSE_NOT_FOUND` | 진행 중인 코스가 없음. **코스 처방으로 보낸다** |
+| 404 | `IN_PROGRESS_COURSE_NOT_FOUND` | 진행 중인 코스가 없음. **코스 추천으로 보낸다** |
 | 404 | `SCREENING_RESULT_NOT_FOUND` | 아직 진단한 적이 없음. **온보딩으로 보낸다** |
 | 404 | `TARGET_POSE_NOT_FOUND` | 존재하지 않는 목표 자세 ID |
 | 404 | `EXERCISE_NOT_FOUND` | 존재하지 않는 운동 ID |
@@ -613,7 +613,7 @@ HTTP 상태만 보지 말고 가능하면 `code`를 기준으로 화면 동작�
 | 원인 판별 규칙 | `screening/model`의 `ScreeningResult.determineCauses` | 구현됨 |
 | 부위·원인·분기 규칙 데이터 | `screening/schema`의 Liquibase seed | 현재 seed 미구현 |
 | CORS 허용 오리진 | `support-web`의 `SecurityConfig`·`CorsProperties` | 구현됨 |
-| 코스 처방·진행도·도장 | `course/api`, `course/service`, `course/model` | 구현됨 |
+| 코스 추천·진행도·도장 | `course/api`, `course/service`, `course/model` | 구현됨 |
 | 코스 템플릿·스텝 데이터 | `course/schema`의 Liquibase seed | 현재 seed 미구현 |
 | 세션 수행·기록 | `training/api`, `training/service`, `training/model` | 구현됨 |
 
@@ -671,7 +671,7 @@ Swagger/OpenAPI는 기본적으로 꺼져 있다. 확인이 필요하면 서버 
 ## 코스 API
 
 **하나의 핀포즈가 곧 하나의 코스다.** 회원이 고른 (강화 부위, 난이도)가 곧 목표 자세의
-(부위, 레벨)이고, 그 자세의 코스가 처방된다. 일자 개념이 없다 — "오늘의 코스"는 **진행 중인
+(부위, 레벨)이고, 그 자세의 코스가 추천된다. 일자 개념이 없다 — "오늘의 코스"는 **진행 중인
 코스**의 다른 이름이다.
 
 ### `POST /courses`
@@ -716,7 +716,7 @@ Content-Type: application/json
 
 ### `GET /courses/today`
 
-홈 카드다. 진행 중인 코스가 여럿이면 가장 최근에 처방된 것이 온다.
+홈 카드다. 진행 중인 코스가 여럿이면 가장 최근에 추천된 것이 온다.
 
 ```json
 {
@@ -738,7 +738,7 @@ Content-Type: application/json
 ```
 
 **진행 중인 코스가 없으면 404 `IN_PROGRESS_COURSE_NOT_FOUND`다.** 화면은 이 404를 "코스를
-처방받아야 한다"는 신호로 읽는다.
+추천받아야 한다"는 신호로 읽는다.
 
 **모르는 값에 서버가 0을 넣지 않는다.** `estimatedKcal` · `estimatedDurationSeconds` ·
 `targetPoseLevel`은 계산이나 조회가 성립하지 않으면 `null`이다.

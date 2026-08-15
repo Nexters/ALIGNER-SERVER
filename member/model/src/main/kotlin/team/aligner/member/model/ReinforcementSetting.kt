@@ -5,7 +5,7 @@ import team.aligner.member.model.exception.InvalidReinforcementSettingException
 /**
  * 회원이 고른 **강화 부위와 난이도**.
  *
- * 진단 결과를 본 뒤 고르고, 마이페이지의 "난이도 조정하기" 로 언제든 바뀐다. 코스 처방
+ * 진단 결과를 본 뒤 고르고, 마이페이지의 "난이도 조정하기" 로 언제든 바뀐다. 코스 추천
  * 시점의 일회성 입력이 아니라 지속되는 설정이라 `member` 가 갖는다 (docs/domains.md §4-1).
  *
  * **둘을 한 타입으로 묶는다.** 한 화면에서 같이 고르므로 부위만 있고 난이도가 없는 상태가

@@ -18,7 +18,7 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 | 도메인 수 | **5개** — `member` `screening` `catalog` `course` `training` |
 | PostgreSQL schema | 도메인명과 동일 (`member` `screening` `catalog` `course` `training`) |
 | 도메인 간 의존 | **단방향** — `catalog` ← `course` ← `training`, `screening` ← `course`, `member` ← `course` |
-| 마스터 데이터 소유 | 운동·자세·근육은 `catalog`, 자세 체감 → 원인 분기 규칙은 `screening`, 처방 규칙은 `course` |
+| 마스터 데이터 소유 | 운동·자세·근육은 `catalog`, 자세 체감 → 원인 분기 규칙은 `screening`, 추천 규칙은 `course` |
 | 도장(`Stamp`) | `course` 소유 (달성 판단은 `course`, 수행 기록은 `training`). **판정 = 코스의 전체 스텝 완료** (§7-8) |
 | 자세 포인트(`PoseCheckpoint`) | **만들지 않는다.** 완료 판정은 "운동 수행 + 시간 종료"다 (§4-3) |
 | 총 모듈 수 | **45개** — 도메인 41 + 루트 4. `course`에 `adapter-member`가 늘었다(§3) |
@@ -31,7 +31,7 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 | `member` | 회원, 카카오 식별자, 프로필, 신체 정보 | 1, 8 |
 | `screening` | 부위, 자세 체감 → 원인 분기 규칙, 회원 응답과 판별된 원인 | 2, 3(앞) |
 | `catalog` | 보강 운동·목표 자세·근육, 음성 큐잉 대본(번역본), YMove 연동(영상) | 5, 7(정의) |
-| `course` | 원인별 코스 템플릿, 회원별 처방 코스·스텝·진행 상태, 도장·해금 | 3(뒤), 4, 7 |
+| `course` | 원인별 코스 템플릿, 회원별 추천 코스·스텝·진행 상태, 도장·해금 | 3(뒤), 4, 7 |
 | `training` | 세션 시작·완료·수행 기록, 세션의 소모 칼로리 스냅샷·핀포즈 직후 체감, 연속 달성 조회 | 6 |
 
 ### 핵심 도메인 루프(`AGENTS.md` §2)와의 대응
@@ -40,7 +40,7 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 ① 부위 선택                     screening
 ② 자세 체감 선택                screening
 ③ 응답 분기 → ④ 원인 판별       screening
-⑤ 원인별 코스 처방              course  (원인은 screening:contract로 읽음)
+⑤ 원인별 코스 추천              course  (원인은 screening:contract로 읽음)
 ⑥ 세션 수행 → 완료 기록         training
 ⑦ 세션 완료                     training 이 기록 → course 로 push
    └ 완수 판정 → 도장            course   (코스의 전체 스텝 완료, §7-8)
@@ -60,7 +60,7 @@ Aligner 서버의 도메인 경계 확정본. 2026-07-27 결정, 2026-08-03 개�
 (`docs/architecture.md` §6). `course`와 `training` 두 도메인이 모두 읽는다.
 YMove 연동이 붙은 뒤에도 이 성질은 유지된다 — `catalog`는 YMove를 **읽기만** 한다(§4-3-1).
 덕분에 외부 시스템을 아는 도메인이 하나로 묶인다는 이점이 하나 더 생겼다.
-한 도메인에 얹으면 그 도메인의 `contract`가 "처방 계약 + 운동 카탈로그 조회"로 넓어지는데,
+한 도메인에 얹으면 그 도메인의 `contract`가 "추천 계약 + 운동 카탈로그 조회"로 넓어지는데,
 §7은 `contract`를 좁게 만들라고 한다. Command가 없어 모듈 수 대비 실제 코드량은 작다.
 
 ### `course`가 `training`을 의존하지 않는 이유 — 기록은 training, 판단은 course
@@ -75,13 +75,13 @@ YMove 연동이 붙은 뒤에도 이 성질은 유지된다 — `catalog`는 YMo
 분리 자체는 유지한다 — 판단이 `course`에 있다는 성질이 그대로이고, `training`에 완수 판정이
 생기면 잘못 나눈 것이라는 기준도 그대로다.
 
-### `screening`이 원인까지, `course`가 처방부터
+### `screening`이 원인까지, `course`가 추천부터
 
 MVP 기능 3("스크리닝 응답에 따른 보강 영역과 목표 자세 매핑")이 두 도메인에 걸친다.
 경계는 **원인(`Cause`)**이다. `screening`은 응답을 원인 코드로 바꾸는 데까지, `course`는
 원인 코드를 코스로 바꾸는 데부터 책임진다. 원인 코드는 값으로만 넘어가고 FK는 걸지 않는다.
 
-처방 요청은 `course`가 받고, 그 회원의 최신 원인을 `screening:contract`로 읽는다.
+추천 요청은 `course`가 받고, 그 회원의 최신 원인을 `screening:contract`로 읽는다.
 클라이언트가 원인 코드를 들고 `course`를 다시 호출하는 방식은 원인 위조가 가능해서 쓰지 않는다.
 
 **단, 원인은 검증이 아니라 스냅샷이다.** 코스는 처방이 아니라 **추천**이다 — 온보딩에서 한 번
@@ -206,7 +206,7 @@ member.member    member_id, kakao_id(uk, null), nickname, profile_image_url,
 현재 값을 거슬러 올라가 읽지 않는다.
 
 **강화 부위와 난이도도 `member`가 갖는다.** 회원은 진단 결과를 본 뒤 강화할 부위와 난이도를
-고르는데(§4-2), 이것이 코스 처방 시점의 일회성 입력이 아니라 **지속되는 설정**이다 —
+고르는데(§4-2), 이것이 코스 추천 시점의 일회성 입력이 아니라 **지속되는 설정**이다 —
 마이페이지가 "등근육을 난이도 하로 강화하고 있어요"를 보여주고 "난이도 조정하기"로 언제든
 바꾼다. 신체 정보를 `member`에 둔 것과 같은 이유다.
 
@@ -306,12 +306,12 @@ seed의 `weight`로 조절**한다 — 감수 결과가 바뀌어도 changeset�
 
 #### 판별된 원인이 곧 부위를 정한다
 
-`AGENTS.md` §1의 *"느끼는 부위가 아니라 원인 부위를 처방한다"* 는 그대로다. 다만 이제
+`AGENTS.md` §1의 *"느끼는 부위가 아니라 원인 부위를 추천한다"* 는 그대로다. 다만 이제
 **회원이 고른 부위와의 대비가 아니라 원인 판별 자체로** 성립한다 — 회원은 자세만 고르고,
 부위는 서버가 판별한 원인이 결정한다.
 
 - `screening_cause` — 판별된 원인. `cause.body_part_code`가 곧 원인 부위이고, `course`가
-  처방에 쓰는 값이다
+  추천에 쓰는 값이다
 - `screening_result.perceived_body_part_code` — 옛 온보딩의 흔적. 항상 NULL이다
 
 **원인이 복수다.** 진단 결과 화면이 원인 부위를 순위로 나열하므로 `screening_result` 하나에
@@ -348,7 +348,7 @@ catalog.exercise_voice_cue  cue_id(pk), exercise_id, display_order,
                             content                                              [seed]
 ```
 
-`catalog`는 순수 카탈로그다. "어떤 원인에 어떤 운동을 쓰는가"는 처방 규칙이므로 `course`가 갖는다.
+`catalog`는 순수 카탈로그다. "어떤 원인에 어떤 운동을 쓰는가"는 추천 규칙이므로 `course`가 갖는다.
 여기에 `cause_code`를 두지 않는다.
 
 #### 핀포즈는 `exercise`와 `target_pose` 양쪽에 행을 갖는다
@@ -583,7 +583,7 @@ interface PoseVideoPort {
 | --- | --- |
 | 애그리거트 | `Course`(루트) + `CourseStep` + `CourseStepExercise`, `Stamp`(루트) |
 | 마스터 | `CourseTemplate` + `TemplateStep`, 자세 사다리 — seed |
-| Command | 코스 처방, 스텝 완료, 세션 완료 반영(도장·해금) |
+| Command | 코스 추천, 스텝 완료, 세션 완료 반영(도장·해금) |
 | Query | 코스 상세(스텝+운동), 진행도, 획득한 도장 |
 | 모듈 | 기본 6 + `contract` + `adapter-screening` + `adapter-catalog` + `adapter-member` = **10** |
 
@@ -618,18 +618,18 @@ course.stamp                    stamp_id(pk), member_id, target_pose_id, course_
   코스**다(§7-9 해소).
 - **`unlock_required_target_pose_id`가 없다.** 회원이 난이도를 직접 고르므로 해금 사다리가
   없다(§7-2 재해소).
-- **`course_template.cause_code`가 없다.** 처방 입력이 (부위, 레벨)로 바뀌었다. 원인은 여전히
+- **`course_template.cause_code`가 없다.** 추천 입력이 (부위, 레벨)로 바뀌었다. 원인은 여전히
   쓰이되 "회원이 고른 부위가 실제 진단 결과에 있는가"를 **검증**하는 데만 쓴다(§2). 검증에 쓴
   원인은 `course.cause_code`에 스냅샷으로 남는다 — 재진단으로 원인이 바뀌어도 이 코스가 왜
-  처방됐는지는 남아야 한다.
-- **`(member_id, target_pose_id)` 유니크가 처방 멱등성을 만든다.** 같은 요청이 재시도돼도 새
+  추천됐는지는 남아야 한다.
+- **`(member_id, target_pose_id)` 유니크가 추천 멱등성을 만든다.** 같은 요청이 재시도돼도 새
   코스가 생기지 않고 이미 있는 코스가 돌아간다. 조회와 저장 사이의 틈은 제약 위반을 잡아
   다시 읽는 것으로 메운다 — 조회만으로는 동시 요청을 막을 수 없다.
 - **도장은 `ON CONFLICT DO NOTHING` 한 문장으로 넣는다.** "있는지 보고 없으면 넣는다" 로
   짜면 두 요청이 확인을 함께 통과해 유니크 제약에 걸린다. 새로 붙었는지는 저장 결과가 알려주고,
   서비스가 "방금 완료됐나" 로 짐작하지 않는다.
 - **`IN_PROGRESS` 코스는 회원당 여럿일 수 있다.** 도전 현황 화면이 `도전 중 3`을 동시에
-  보여주므로 하나로 제한하지 않는다. 홈의 "오늘의 코스" 는 그중 **가장 최근에 처방된 것**이다.
+  보여주므로 하나로 제한하지 않는다. 홈의 "오늘의 코스" 는 그중 **가장 최근에 추천된 것**이다.
 - **자세 도전 현황은 `catalog`의 자세 전체가 목록이고 회원 코스는 그 위에 얹는다.** 시작한
   코스만 내리면 화면의 "전체 9"가 성립하지 않는다. 시작하지 않은 자세는 코스 쪽 값이 전부
   null 로 나가고 `0 / 4` 가 아니다 — 0/4 는 "시작했는데 아직 한 스텝도 안 함"이라 다르다.
@@ -706,7 +706,7 @@ training:    model infrastructure service repository-jdbc api schema
 **도메인 5개가 모두 들어왔다.** `catalog`의 `adapter-ymove`만 §7-4·5·6이 정해진 뒤 후속으로
 붙인다.
 
-`course`의 adapter 가 셋인 것은 처방에 원인 스냅샷(`screening`), 자세·운동 조회(`catalog`),
+`course`의 adapter 가 셋인 것은 추천에 원인 스냅샷(`screening`), 자세·운동 조회(`catalog`),
 칼로리 계산용 몸무게(`member`)가 모두 필요하기 때문이다(§3).
 
 도메인이 다 구현되면 `application-api`는 5개 도메인의 `api` · `repository-jdbc` · `schema` ·
@@ -797,7 +797,7 @@ training:    model infrastructure service repository-jdbc api schema
 9. ~~**오늘 코스와 내일 코스의 차이.**~~ **해소 — 내일의 코스가 없다.** 살아 있는 화면에
    "내일 코스"가 나오는 곳이 없고, 유일한 언급이 deprecated 처리된 체크 화면이었다.
    **진행 중인 코스가 곧 오늘의 코스**이므로 `course.scheduled_on`을 만들지 않는다.
-   진행 중인 코스가 여럿이면 가장 최근에 처방된 것을 홈에 그린다.
+   진행 중인 코스가 여럿이면 가장 최근에 추천된 것을 홈에 그린다.
 10. **MET 값의 출처와 보간.** 레벨별 값이 표준 참조의 보간이라 감수가 필요하다. 운동 단위로
     값을 부여하는 이상 준비 동작과 핀포즈에 각각 무엇을 줄지도 감수 대상이다.
 11. **`AGENTS.md` 갱신.** §1 핵심 루프의 `PoseCheckpoint 확인 → Stamp/다음 코스 보강`,

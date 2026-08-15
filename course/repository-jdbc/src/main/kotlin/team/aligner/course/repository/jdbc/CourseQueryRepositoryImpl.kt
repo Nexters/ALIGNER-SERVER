@@ -22,7 +22,7 @@ internal class CourseQueryRepositoryImpl(
      * 홈의 "오늘의 코스". **진행 중인 코스가 곧 오늘의 코스다** — 일자 컬럼이 없다
      * (docs/domains.md §4-4).
      *
-     * 진행 중인 코스가 여럿이면 가장 최근에 처방된 것을 집는다. 회원이 난이도를 바꿔 다른
+     * 진행 중인 코스가 여럿이면 가장 최근에 추천된 것을 집는다. 회원이 난이도를 바꿔 다른
      * 자세의 코스를 새로 받으면 그것이 지금 하고 있는 코스이기 때문이다.
      */
     override fun findInProgressCourseSkeleton(memberId: Long): CourseSkeleton? {
