@@ -34,6 +34,7 @@ internal class SessionRepositoryImpl(
                     completedAt = session.completedAt?.truncatedTo(ChronoUnit.MICROS),
                     estimatedKcal = session.estimatedKcal,
                     perceivedResult = session.perceivedResult?.name,
+                    version = session.version,
                     records =
                         session.records
                             .map {
@@ -81,4 +82,5 @@ private fun SessionEntity.toModel(): Session =
         estimatedKcal = estimatedKcal,
         // DDL 의 CHECK 이 값 집합을 강제하므로 valueOf 가 실패하면 스키마가 어긋난 것이다.
         perceivedResult = perceivedResult?.let(PerceivedResult::valueOf),
+        version = version,
     )

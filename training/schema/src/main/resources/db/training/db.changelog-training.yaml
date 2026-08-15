@@ -39,3 +39,12 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/003-add-session-report.sql
             relativeToChangelogFile: true
+
+  - changeSet:
+      id: training-0005-add-session-version
+      author: aligner
+      comment: 동시 세션 완료가 서로의 수행 기록을 덮지 않도록 낙관적 락 추가
+      changes:
+        - sqlFile:
+            path: ddl/004-add-session-version.sql
+            relativeToChangelogFile: true

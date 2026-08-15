@@ -19,10 +19,11 @@ internal class CourseStepAdapter(
     private val courseStepContract: CourseStepContract,
 ) : CourseStepPort {
     override fun findStep(
+        memberId: Long,
         courseId: Long,
         stepOrder: Int,
     ): CourseStepLookup? =
-        courseStepContract.findStep(courseId, stepOrder)?.let { step ->
+        courseStepContract.findStep(memberId, courseId, stepOrder)?.let { step ->
             CourseStepLookup(
                 courseId = step.courseId,
                 courseStepId = step.courseStepId,

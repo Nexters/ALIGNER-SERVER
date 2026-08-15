@@ -1,6 +1,7 @@
 package team.aligner.training.repository.jdbc
 
 import org.springframework.data.annotation.Id
+import org.springframework.data.annotation.Version
 import org.springframework.data.relational.core.mapping.MappedCollection
 import org.springframework.data.relational.core.mapping.Table
 import java.time.Instant
@@ -26,6 +27,16 @@ internal data class SessionEntity(
     val completedAt: Instant?,
     val estimatedKcal: Int?,
     val perceivedResult: String?,
+    /**
+     * 낙관적 락. **@Version 이 붙으면 Spring Data JDBC 가 "새 행인가" 를 식별자가 아니라 이
+     * 값으로 판단한다** — null 이면 insert, 값이 있으면 version 을 조건에 넣은 update 다.
+     *
+     * 동시에 들어온 두 완료 요청이 서로의 수행 기록을 덮는 것을 막는다. 충돌하면
+     * OptimisticLockingFailureException 이고 서비스가 다시 읽어 재시도한다 (CourseEntity 와
+     * 같은 형태다).
+     */
+    @Version
+    val version: Long?,
     @MappedCollection(idColumn = "session_id")
     val records: Set<SessionExerciseRecordEntity>,
 )

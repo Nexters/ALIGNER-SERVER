@@ -17,10 +17,17 @@ internal class CourseStepContractImpl(
     private val courseRepository: CourseRepository,
 ) : CourseStepContract {
     override fun findStep(
+        memberId: Long,
         courseId: Long,
         stepOrder: Int,
     ): CourseStepResponse? {
-        val course = courseRepository.findByIdentity(CourseIdentity.of(courseId)) ?: return null
+        // 남의 코스도 없는 코스와 같이 null 이다. 다른 조회가 전부 memberId 를 조건에 넣는데
+        // 여기만 빠져 있으면 그 경로로 코스 구성이 새어나간다.
+        val course =
+            courseRepository
+                .findByIdentity(CourseIdentity.of(courseId))
+                ?.takeIf { it.memberId == memberId }
+                ?: return null
         val step = course.steps.find { it.stepOrder == stepOrder } ?: return null
         return CourseStepResponse(
             courseId = courseId,

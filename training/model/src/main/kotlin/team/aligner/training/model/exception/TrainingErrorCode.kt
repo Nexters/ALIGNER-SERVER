@@ -29,4 +29,9 @@ enum class TrainingErrorCode(
      * 완료 요청에 이 세션의 것이 아닌 수행 기록이 섞여 있다.
      */
     UNKNOWN_EXERCISE_RECORD(400, "UNKNOWN_EXERCISE_RECORD", "이 세션에 없는 운동입니다"),
+
+    /**
+     * 완료 요청에 같은 운동이 두 번 실려 있다. 어느 값이 맞는지 서버가 고를 수 없다.
+     */
+    DUPLICATE_EXERCISE_RECORD(400, "DUPLICATE_EXERCISE_RECORD", "같은 운동의 수행 결과가 중복됐습니다"),
 }

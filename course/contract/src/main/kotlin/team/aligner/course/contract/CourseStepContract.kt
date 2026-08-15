@@ -9,7 +9,13 @@ package team.aligner.course.contract
  * 들고 오게 된다.
  */
 interface CourseStepContract {
+    /**
+     * **`memberId` 를 조건에 넣는다.** 없으면 다른 회원이 `courseId` 를 추측해 남의 코스 구성을
+     * 읽고 그 코스로 세션까지 만들 수 있다. 남의 코스와 없는 코스를 구분하지 않고 둘 다 null
+     * 이다 — 구분해서 알려주면 존재 여부가 새어나간다 (course 의 loadOwned 와 같은 판단).
+     */
     fun findStep(
+        memberId: Long,
         courseId: Long,
         stepOrder: Int,
     ): CourseStepResponse?

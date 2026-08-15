@@ -12,3 +12,5 @@ class CourseStepNotFoundException : BaseException(TrainingErrorCode.COURSE_STEP_
 class EmptyCourseStepException : BaseException(TrainingErrorCode.EMPTY_COURSE_STEP)
 
 class UnknownExerciseRecordException : BaseException(TrainingErrorCode.UNKNOWN_EXERCISE_RECORD)
+
+class DuplicateExerciseRecordException : BaseException(TrainingErrorCode.DUPLICATE_EXERCISE_RECORD)

@@ -1,5 +1,6 @@
 package team.aligner.training.service
 
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.transaction.annotation.Transactional
 import team.aligner.training.infrastructure.CourseProgressPort
 import team.aligner.training.infrastructure.CourseStepExerciseLookup
@@ -79,8 +80,10 @@ internal class SessionServiceImpl(
         memberId: Long,
         command: StartSessionCommand,
     ): SessionView {
+        // 소유권 조건을 course 가 걸도록 memberId 를 넘긴다. 남의 코스면 없는 코스와 같은
+        // 404 다 — 구분해서 알려주면 존재 여부가 새어나간다.
         val step =
-            courseStepPort.findStep(command.courseId, command.stepOrder)
+            courseStepPort.findStep(memberId, command.courseId, command.stepOrder)
                 ?: throw CourseStepNotFoundException()
 
         val saved =
@@ -119,32 +122,16 @@ internal class SessionServiceImpl(
      * **멱등하다.** 이미 완료된 세션이면 기록을 덮어쓰지 않고, push 는 다시 하되 course 가
      * 흡수해 진행도가 두 번 오르지 않는다. 재시도로 들어온 호출에서는 `stampAcquired` 가
      * false 로 돌아온다.
+     *
+     * **push 는 재시도에서도 한다.** course 계약이 재호출을 멱등하게 흡수하고, 그것이 진행도
+     * 반영의 유일한 경로다 — 여기서 건너뛰면 첫 요청이 실패한 경우 진행도가 영구히 안 오른다.
      */
     override fun complete(
         memberId: Long,
         sessionId: Long,
         command: CompleteSessionCommand,
     ): SessionView {
-        val session = findOwned(memberId, sessionId)
-        // **재시도인지를 complete 전에 본다.** 완료된 세션은 complete 가 같은 인스턴스를
-        // 돌려주므로 그 뒤로는 최초 완료와 재시도를 구분할 수 없다.
-        val retry = session.completed
-
-        val completed =
-            session.complete(
-                results =
-                    command.exerciseRecords.map {
-                        ExerciseResult(
-                            courseStepExerciseId = it.courseStepExerciseId,
-                            completed = it.completed,
-                            performedDurationSeconds = it.performedDurationSeconds,
-                        )
-                    },
-                at = Instant.now(),
-            )
-        // 이미 완료된 세션이면 complete 가 같은 인스턴스를 돌려준다. 그래도 저장하는 것은
-        // 분기를 하나 줄이기 위해서이고, 값이 같으므로 덮어써도 달라지는 것이 없다.
-        val saved = sessionRepository.save(completed)
+        val (saved, retry) = saveCompleted(memberId, sessionId, command)
 
         val progress =
             courseProgressPort.completeSession(
@@ -191,6 +178,56 @@ internal class SessionServiceImpl(
                     targetPoseCompleted = progress.targetPoseCompleted,
                 ),
         )
+    }
+
+    /**
+     * 수행 결과를 세션에 적용해 저장한다. 낙관적 락 충돌이면 **다시 읽어 한 번 재시도**한다
+     * (course 의 saveCompletedStep 과 같은 형태다).
+     *
+     * 애그리거트를 통째로 저장하므로, 두 완료 요청이 동시에 같은 `IN_PROGRESS` 세션을 읽으면
+     * 나중 저장이 앞선 수행 기록을 덮는다. `version` 이 그것을 실패로 바꾸고, 여기서 최신
+     * 상태를 다시 읽어 적용한다. 다시 읽으면 앞선 완료가 보이므로 두 번째 시도는 기록을
+     * 덮지 않고 **재시도로 판정된다.**
+     *
+     * 두 번째도 충돌하면 그대로 올린다 — 계속 미루기보다 클라이언트가 재시도하는 편이 낫다.
+     *
+     * 두 번째 값이 "재시도인가" 다. **`complete` 전에 봐야 한다** — 완료된 세션은 `complete`
+     * 가 같은 인스턴스를 돌려주므로 그 뒤로는 최초 완료와 재시도를 구분할 수 없다.
+     */
+    private fun saveCompleted(
+        memberId: Long,
+        sessionId: Long,
+        command: CompleteSessionCommand,
+    ): Pair<Session, Boolean> =
+        try {
+            applyCompletion(memberId, sessionId, command)
+        } catch (_: OptimisticLockingFailureException) {
+            applyCompletion(memberId, sessionId, command)
+        }
+
+    private fun applyCompletion(
+        memberId: Long,
+        sessionId: Long,
+        command: CompleteSessionCommand,
+    ): Pair<Session, Boolean> {
+        val session = findOwned(memberId, sessionId)
+        val retry = session.completed
+
+        val completed =
+            session.complete(
+                results =
+                    command.exerciseRecords.map {
+                        ExerciseResult(
+                            courseStepExerciseId = it.courseStepExerciseId,
+                            completed = it.completed,
+                            performedDurationSeconds = it.performedDurationSeconds,
+                        )
+                    },
+                at = Instant.now(),
+            )
+        // 이미 완료된 세션이면 complete 가 같은 인스턴스를 돌려준다. 그래도 저장하는 것은
+        // 분기를 하나 줄이기 위해서이고, 값이 같으므로 덮어써도 달라지는 것이 없다.
+        return sessionRepository.save(completed) to retry
     }
 
     /**
@@ -274,7 +311,7 @@ internal class SessionServiceImpl(
      * 않는다.
      */
     private fun lookupStepExercises(session: Session): List<CourseStepExerciseLookup> =
-        courseStepPort.findStep(session.courseId, session.stepOrder)?.exercises ?: emptyList()
+        courseStepPort.findStep(session.memberId, session.courseId, session.stepOrder)?.exercises ?: emptyList()
 
     /**
      * catalog 값을 붙여 화면 모델로 만든다. 운동마다 부르지 않고 한 번에 읽는다.
