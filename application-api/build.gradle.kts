@@ -37,8 +37,10 @@ dependencies {
     // 구현체 Bean 은 catalog:api → catalog:service 로 런타임 전이돼 등록된다. member 가
     // contract 를 명시한 것은 §9 가 support-web 과 함께 조립하라고 못박았기 때문이다.
 
-    // catalog:adapter-ymove 가 없다. 영상 연동은 docs/domains.md §7-4·5·6 이 정해진 뒤
-    // 후속 이슈로 붙인다.
+    // 재생 URL 을 YMove 에서 읽는다 (docs/domains.md §4-3-1). 이 줄을 빼면 PoseVideoPort
+    // Bean 이 없어 **기동이 실패해야 정상이다** — CatalogServiceAutoConfiguration 이
+    // ExerciseQueryService 를 만들 때 요구한다 (§9 의 adapter-auth 와 같다).
+    implementation(project(":catalog:adapter-ymove"))
 
     // course — 코스 처방·오늘의 코스·진행도·도장 (docs/architecture.md §10 8 단계).
     implementation(project(":course:api"))
@@ -65,4 +67,18 @@ dependencies {
     // adapter 가 의존하는 상대 도메인 contract 를 함께 선언한다 (§5).
     implementation(project(":course:contract"))
     // training:contract 가 없다. training 을 읽는 도메인이 없다 (docs/domains.md §3).
+
+    // 조립이 실제로 서는지는 띄워봐야 안다. Bean 누락·AutoConfiguration.imports 누락은
+    // 컴파일에 걸리지 않는다 (docs/architecture.md §5). 목록은 aligner.repository-jdbc 가
+    // 통합 테스트에 넣는 것과 같다 — liquibase starter 는 boot-application 이 이미 준다.
+    integrationTestImplementation(libs.spring.boot.starter.test)
+    integrationTestImplementation(libs.spring.boot.testcontainers)
+    integrationTestImplementation(libs.testcontainers.postgresql)
+    integrationTestImplementation(libs.testcontainers.junit.jupiter)
+
+    // E2E 가 외부 경계를 통제하려면 그 타입이 보여야 한다. 카카오와 YMove 를 실제로 치면
+    // 테스트가 남의 서버 상태에 매달리고, YMove 는 월 고유 운동 상한까지 있다.
+    // **integrationTest 스코프라 런타임 산출물에 들어가지 않는다** — 조립 모듈이
+    // catalog:infrastructure 를 컴파일에 보지 못한다는 계층 규칙은 그대로다.
+    integrationTestImplementation(project(":catalog:infrastructure"))
 }
