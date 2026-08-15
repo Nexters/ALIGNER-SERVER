@@ -31,7 +31,7 @@ internal class ExerciseQueryRepositoryImpl(
             jdbcClient
                 .sql(
                     """
-                    SELECT exercise_id, name, image_asset_key, video_url,
+                    SELECT exercise_id, name, image_asset_key, thumbnail_url,
                            default_set_count, default_rep_count,
                            default_duration_seconds, met_value, difficulty, category, caution_note
                     FROM catalog.exercise
@@ -43,7 +43,11 @@ internal class ExerciseQueryRepositoryImpl(
                         exerciseId = rs.getLong("exercise_id"),
                         name = rs.getString("name"),
                         imageAssetKey = rs.getString("image_asset_key"),
-                        videoUrl = rs.getString("video_url"),
+                        // video_url 컬럼을 더 이상 읽지 않는다. 재생 URL 은 48 시간 만료라 DB 에
+                        // 담을 수 없고 adapter-ymove 가 요청 시점에 채운다 (docs/domains.md §4-3-1).
+                        // 컬럼 자체는 남겨둔다 — 연동이 도는 것을 확인한 뒤 드롭한다.
+                        videoUrl = null,
+                        thumbnailUrl = rs.getString("thumbnail_url"),
                         defaultSetCount = rs.getIntOrNull("default_set_count"),
                         defaultRepCount = rs.getIntOrNull("default_rep_count"),
                         defaultDurationSeconds = rs.getIntOrNull("default_duration_seconds"),
@@ -87,6 +91,24 @@ internal class ExerciseQueryRepositoryImpl(
                     category = rs.getString("category"),
                 )
             }.list()
+
+    /**
+     * `ymove_slug IS NOT NULL` 을 SQL 에서 거른다. 맵에 null 값을 담아 호출부가 다시 거르게
+     * 하면 "없음" 이 두 가지 모양(키 없음 / 값 null)을 갖게 된다.
+     */
+    override fun findYmoveSlugs(exerciseIdentities: List<ExerciseIdentity>): Map<Long, String> =
+        jdbcClient
+            .sql(
+                """
+                SELECT exercise_id, ymove_slug
+                FROM catalog.exercise
+                WHERE exercise_id IN (:exerciseIds)
+                  AND ymove_slug IS NOT NULL
+                """.trimIndent(),
+            ).param("exerciseIds", exerciseIdentities.map { it.value })
+            .query { rs, _ -> rs.getLong("exercise_id") to rs.getString("ymove_slug") }
+            .list()
+            .toMap()
 
     private fun findMuscles(exerciseId: Long) =
         jdbcClient

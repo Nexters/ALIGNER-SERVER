@@ -2,6 +2,7 @@ package team.aligner.catalog.service
 
 import org.springframework.transaction.annotation.Transactional
 import team.aligner.catalog.infrastructure.ExerciseQueryRepository
+import team.aligner.catalog.infrastructure.PoseVideoPort
 import team.aligner.catalog.model.ExerciseIdentity
 import team.aligner.catalog.model.exception.ExerciseNotFoundException
 import team.aligner.catalog.model.view.ExerciseDetailView
@@ -23,10 +24,30 @@ interface ExerciseQueryService {
 @Transactional(readOnly = true)
 internal class ExerciseQueryServiceImpl(
     private val exerciseQueryRepository: ExerciseQueryRepository,
+    private val poseVideoPort: PoseVideoPort,
 ) : ExerciseQueryService {
-    override fun getDetail(exerciseIdentity: ExerciseIdentity): ExerciseDetailView =
-        exerciseQueryRepository.findDetail(exerciseIdentity)
-            ?: throw ExerciseNotFoundException()
+    /**
+     * 재생 URL 은 여기서만 채운다. `getAll`(코스 스텝 목록)에는 붙이지 않는다 — 목록 조회에서
+     * YMove 를 스텝 수만큼 치면 안 되고(docs/domains.md §4-3-1), `ExerciseSummaryView` 에
+     * `videoUrl` 이 아예 없다.
+     *
+     * slug 가 없으면(seed 미적재) port 를 부르지 않는다. 조회가 실패해도 예외가 아니라
+     * `videoUrl = null` 이다 — 그 화면은 이미 프론트 계약에 있다.
+     */
+    override fun getDetail(exerciseIdentity: ExerciseIdentity): ExerciseDetailView {
+        val detail =
+            exerciseQueryRepository.findDetail(exerciseIdentity)
+                ?: throw ExerciseNotFoundException()
+
+        val slug =
+            exerciseQueryRepository.findYmoveSlugs(listOf(exerciseIdentity))[exerciseIdentity.value]
+                ?: return detail
+        val playback =
+            poseVideoPort.findPlayback(listOf(slug))[slug]
+                ?: return detail
+
+        return detail.copy(videoUrl = playback.videoUrl)
+    }
 
     /**
      * 빈 목록이 들어오면 DB 를 치지 않는다. `IN (:ids)` 에 빈 리스트를 넘기면 SQL 이 깨진다.
