@@ -11,6 +11,7 @@ spring:
   liquibase:
     change-log: classpath:db/changelog-master.yaml
     liquibase-schema: public
+    contexts: ${LIQUIBASE_CONTEXTS:prod}
 
 server:
   port: ${SERVER_PORT:8080}
@@ -28,6 +29,12 @@ aligner:
       client-secret: ${KAKAO_CLIENT_SECRET}
       connect-timeout-millis: ${KAKAO_CONNECT_TIMEOUT_MILLIS:2000}
       read-timeout-millis: ${KAKAO_READ_TIMEOUT_MILLIS:3000}
+  ymove:
+    base-url: ${YMOVE_BASE_URL:https://exercise-api.ymove.app/api/v2}
+    api-key: ${YMOVE_API_KEY}
+    connect-timeout-millis: ${YMOVE_CONNECT_TIMEOUT_MILLIS:2000}
+    read-timeout-millis: ${YMOVE_READ_TIMEOUT_MILLIS:3000}
+    cache-ttl-seconds: ${YMOVE_CACHE_TTL_SECONDS:1800}
 
 ---
 # ==============================================================================
@@ -37,6 +44,8 @@ spring:
   config:
     activate:
       on-profile: dev
+  liquibase:
+    contexts: ${LIQUIBASE_CONTEXTS:dev,prod}
 
 logging:
   level:
@@ -67,6 +76,8 @@ spring:
   config:
     activate:
       on-profile: prod
+  liquibase:
+    contexts: ${LIQUIBASE_CONTEXTS:prod}
 
 logging:
   level:
