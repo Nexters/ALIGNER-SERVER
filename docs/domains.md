@@ -851,8 +851,19 @@ training:    model infrastructure service repository-jdbc api schema
     (§4-3 — 확정 시 `UPDATE` changeset), seed 값을 두 번 만들지 않으려면 seed 이슈 전에 정하는
     편이 낫다.
 16. **콘텐츠 운영 API를 만들 것인가.** 운동·자세·근육·음성 큐를 감수자가 직접 추가·수정하는
-    화면과 API가 언젠가 필요하다. **MVP에서는 만들지 않는다** — 콘텐츠가 고유 자세 32개로
+    화면과 API가 언젠가 필요하다. **쓰기는 MVP에서 만들지 않는다** — 콘텐츠가 고유 자세 32개로
     고정이고 감수 주기가 길어 seed changeset으로 충분하다.
+
+    **조회 둘만 먼저 열었다.** `GET /operation/exercises`(운동 전체)와
+    `GET /operation/course-templates`(코스 템플릿 전체)다. 적재된 콘텐츠를 눈으로 확인할 자리가
+    없어서 만든 것이고, 아래 세 질문 중 첫째는 읽기만으로는 발생하지 않는다 — seed와 갈라질
+    쓰기가 없다. 둘째·셋째는 다음과 같이 **좁게** 답했고, 쓰기가 붙는 순간 다시 열린다.
+
+    - 배포는 `application-api`에 함께 싣는다. 조회뿐이라 실행 모듈을 하나로 둔 결정
+      (`docs/architecture.md` §2)을 건드릴 이유가 없다. 경계는 `/operation` 경로로만 나눠 두어,
+      나중에 앱을 가르거나 권한을 붙일 때 경로 하나로 잘라낼 수 있게 했다
+    - 인증은 회원 JWT 그대로다(`anyRequest().authenticated()`). 콘텐츠 자체가 회원에게 공개되는
+      값이라 지금은 충분하지만, **쓰기나 회원 데이터가 이 경로에 붙으면 운영 전용 권한이 먼저**다
 
     지금 구조가 이것을 막지는 않는다. `catalog`에 쓰기가 붙는 것은 전부 **추가**다 — 애그리거트
     클래스, `CommandService`, 쓰기 port, `@Table` 엔티티를 그때 만들면 되고 스키마는 그대로다.

@@ -17,4 +17,8 @@ class CatalogApiAutoConfiguration {
     @Bean
     fun targetPoseController(targetPoseQueryService: TargetPoseQueryService): TargetPoseController =
         TargetPoseController(targetPoseQueryService)
+
+    @Bean
+    fun exerciseOperationController(exerciseQueryService: ExerciseQueryService): ExerciseOperationController =
+        ExerciseOperationController(exerciseQueryService)
 }

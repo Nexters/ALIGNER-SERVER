@@ -30,3 +30,22 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/002-add-onboarding-and-withdrawal.sql
             relativeToChangelogFile: true
+
+  # 프론트 연동 테스트용 임시 회원. **context: dev 라 운영에는 들어가지 않는다.**
+  #
+  # Liquibase 는 런타임에 컨텍스트를 주지 않으면 컨텍스트가 붙은 changeset 도 전부 실행한다.
+  # 그래서 컨텍스트만으로는 안전하지 않고, application.yml 이 spring.liquibase.contexts 의
+  # 기본값을 prod 로 두어 **잊어버리면 안 들어가는 쪽**으로 잠갔다. dev 환경이 명시적으로
+  # LIQUIBASE_CONTEXTS=dev 를 줘야 적재된다.
+  - changeSet:
+      id: member-0004-seed-dev-member
+      author: aligner
+      context: dev
+      comment: 프론트 연동 테스트용 임시 회원 (dev 전용)
+      changes:
+        - sqlFile:
+            path: seed/001-dev-member.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM member.member WHERE member_id = 900001

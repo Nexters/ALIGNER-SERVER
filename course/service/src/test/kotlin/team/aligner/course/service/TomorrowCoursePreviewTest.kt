@@ -14,6 +14,7 @@ import team.aligner.course.infrastructure.CourseQueryRepository
 import team.aligner.course.infrastructure.CourseSkeleton
 import team.aligner.course.infrastructure.CourseStepExerciseSkeleton
 import team.aligner.course.infrastructure.CourseStepSkeleton
+import team.aligner.course.infrastructure.CourseTemplateRepository
 import team.aligner.course.infrastructure.CourseTemplateSkeleton
 import team.aligner.course.infrastructure.ExerciseCatalogEntry
 import team.aligner.course.infrastructure.ExerciseCatalogPort
@@ -55,6 +56,8 @@ class TomorrowCoursePreviewTest :
         fun service(at: Instant = now) =
             CourseQueryServiceImpl(
                 courseQueryRepository = courseQueryRepository,
+                // 이 화면은 템플릿을 읽지 않는다. 운영 목록 조회만 쓰는 의존이다.
+                courseTemplateRepository = mockk<CourseTemplateRepository>(),
                 targetPoseCatalogPort = targetPoseCatalogPort,
                 exerciseCatalogPort = exerciseCatalogPort,
                 memberBodyPort = memberBodyPort,

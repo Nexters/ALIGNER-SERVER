@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean
 import team.aligner.catalog.contract.ExerciseContract
 import team.aligner.catalog.contract.TargetPoseContract
 import team.aligner.catalog.infrastructure.ExerciseQueryRepository
+import team.aligner.catalog.infrastructure.PoseVideoPort
 import team.aligner.catalog.infrastructure.TargetPoseQueryRepository
 
 /**
@@ -16,9 +17,15 @@ import team.aligner.catalog.infrastructure.TargetPoseQueryRepository
  */
 @AutoConfiguration
 class CatalogServiceAutoConfiguration {
+    /**
+     * PoseVideoPort 를 요구하는 유일한 Bean 이다. catalog:adapter-ymove 가 조립에서 빠지면
+     * 여기서 기동이 실패해야 정상이다 (docs/architecture.md §9 의 adapter-auth 와 같다).
+     */
     @Bean
-    fun exerciseQueryService(exerciseQueryRepository: ExerciseQueryRepository): ExerciseQueryService =
-        ExerciseQueryServiceImpl(exerciseQueryRepository)
+    fun exerciseQueryService(
+        exerciseQueryRepository: ExerciseQueryRepository,
+        poseVideoPort: PoseVideoPort,
+    ): ExerciseQueryService = ExerciseQueryServiceImpl(exerciseQueryRepository, poseVideoPort)
 
     @Bean
     fun targetPoseQueryService(targetPoseQueryRepository: TargetPoseQueryRepository): TargetPoseQueryService =

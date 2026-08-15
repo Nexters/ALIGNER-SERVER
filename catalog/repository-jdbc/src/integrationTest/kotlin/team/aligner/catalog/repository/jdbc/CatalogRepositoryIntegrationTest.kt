@@ -61,7 +61,13 @@ class CatalogRepositoryIntegrationTest {
         insertMuscle("ERECTOR_SPINAE", "척추기립근", "BACK", backKey = "erector-spinae-back")
         insertMuscle("ILIOPSOAS", "장요근", "PELVIS", frontKey = "iliopsoas-front")
 
-        insertExercise(1L, "camel-pose", "낙타자세", imageAssetKey = "exercise/camel")
+        insertExercise(
+            1L,
+            "camel-pose",
+            "낙타자세",
+            imageAssetKey = "exercise/camel",
+            thumbnailUrl = "https://ymove.test/camel.jpg",
+        )
         insertExerciseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRENGTHEN, 1)
         insertExerciseMuscle(1L, "ILIOPSOAS", MuscleRole.STRETCH, 2)
         insertVoiceCue(1L, 1, null, null, "무릎을 골반 너비로 벌리세요")
@@ -82,10 +88,12 @@ class CatalogRepositoryIntegrationTest {
             .query(Int::class.java)
             .single() shouldBe 6
 
+        // changeset 을 추가할 때마다 함께 올린다. 0012~0014 는 YMove 연동(썸네일 컬럼,
+        // slug·썸네일 seed, 음성 큐 seed)이다.
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'catalog-%'")
             .query(Int::class.java)
-            .single() shouldBe 11
+            .single() shouldBe 14
     }
 
     @Test
@@ -120,6 +128,29 @@ class CatalogRepositoryIntegrationTest {
         // 타임코드 미확정 큐와 구간 큐가 섞여 있어도 그대로 돌아와야 한다.
         detail.voiceCues.map { it.startOffsetSeconds } shouldBe listOf(null, 35)
         detail.voiceCues.map { it.endOffsetSeconds } shouldBe listOf(null, 75)
+    }
+
+    /**
+     * 운영 목록의 전체 조회다.
+     *
+     * 일괄 조회(`findAllByIdentities`)와 매핑을 공유하므로, 공유한 뒤에도 두 조회가 같은 값을
+     * 돌려주는지 함께 본다. 정렬은 SQL 이 책임진다 — 화면이 다시 정렬하지 않는다.
+     */
+    @Test
+    fun `운동 전체 조회가 식별자 순으로 전부 돌려준다`() {
+        val all = exerciseQueryRepository.findAll()
+
+        all.map { it.exerciseId } shouldBe listOf(1L, 2L)
+        all.map { it.name } shouldBe listOf("낙타자세", "캣카우")
+        all.first().imageAssetKey shouldBe "exercise/camel"
+        // 감수자가 목록에서 그림을 확인하는 값이다. imageAssetKey 는 키라 그대로 열리지 않는다.
+        all.first().thumbnailUrl shouldBe "https://ymove.test/camel.jpg"
+        all.last().thumbnailUrl.shouldBeNull()
+        // 일괄 조회와 같은 매핑을 쓴다. 한쪽만 고치면 여기서 깨진다.
+        all shouldBe
+            exerciseQueryRepository.findAllByIdentities(
+                listOf(ExerciseIdentity.of(1L), ExerciseIdentity.of(2L)),
+            )
     }
 
     /**
@@ -227,6 +258,33 @@ class CatalogRepositoryIntegrationTest {
                 .single()
 
         exerciseSlug shouldBe poseSlug
+    }
+
+    @Test
+    fun `findYmoveSlugs 는 slug 가 있는 운동만 돌려준다`() {
+        // 1 번은 camel-pose, 2 번은 slug 가 있고, 90 번은 NULL 이다.
+        insertExercise(90L, null, "slug 없는 운동")
+
+        val slugs =
+            exerciseQueryRepository.findYmoveSlugs(
+                listOf(ExerciseIdentity.of(1L), ExerciseIdentity.of(90L), ExerciseIdentity.of(999L)),
+            )
+
+        // NULL 인 행과 없는 식별자는 맵에서 빠진다. "없음" 이 한 가지 모양이어야 호출부가
+        // videoUrl = null 로 접는 판단을 한 곳에서 한다.
+        slugs shouldBe mapOf(1L to "camel-pose")
+    }
+
+    @Test
+    fun `운동 상세는 video_url 컬럼을 더 이상 읽지 않는다`() {
+        // 컬럼에 값이 남아 있어도 응답에 실리면 안 된다. 재생 URL 은 48 시간 만료라 DB 값이
+        // 곧 죽은 URL 이다 — adapter-ymove 가 요청 시점에 채운다 (docs/domains.md §4-3-1).
+        insertExercise(95L, "stale-url", "묵은 URL", videoUrl = "https://cdn/expired.mp4")
+
+        val detail = exerciseQueryRepository.findDetail(ExerciseIdentity.of(95L))
+
+        detail.shouldNotBeNull()
+        detail.videoUrl.shouldBeNull()
     }
 
     @Test
@@ -388,20 +446,22 @@ class CatalogRepositoryIntegrationTest {
         category: String? = "가동성 웜업",
         imageAssetKey: String? = null,
         videoUrl: String? = null,
+        thumbnailUrl: String? = null,
     ) = jdbcClient
         .sql(
             """
             INSERT INTO catalog.exercise (exercise_id, ymove_slug, name, image_asset_key, video_url,
-                                          default_set_count, default_rep_count,
+                                          thumbnail_url, default_set_count, default_rep_count,
                                           default_duration_seconds, met_value, difficulty, category, caution_note)
             VALUES (:id, :slug, :name, :imageAssetKey, :videoUrl,
-                    :setCount, :repCount, 120, 2.30, '하', :category, '통증이 오면 중단하세요')
+                    :thumbnailUrl, :setCount, :repCount, 120, 2.30, '하', :category, '통증이 오면 중단하세요')
             """.trimIndent(),
         ).param("id", id)
         .param("slug", slug)
         .param("name", name)
         .param("imageAssetKey", imageAssetKey)
         .param("videoUrl", videoUrl)
+        .param("thumbnailUrl", thumbnailUrl)
         .param("setCount", setCount)
         .param("repCount", repCount)
         .param("category", category)

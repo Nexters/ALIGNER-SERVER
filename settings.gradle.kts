@@ -54,8 +54,12 @@ include(
     "screening:api",
 )
 
-// catalog — 보강 운동·목표 자세·근육·음성 큐잉 대본. Command 가 없는 조회 전용 도메인
-// (docs/domains.md §4-3, §5). adapter-ymove 는 §7-4·5·6 이 정해진 뒤 후속으로 붙인다.
+// catalog — 보강 운동·목표 자세·근육·음성 큐잉 대본. 쓰기가 없는 조회 전용 도메인이지만
+// 재생 URL 만 YMove 에서 읽어 온다 (docs/domains.md §4-3, §4-3-1, §5).
+//
+// adapter-ymove 가 별도 모듈인 것은 catalog:infrastructure 가 aligner.kotlin-lib 이라
+// Spring·HTTP 타입이 클래스패스에 아예 없기 때문이다. port 를 순수하게 유지하려면 구현을
+// 다른 플러그인 모듈로 뺄 수밖에 없다.
 include(
     "catalog:model",
     "catalog:infrastructure",
@@ -64,6 +68,7 @@ include(
     "catalog:service",
     "catalog:repository-jdbc",
     "catalog:api",
+    "catalog:adapter-ymove",
 )
 
 // course — 원인별 코스 템플릿, 회원별 처방 코스·스텝·진행 상태, 도장

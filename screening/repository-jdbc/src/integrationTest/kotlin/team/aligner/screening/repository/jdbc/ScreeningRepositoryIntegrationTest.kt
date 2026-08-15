@@ -88,7 +88,11 @@ class ScreeningRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'screening-%'")
             .query(Int::class.java)
-            .single() shouldBe 9
+            // dev 전용 changeset(screening-0010)도 여기서는 실행돼 개수에 포함된다.
+            // **Liquibase 는 런타임 컨텍스트를 주지 않으면 context 가 붙은 changeset 도 전부 돌린다.**
+            // 그 잠금은 application.yml 의 spring.liquibase.contexts 가 하는데, 이 부트스트랩은
+            // 그 설정을 읽지 않는다. 픽스처를 TRUNCATE 후에 넣으므로 다른 단언에는 영향이 없다.
+            .single() shouldBe 10
     }
 
     @Test

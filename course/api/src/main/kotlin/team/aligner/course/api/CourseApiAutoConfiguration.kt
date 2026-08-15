@@ -16,4 +16,8 @@ class CourseApiAutoConfiguration {
         courseCommandService: CourseCommandService,
         courseQueryService: CourseQueryService,
     ): CourseController = CourseController(courseCommandService, courseQueryService)
+
+    @Bean
+    fun courseTemplateOperationController(courseQueryService: CourseQueryService): CourseTemplateOperationController =
+        CourseTemplateOperationController(courseQueryService)
 }

@@ -32,6 +32,11 @@ data class ExerciseDetailResponse(
         nullable = true,
     )
     val videoUrl: String?,
+    /**
+     * 영상 포스터 프레임. **videoUrl 과 달리 YMove 장애와 무관하게 값이 있다** — 서명도
+     * 만료도 없어 seed 로 저장해 둔 값이다. 재생 전 화면에 쓴다.
+     */
+    val thumbnailUrl: String?,
     @field:Schema(description = "권장 세트 수. 시간으로 수행하는 운동이면 null 이다", example = "3", nullable = true)
     val defaultSetCount: Int?,
     @field:Schema(description = "세트당 권장 반복 수. 시간으로 수행하는 운동이면 null 이다", example = "10", nullable = true)
@@ -66,6 +71,7 @@ data class ExerciseDetailResponse(
                 name = view.name,
                 imageAssetKey = view.imageAssetKey,
                 videoUrl = view.videoUrl,
+                thumbnailUrl = view.thumbnailUrl,
                 defaultSetCount = view.defaultSetCount,
                 defaultRepCount = view.defaultRepCount,
                 defaultDurationSeconds = view.defaultDurationSeconds,

@@ -15,11 +15,17 @@ import java.math.BigDecimal
  *
  * imageAssetKey 도 같은 이유로 싣는다. 코스 순서 카드가 스텝마다 그림을 그린다.
  * **videoUrl 은 싣지 않는다** — 목록에서 재생하는 화면이 없다.
+ *
+ * thumbnailUrl 은 운영 목록이 쓴다. imageAssetKey 는 URL 이 아니라 프론트가 정적 파일로 매핑하는
+ * 키라, 감수자가 브라우저에서 목록을 열었을 때 그림을 볼 수 있는 값은 이쪽뿐이다.
+ * **videoUrl 과 달리 외부 호출이 없다** — seed 로 저장해 둔 값이라 목록에서 행 수만큼 읽어도
+ * YMove 를 치지 않는다 (docs/domains.md §4-3-1).
  */
 data class ExerciseSummaryView(
     val exerciseId: Long,
     val name: String,
     val imageAssetKey: String?,
+    val thumbnailUrl: String?,
     val defaultSetCount: Int?,
     val defaultRepCount: Int?,
     val defaultDurationSeconds: Int?,

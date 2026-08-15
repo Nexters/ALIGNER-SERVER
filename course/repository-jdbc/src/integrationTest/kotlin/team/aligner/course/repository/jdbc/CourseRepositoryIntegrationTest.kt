@@ -1,5 +1,6 @@
 package team.aligner.course.repository.jdbc
 
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -125,6 +126,35 @@ class CourseRepositoryIntegrationTest {
             .first()
             .setCount
             .shouldBeNull()
+    }
+
+    /**
+     * 운영 목록의 전체 조회다.
+     *
+     * 템플릿 개수와 무관하게 2 쿼리라, 스텝을 한 번에 읽어 템플릿별로 나눠 담는다. 그래서 여기서
+     * 볼 것은 **다른 템플릿의 스텝이 섞이지 않는가**와 **스텝이 없는 템플릿이 목록에서 사라지지
+     * 않는가**다. 후자는 `IN` 조회 결과에 그 템플릿의 행이 아예 없는 경우다.
+     */
+    @Test
+    fun `템플릿 전체 조회가 스텝을 템플릿별로 나눠 담는다`() {
+        insertTemplate(templateId = 2L, targetPoseId = 98L, name = "업독 정복하기")
+        insertTemplateStep(templateStepId = 3L, templateId = 2L, stepOrder = 1)
+        insertTemplateStepExercise(3L, exerciseId = 20L, displayOrder = 1, durationSeconds = 60, setCount = null)
+        insertTemplate(templateId = 3L, targetPoseId = 99L, name = "스텝이 아직 없는 코스")
+
+        val templates = courseTemplateRepository.findAll()
+
+        templates.map { it.templateId } shouldBe listOf(1L, 2L, 3L)
+        templates[0].steps.map { it.stepOrder } shouldBe listOf(1, 2)
+        templates[1].steps.map { it.stepOrder } shouldBe listOf(1)
+        templates[1]
+            .steps
+            .single()
+            .exercises
+            .map { it.exerciseId } shouldBe listOf(20L)
+        templates[2].steps.shouldBeEmpty()
+        // 단건 조회와 매핑을 공유한다. 한쪽만 고치면 여기서 깨진다.
+        templates[0] shouldBe courseTemplateRepository.findByTargetPoseId(TARGET_POSE_ID)
     }
 
     @Test
