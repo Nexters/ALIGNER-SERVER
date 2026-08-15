@@ -20,10 +20,9 @@ import java.time.Instant
 data class PrescribeCourseRequest(
     @field:Schema(
         description = "강화할 부위 코드. `GET /screening/body-parts` 의 값이다",
-        example = "BACK",
         requiredMode = Schema.RequiredMode.REQUIRED,
     )
-    val bodyPartCode: String,
+    val bodyPartCode: BodyPartCode,
     @field:Schema(
         description = "난이도. 1(하)·2(중)·3(상)이며 **목표 자세의 레벨과 같은 값**이다",
         example = "1",

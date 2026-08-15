@@ -18,8 +18,8 @@ data class MuscleResponse(
     val muscleCode: String,
     @field:Schema(description = "표시용 근육 이름", example = "상부 승모근")
     val name: String,
-    @field:Schema(description = "이 근육이 속한 부위 코드", example = "NECK")
-    val bodyPartCode: String,
+    @field:Schema(description = "이 근육이 속한 부위 코드")
+    val bodyPartCode: BodyPartCode,
     @field:Schema(
         description = "앞쪽 근육맵 하이라이트 asset 키. 뒤에만 보이는 근육이면 null 이다. URL 이 아니라 안정된 키다",
         example = "muscle/upper_trapezius_front",
@@ -42,7 +42,7 @@ data class MuscleResponse(
             MuscleResponse(
                 muscleCode = view.muscleCode,
                 name = view.name,
-                bodyPartCode = view.bodyPartCode,
+                bodyPartCode = BodyPartCode.from(view.bodyPartCode),
                 frontHighlightAssetKey = view.frontHighlightAssetKey,
                 backHighlightAssetKey = view.backHighlightAssetKey,
                 role = view.role.name,

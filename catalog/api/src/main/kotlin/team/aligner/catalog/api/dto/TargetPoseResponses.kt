@@ -22,8 +22,8 @@ data class TargetPoseDetailResponse(
         nullable = true,
     )
     val imageAssetKey: String?,
-    @field:Schema(description = "이 자세가 겨냥하는 부위 코드. screening 소유 어휘다", example = "NECK")
-    val bodyPartCode: String,
+    @field:Schema(description = "이 자세가 겨냥하는 부위 코드. screening 소유 어휘다")
+    val bodyPartCode: BodyPartCode,
     @field:Schema(description = "난이도 단계. 작을수록 쉽다", example = "1")
     val level: Int,
     @field:Schema(description = "이 자세가 쓰는 근육 목록")
@@ -35,7 +35,7 @@ data class TargetPoseDetailResponse(
                 targetPoseId = view.targetPoseId,
                 name = view.name,
                 imageAssetKey = view.imageAssetKey,
-                bodyPartCode = view.bodyPartCode,
+                bodyPartCode = BodyPartCode.from(view.bodyPartCode),
                 level = view.level,
                 muscles = view.muscles.map(MuscleResponse::from),
             )
@@ -53,8 +53,8 @@ data class TargetPoseSummaryResponse(
     val name: String,
     @field:Schema(description = "자세 이미지 asset 키. 파일은 프론트가 정적으로 갖는다", example = "pose/down_dog", nullable = true)
     val imageAssetKey: String?,
-    @field:Schema(description = "이 자세가 겨냥하는 부위 코드", example = "NECK")
-    val bodyPartCode: String,
+    @field:Schema(description = "이 자세가 겨냥하는 부위 코드")
+    val bodyPartCode: BodyPartCode,
     @field:Schema(description = "난이도 단계. 작을수록 쉽다", example = "1")
     val level: Int,
 ) {
@@ -64,7 +64,7 @@ data class TargetPoseSummaryResponse(
                 targetPoseId = view.targetPoseId,
                 name = view.name,
                 imageAssetKey = view.imageAssetKey,
-                bodyPartCode = view.bodyPartCode,
+                bodyPartCode = BodyPartCode.from(view.bodyPartCode),
                 level = view.level,
             )
     }

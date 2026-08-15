@@ -34,9 +34,12 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 �
 지금 화면을 만든다면 세 경우를 모두 처리해 두는 편이 낫다. 어느 것도 프론트 요청이 틀려서 나는
 오류가 아니다.
 
-`bodyPartCode`의 값 집합은 이제 `screening`이 소유하며 `GET /screening/body-parts`가 내려준다.
-프론트에서 임의의 영문 코드를 만들어 고정하지 말고 이 API의 응답 값을 그대로 쓴다. 구체적인
-값은 부위 seed가 들어올 때 확정된다.
+`bodyPartCode`의 값 집합은 `screening`이 소유하고 **`BACK`(등) · `ABDOMEN`(복부) ·
+`PELVIS`(골반) 셋으로 확정**됐다. 요청·응답 양쪽 모두 OpenAPI enum이라 생성 타입이 세 값의
+유니온으로 나온다. 표시용 한글 이름은 `GET /screening/body-parts`가 내려주므로 프론트에서
+따로 매핑을 만들지 않는다.
+
+**세 값 밖의 코드를 보내면 400이다.** 예전에는 모르는 코드가 빈 배열로 조용히 지나갔다.
 
 ## 핵심 용어
 
@@ -48,7 +51,7 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 �
 | `Muscle` | 자세·운동에 연결된 근육 마스터 | 근육맵·부위 탭에 표시할 콘텐츠 |
 | `MuscleRole` | 근육을 늘리는지 강화하는지 | `STRETCH` 또는 `STRENGTHEN`으로 구분 |
 | `imageAssetKey` | 이미지 파일을 가리키는 안정적인 키 | URL로 바로 렌더링하지 말고 프론트 asset 매핑에 사용 |
-| `bodyPartCode` | 자세·근육이 속한 부위 코드 | `GET /screening/body-parts`가 소유하는 문자열 |
+| `bodyPartCode` | 자세·근육이 속한 부위 코드 | `BACK` · `ABDOMEN` · `PELVIS` 셋뿐인 enum. 그 밖의 값은 400 |
 | `metValue` | 운동 칼로리 계산에 쓰는 MET 값 | catalog 응답에는 MET 만 실린다. kcal 은 **코스·세션 API가** 회원 몸무게와 합쳐 계산해 내려준다 |
 | `PerceivedResult` | 핀포즈를 해본 직후의 체감 | `SUCCEEDED`·`STILL_HARD`·`TOO_HARD`. 온보딩의 `PerceivedDifficulty`와 **다른 어휘**다 |
 | `voiceCue` | 운동 중 보여줄 한글 큐잉 문장 | `displayOrder` 순서로 재생·표시 |
@@ -248,6 +251,9 @@ Content-Type: application/json
 **`reinforcementBodyPartCode`와 `reinforcementLevel`은 함께 보내야 한다.** 한쪽만 보내면
 400 `INVALID_REINFORCEMENT_SETTING`이다. 한 화면에서 같이 고르는 값이라 서버가 짝을 강제한다.
 
+`reinforcementBodyPartCode`는 `BACK` · `ABDOMEN` · `PELVIS` 셋뿐인 enum이다. 그 밖의 값은
+본문 파싱 단계에서 걸려 `INVALID_REINFORCEMENT_SETTING`이 아니라 400 `BAD_REQUEST`가 온다.
+
 검증 규칙이다. 어기면 400이므로 프론트에서 먼저 막는 편이 낫다.
 
 - 닉네임은 앞뒤 공백을 제거한 뒤 1자 이상 50자 이하 — `INVALID_NICKNAME`. 성공 응답에는 trim된 값이 들어간다
@@ -285,11 +291,14 @@ Content-Type: application/json
 
 ```json
 [
-  { "bodyPartCode": "NECK_SHOULDER", "name": "목·어깨" }
+  { "bodyPartCode": "BACK", "name": "등" },
+  { "bodyPartCode": "ABDOMEN", "name": "복부" },
+  { "bodyPartCode": "PELVIS", "name": "골반" }
 ]
 ```
 
-부위 seed가 들어오기 전에는 빈 배열 `[]`이다.
+부위 seed가 들어오기 전에는 빈 배열 `[]`이다. `bodyPartCode`는 세 값으로 고정이고 `name`만
+seed가 정하므로, 선택지 화면은 코드로 분기하고 라벨만 응답에서 읽으면 된다.
 
 ### `POST /screening/results`
 
@@ -320,7 +329,7 @@ Content-Type: application/json
     {
       "causeCode": "THORACIC_STIFFNESS",
       "name": "굳은 흉추",
-      "bodyPartCode": "UPPER_BACK",
+      "bodyPartCode": "BACK",
       "description": "결과 화면에 보여줄 설명",
       "rank": 1,
       "score": 7
@@ -373,6 +382,7 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
 
 **`bodyPartCode`는 선택 파라미터다.** 생략하면 전체 핀포즈가 온다 — 온보딩 그리드가 부위로
 걸러지지 않고 전체를 펼치므로 그쪽이 기본 사용법이다. 부위를 주면 그 부위만 걸러 온다.
+값은 `BACK` · `ABDOMEN` · `PELVIS` 셋뿐이고 **그 밖의 값은 400 `BAD_REQUEST`** 다.
 
 ```json
 [
@@ -380,15 +390,15 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
     "targetPoseId": 1,
     "name": "예시 자세",
     "imageAssetKey": "target-pose/example",
-    "bodyPartCode": "{code}",
+    "bodyPartCode": "BACK",
     "level": 1
   }
 ]
 ```
 
 목록에는 근육 정보가 없다. 카드·그리드는 이 API만 사용하고, 자세 상세가 필요할 때
-아래 상세 API를 호출한다. 해당 부위가 없거나 알 수 없는 코드면 오류가 아니라 빈 배열
-`[]`이 반환된다.
+아래 상세 API를 호출한다. **세 값 중 하나인데 그 부위의 자세가 아직 없으면** 오류가 아니라
+빈 배열 `[]`이다 — 값이 틀린 것(400)과 데이터가 없는 것(200 `[]`)은 다르게 온다.
 
 ### `GET /catalog/target-poses/{targetPoseId}`
 
@@ -399,13 +409,13 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
   "targetPoseId": 1,
   "name": "예시 자세",
   "imageAssetKey": "target-pose/example",
-  "bodyPartCode": "{code}",
+  "bodyPartCode": "BACK",
   "level": 1,
   "muscles": [
     {
       "muscleCode": "muscle-example",
       "name": "예시 근육",
-      "bodyPartCode": "{code}",
+      "bodyPartCode": "BACK",
       "frontHighlightAssetKey": null,
       "backHighlightAssetKey": "muscle/example-back",
       "role": "STRETCH",
@@ -511,12 +521,12 @@ function resolveTargetPoseImage(key: string | null): string | null {
 
 | HTTP | `code` | 대응 |
 | --- | --- | --- |
-| 400 | `BAD_REQUEST` | JSON 형식·필수 필드 등 요청 자체를 수정 |
+| 400 | `BAD_REQUEST` | JSON 형식·필수 필드, 또는 `bodyPartCode` 가 `BACK`·`ABDOMEN`·`PELVIS` 밖 |
 | 400 | `INVALID_NICKNAME` | 닉네임을 1~50자로 다시 입력 |
 | 400 | `EMPTY_SCREENING_ANSWER` | 자세를 하나도 고르지 않음. 제출 버튼을 먼저 막는다 |
 | 400 | `INVALID_HEIGHT` | 키가 100~250cm 밖. 입력 UI에서 먼저 막는다 |
 | 400 | `INVALID_WEIGHT` | 몸무게가 20~300kg 밖. 입력 UI에서 먼저 막는다 |
-| 400 | `INVALID_REINFORCEMENT_SETTING` | 강화 부위·난이도를 한쪽만 보냈거나, 부위 코드가 1~40자 밖이거나, 난이도가 1~3 밖 |
+| 400 | `INVALID_REINFORCEMENT_SETTING` | 강화 부위·난이도를 한쪽만 보냈거나, 난이도가 1~3 밖. 부위 코드가 세 값 밖이면 이게 아니라 `BAD_REQUEST` 다 |
 | 400 | `TOO_MANY_SCREENING_ANSWERS` | 한 체감에 4개를 넘김. 선택 UI에서 먼저 막는다 |
 | 400 | `DUPLICATE_SCREENING_ANSWER` | 같은 자세를 두 번 넣음. `EASY`·`HARD`에 나눠 넣은 경우도 포함 |
 | 401 | `UNAUTHORIZED` | 토큰이 없거나 만료됨. `Kakao.Auth.authorize()`부터 다시 수행 |
@@ -551,6 +561,7 @@ HTTP 상태만 보지 말고 가능하면 `code`를 기준으로 화면 동작�
 2. ID를 화면 코드에 하드코딩하지 않는다. catalog seed가 바뀌면 ID가 달라질 수 있으므로
    목록 응답에서 받은 ID를 상세 조회에 사용한다.
 3. `bodyPartCode`, `muscleCode`, `imageAssetKey`를 표시용 한글과 혼용하지 않는다.
+   `bodyPartCode`는 세 값짜리 enum이므로 화면 분기는 코드로 하고 라벨은 응답의 `name`을 쓴다.
    서버 값은 식별·매핑용이고, 별도 화면 라벨이 필요하면 프론트 표시 테이블을 둔다.
 4. 현재 서버가 주지 않는 영상 URL·운동 썸네일·코스를 catalog 응답에서 추측해 만들지 않는다.
    필요한 계약은 해당 도메인 API가 추가될 때 정한다.
@@ -689,11 +700,12 @@ Content-Type: application/json
 **멱등하다.** 같은 자세의 코스가 이미 있으면 새로 만들지 않고 그 코스를 돌려준다. 재시도해도
 안전하고, 이 경우도 201이다.
 
-실패는 넷이다.
+실패는 다섯이다.
 
 | 상태 | 코드 | 화면 처리 |
 | --- | --- | --- |
-| 400 | `BODY_PART_NOT_IN_SCREENING` | 진단 결과에 없는 부위를 골랐다 |
+| 400 | `BAD_REQUEST` | `bodyPartCode`가 세 값 중 하나가 아니다. 본문 파싱에서 걸린다 |
+| 400 | `BODY_PART_NOT_IN_SCREENING` | 값은 맞지만 진단 결과에 없는 부위를 골랐다 |
 | 409 | `SCREENING_REQUIRED` | 아직 진단한 적이 없다. **온보딩으로 보낸다** |
 | 422 | `COURSE_TEMPLATE_NOT_FOUND` | 그 부위·난이도의 자세나 코스 seed가 없다 |
 | 422 | `EMPTY_COURSE_TEMPLATE` | 코스 템플릿에 스텝이 없다 |

@@ -10,13 +10,13 @@ import java.time.Instant
 
 @Schema(description = "부위")
 data class BodyPartResponse(
-    @field:Schema(description = "부위 코드. 진단 결과 뒤 강화 부위 선택 화면의 선택지다", example = "NECK_SHOULDER")
-    val bodyPartCode: String,
-    @field:Schema(description = "표시용 이름", example = "목·어깨")
+    @field:Schema(description = "부위 코드. 진단 결과 뒤 강화 부위 선택 화면의 선택지다")
+    val bodyPartCode: BodyPartCode,
+    @field:Schema(description = "표시용 이름", example = "등")
     val name: String,
 ) {
     companion object {
-        fun from(view: BodyPartView) = BodyPartResponse(bodyPartCode = view.bodyPartCode, name = view.name)
+        fun from(view: BodyPartView) = BodyPartResponse(bodyPartCode = BodyPartCode.from(view.bodyPartCode), name = view.name)
     }
 }
 
@@ -69,8 +69,8 @@ data class ScreeningCauseResponse(
     val causeCode: String,
     @field:Schema(description = "표시용 이름", example = "굳은 흉추")
     val name: String,
-    @field:Schema(description = "**원인이 있는 부위.** 회원이 고른 부위와 다를 수 있다", example = "UPPER_BACK")
-    val bodyPartCode: String,
+    @field:Schema(description = "**원인이 있는 부위.** 회원이 고른 부위와 다를 수 있다")
+    val bodyPartCode: BodyPartCode,
     @field:Schema(description = "결과 화면에 보여줄 설명", nullable = true)
     val description: String?,
     @field:Schema(description = "표시 순서. 1 이 가장 유력한 원인이다", example = "1")
@@ -83,7 +83,7 @@ data class ScreeningCauseResponse(
             ScreeningCauseResponse(
                 causeCode = view.causeCode,
                 name = view.name,
-                bodyPartCode = view.bodyPartCode,
+                bodyPartCode = BodyPartCode.from(view.bodyPartCode),
                 description = view.description,
                 rank = view.rank,
                 score = view.score,

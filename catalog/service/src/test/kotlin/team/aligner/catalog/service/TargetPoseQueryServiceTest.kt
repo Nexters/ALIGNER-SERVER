@@ -79,12 +79,13 @@ class TargetPoseQueryServiceTest :
             }
 
             /**
-             * bodyPartCode 는 screening 소유 어휘라 catalog 가 값 집합을 검증하지 않는다.
+             * 값 집합은 api 의 BodyPartCode 가 막는다. service 는 String 을 그대로 받고
+             * 자세가 없으면 빈 목록을 돌려준다 — 부위가 비어 있는 것은 예외가 아니다.
              */
             it("자세가 없는 부위면 빈 목록이고 예외가 아니다") {
-                every { targetPoseQueryRepository.findAll("NECK") } returns emptyList()
+                every { targetPoseQueryRepository.findAll("PELVIS") } returns emptyList()
 
-                targetPoseQueryService.getAll("NECK") shouldBe emptyList()
+                targetPoseQueryService.getAll("PELVIS") shouldBe emptyList()
             }
         }
     })

@@ -83,7 +83,7 @@ class CourseController(
         val identity =
             courseCommandService.prescribe(
                 memberId = principal.memberId,
-                command = PrescribeCourseCommand(bodyPartCode = request.bodyPartCode, level = request.level),
+                command = PrescribeCourseCommand(bodyPartCode = request.bodyPartCode.name, level = request.level),
             )
         return PrescribeCourseResponse(courseId = identity.value)
     }

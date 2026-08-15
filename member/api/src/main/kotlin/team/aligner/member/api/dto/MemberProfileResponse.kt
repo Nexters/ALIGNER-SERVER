@@ -31,10 +31,9 @@ data class MemberProfileResponse(
     val experienceLevel: ExperienceLevel?,
     @field:Schema(
         description = "회원이 고른 강화 부위. 진단 결과 뒤에 고른다. 고르기 전이면 null 이다",
-        example = "BACK",
         nullable = true,
     )
-    val reinforcementBodyPartCode: String?,
+    val reinforcementBodyPartCode: BodyPartCode?,
     @field:Schema(description = "강화 난이도. 1(하)·2(중)·3(상). 고르기 전이면 null 이다", example = "1", nullable = true)
     val reinforcementLevel: Int?,
 ) {
@@ -46,7 +45,7 @@ data class MemberProfileResponse(
                 heightCm = view.heightCm,
                 weightKg = view.weightKg,
                 experienceLevel = view.experienceLevel,
-                reinforcementBodyPartCode = view.reinforcementBodyPartCode,
+                reinforcementBodyPartCode = view.reinforcementBodyPartCode?.let(BodyPartCode::from),
                 reinforcementLevel = view.reinforcementLevel,
             )
 
@@ -64,7 +63,7 @@ data class MemberProfileResponse(
                 heightCm = member.heightCm,
                 weightKg = member.weightKg,
                 experienceLevel = member.experienceLevel,
-                reinforcementBodyPartCode = member.reinforcement?.bodyPartCode,
+                reinforcementBodyPartCode = member.reinforcement?.bodyPartCode?.let(BodyPartCode::from),
                 reinforcementLevel = member.reinforcement?.level,
             )
         }
