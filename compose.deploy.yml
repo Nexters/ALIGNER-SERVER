@@ -32,7 +32,7 @@ services:
     stop_grace_period: 30s
 
   dozzle:
-    image: amir20/dozzle:v8.11.8
+    image: amir20/dozzle:v10.7.1
     container_name: aligner-dozzle
     environment:
       DOZZLE_BASE: /logs
