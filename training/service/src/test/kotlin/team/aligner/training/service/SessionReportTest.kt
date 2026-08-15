@@ -2,6 +2,7 @@ package team.aligner.training.service
 
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -50,7 +51,11 @@ class SessionReportTest :
                     exercises = listOf(StepExercise(courseStepExerciseId = 51L, exerciseId = 101L, displayOrder = 1)),
                 ).copy(identity = SessionIdentity.of(100L), startedAt = java.time.Instant.parse("2026-08-10T00:00:00Z"))
 
-        fun givenPushReturns(kcal: Int?) {
+        fun givenPushReturns(
+            kcal: Int?,
+            acquiredStampCount: Int = 0,
+            targetPoseCompleted: Boolean = false,
+        ) {
             every { courseProgressPort.completeSession(any(), any(), any(), any()) } returns
                 CourseProgressLookup(
                     courseId = 20L,
@@ -59,6 +64,13 @@ class SessionReportTest :
                     courseCompleted = false,
                     stampAcquired = false,
                     estimatedKcal = kcal,
+                    targetPoseId = 3L,
+                    targetPoseName = "낙타자세",
+                    bodyPartCode = "PELVIS",
+                    level = 3,
+                    acquiredStampCount = acquiredStampCount,
+                    requiredStampCount = 4,
+                    targetPoseCompleted = targetPoseCompleted,
                 )
         }
 
@@ -130,6 +142,26 @@ class SessionReportTest :
                 val view = service().complete(memberId = 1L, sessionId = 100L, command = CompleteSessionCommand(emptyList()))
 
                 view.estimatedKcal.shouldBeNull()
+            }
+
+            it("파이어로그와 헤더 값을 course 에서 받아 그대로 싣는다") {
+                // 리포트 한 화면이 완료 응답 하나로 끝나야 한다. 자세 이름·부위·난이도를
+                // 얻으려고 화면이 코스와 카탈로그를 다시 부르면 완료 직후에 조회가 셋이 된다.
+                complete(session())
+                givenPushReturns(kcal = 63, acquiredStampCount = 1)
+
+                val progress =
+                    service()
+                        .complete(memberId = 1L, sessionId = 100L, command = CompleteSessionCommand(emptyList()))
+                        .courseProgress
+
+                progress.shouldNotBeNull()
+                progress.targetPoseName shouldBe "낙타자세"
+                progress.bodyPartCode shouldBe "PELVIS"
+                progress.level shouldBe 3
+                progress.acquiredStampCount shouldBe 1
+                progress.requiredStampCount shouldBe 4
+                progress.targetPoseCompleted shouldBe false
             }
 
             it("이미 담긴 값도 재시도에서 덮이지 않는다") {

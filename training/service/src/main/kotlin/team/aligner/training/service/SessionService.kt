@@ -182,6 +182,13 @@ internal class SessionServiceImpl(
                     totalStepCount = progress.totalStepCount,
                     courseCompleted = progress.courseCompleted,
                     stampAcquired = progress.stampAcquired,
+                    targetPoseId = progress.targetPoseId,
+                    targetPoseName = progress.targetPoseName,
+                    bodyPartCode = progress.bodyPartCode,
+                    level = progress.level,
+                    acquiredStampCount = progress.acquiredStampCount,
+                    requiredStampCount = progress.requiredStampCount,
+                    targetPoseCompleted = progress.targetPoseCompleted,
                 ),
         )
     }

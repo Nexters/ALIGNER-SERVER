@@ -45,7 +45,9 @@ class SessionKcalTest :
                 exerciseCatalogPort = exerciseCatalogPort,
                 memberBodyPort = memberBodyPort,
                 causeLookupPort = mockk<CauseLookupPort>(),
-                targetPoseCatalogPort = mockk<TargetPoseCatalogPort>(),
+                // 리포트 헤더용 자세 조회는 이 테스트의 관심사가 아니다. catalog 에 자세가
+                // 없어도 칼로리 계산은 그대로여야 하므로 빈 결과로 둔다.
+                targetPoseCatalogPort = mockk<TargetPoseCatalogPort>(relaxed = true),
             )
 
         /** 스텝 2 개짜리 코스. 스텝 운동 식별자는 51·52, 운동 식별자는 101·102 다. */

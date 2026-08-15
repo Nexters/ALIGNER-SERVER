@@ -51,10 +51,23 @@ data class SessionExerciseRecordView(
 /**
  * 세션 완료가 코스에 반영된 결과. **training 이 계산하지 않는다** — course 가 판단해 돌려준
  * 값을 그대로 싣는다 (docs/domains.md §2).
+ *
+ * 완료 리포트의 헤더(`골반 난이도 상 · 낙타자세`)와 파이어로그 카드가 이 값으로 그려진다.
  */
 data class CourseProgressView(
     val completedStepCount: Int,
     val totalStepCount: Int,
+    /** 이번 회차의 모든 스텝을 끝냈는지. **자세 완성과 다르다** — 완성은 4 회 완주다. */
     val courseCompleted: Boolean,
+    /** 이 호출로 이번 회차의 도장이 새로 붙었는지. 재시도에서는 false 다. */
     val stampAcquired: Boolean,
+    val targetPoseId: Long,
+    val targetPoseName: String,
+    val bodyPartCode: String?,
+    val level: Int?,
+    /** 이 자세를 지금까지 완주한 횟수. 리포트의 "파이어로그 N / 4회" 의 N 이다. */
+    val acquiredStampCount: Int,
+    val requiredStampCount: Int,
+    /** 도장을 다 채웠는지. 자세 완성 축하 화면의 신호다. */
+    val targetPoseCompleted: Boolean,
 )

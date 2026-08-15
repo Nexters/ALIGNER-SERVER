@@ -84,7 +84,7 @@ class CourseRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'course-%'")
             .query(Int::class.java)
-            .single() shouldBe 9
+            .single() shouldBe 11
     }
 
     @Test
@@ -211,20 +211,52 @@ class CourseRepositoryIntegrationTest {
      * 두 요청이 겹칠 때 둘 다 획득으로 판단할 수 있다.
      */
     @Test
-    fun `도장은 자세당 한 번만 붙고 두 번째 저장은 false 다`() {
+    fun `도장은 회차당 한 번만 붙고 두 번째 저장은 false 다`() {
         val saved = courseRepository.save(recommended())
         val courseId = saved.identity.shouldNotBeNull().value
-        val stamp = Stamp.acquire(MEMBER_ID, TARGET_POSE_ID, courseId, AT)
+        val stamp = Stamp.acquire(MEMBER_ID, TARGET_POSE_ID, courseId, attemptNo = 1, at = AT)
 
         stampRepository.saveIfAbsent(stamp) shouldBe true
         // 재시도를 흉내낸다. 예외가 아니라 false 여야 한다.
         stampRepository.saveIfAbsent(stamp) shouldBe false
 
-        jdbcClient
-            .sql("SELECT count(*) FROM course.stamp WHERE member_id = :memberId")
-            .param("memberId", MEMBER_ID)
-            .query(Int::class.java)
-            .single() shouldBe 1
+        stampRepository.countAcquired(MEMBER_ID, TARGET_POSE_ID) shouldBe 1
+    }
+
+    /**
+     * **파이어로그가 여기서 나온다.** 도장이 자세당 하나면 두 번째 완주를 기록할 자리가 없어
+     * 완료 리포트의 `1 / 4회` 가 2 로 올라가지 못한다.
+     */
+    @Test
+    fun `회차가 다르면 같은 자세에 도장이 또 붙는다`() {
+        val saved = courseRepository.save(recommended())
+        val courseId = saved.identity.shouldNotBeNull().value
+
+        stampRepository.saveIfAbsent(Stamp.acquire(MEMBER_ID, TARGET_POSE_ID, courseId, attemptNo = 1, at = AT)) shouldBe true
+        stampRepository.saveIfAbsent(Stamp.acquire(MEMBER_ID, TARGET_POSE_ID, courseId, attemptNo = 2, at = AT)) shouldBe true
+
+        stampRepository.countAcquired(MEMBER_ID, TARGET_POSE_ID) shouldBe 2
+    }
+
+    /**
+     * 다시 시작하면 스텝이 처음 상태로 돌아가고 회차가 오른다. 회차가 저장되지 않으면 다음
+     * 완주가 1 회차 도장과 충돌해 조용히 묻힌다.
+     */
+    @Test
+    fun `재도전은 스텝을 되돌리고 회차를 올린다`() {
+        val saved = courseRepository.save(recommended())
+        val identity = saved.identity.shouldNotBeNull()
+
+        val completed =
+            (1..saved.totalStepCount).fold(saved) { course, order -> course.completeStep(order, AT) }
+        courseRepository.save(completed)
+
+        courseRepository.save(courseRepository.findByIdentity(identity).shouldNotBeNull().restart())
+
+        val restarted = courseRepository.findByIdentity(identity).shouldNotBeNull()
+        restarted.attemptNo shouldBe 2
+        restarted.completedStepCount shouldBe 0
+        restarted.completedAt.shouldBeNull()
     }
 
     /**

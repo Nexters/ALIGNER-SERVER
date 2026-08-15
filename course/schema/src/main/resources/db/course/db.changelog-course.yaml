@@ -87,3 +87,21 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/008-add-course-version.sql
             relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0010-add-course-attempt-no
+      author: aligner
+      comment: 완주한 코스를 다시 돌 수 있도록 재도전 회차 추가
+      changes:
+        - sqlFile:
+            path: ddl/009-add-course-attempt-no.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: course-0011-add-stamp-attempt-no
+      author: aligner
+      comment: 도장을 자세당 하나에서 회차당 하나로 넓힘
+      changes:
+        - sqlFile:
+            path: ddl/010-add-stamp-attempt-no.sql
+            relativeToChangelogFile: true

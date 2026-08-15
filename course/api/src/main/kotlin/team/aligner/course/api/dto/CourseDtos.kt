@@ -267,12 +267,12 @@ data class TargetPoseProgressResponse(
 /**
  * 자세 도전 현황 한 줄. "낙타자세 3 / 4 · 도전 중" 이다.
  *
- * **`3 / 4` 는 코스 안에서 완료한 스텝 개수**다. 자세 포인트 체크가 아니다
- * (docs/domains.md §7-8).
+ * **`3 / 4` 는 파이어로그다** — `acquiredStampCount / requiredStampCount` 이고, 코스를 한 번
+ * 완주할 때마다 하나씩 오른다. 코스 안에서 완료한 스텝 수(`completedStepCount`)가 아니다.
  *
- * **아직 시작하지 않은 자세는 `courseId` · `completedStepCount` · `totalStepCount` 가 null**
- * 이다. `0 / 4` 가 아니다 — 0/4 는 "시작했는데 아직 한 스텝도 안 함" 이고 null 은 "아직
- * 열지 않음" 이라 화면이 둘을 다르게 그린다.
+ * **아직 시작하지 않은 자세는 코스 쪽 값이 전부 null** 이다. `0 / 4` 가 아니다 — 0/4 는
+ * "시작했는데 아직 한 번도 완주하지 못함" 이고 null 은 "아직 열지 않음" 이라 화면이 둘을
+ * 다르게 그린다.
  */
 @Schema(description = "자세 도전 현황 한 줄")
 data class TargetPoseProgressItem(
@@ -288,11 +288,25 @@ data class TargetPoseProgressItem(
     val level: Int,
     @field:Schema(description = "이 자세의 코스 식별자. 아직 시작하지 않았으면 null 이다", example = "20", nullable = true)
     val courseId: Long?,
-    @field:Schema(description = "완료한 스텝 수. 아직 시작하지 않았으면 null 이다", example = "3", nullable = true)
+    @field:Schema(
+        description = "이번 회차에서 완료한 스텝 수. **화면의 `3 / 4` 가 아니다.** 아직 시작하지 않았으면 null 이다",
+        example = "3",
+        nullable = true,
+    )
     val completedStepCount: Int?,
-    @field:Schema(description = "전체 스텝 수. 아직 시작하지 않았으면 null 이다", example = "4", nullable = true)
+    @field:Schema(description = "이 코스의 전체 스텝 수. 아직 시작하지 않았으면 null 이다", example = "4", nullable = true)
     val totalStepCount: Int?,
-    @field:Schema(description = "완성 여부. 시작하지 않았어도 false 다", example = "false")
+    @field:Schema(
+        description =
+            "완주 횟수 = 붙은 도장 수. **화면의 `3 / 4` 의 분자다.** 코스를 한 번 완주할 때마다 " +
+                "하나씩 오른다. 아직 시작하지 않았으면 null 이고 0 이 아니다",
+        example = "3",
+        nullable = true,
+    )
+    val acquiredStampCount: Int?,
+    @field:Schema(description = "완성에 필요한 완주 횟수. 화면의 `3 / 4` 의 분모다", example = "4")
+    val requiredStampCount: Int,
+    @field:Schema(description = "완성 여부. 완주 횟수를 다 채웠는지다. 시작하지 않았으면 false 다", example = "false")
     val completed: Boolean,
 ) {
     companion object {
@@ -306,6 +320,8 @@ data class TargetPoseProgressItem(
                 courseId = view.courseId,
                 completedStepCount = view.completedStepCount,
                 totalStepCount = view.totalStepCount,
+                acquiredStampCount = view.acquiredStampCount,
+                requiredStampCount = view.requiredStampCount,
                 completed = view.completed,
             )
     }

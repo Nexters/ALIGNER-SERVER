@@ -34,6 +34,13 @@ internal class CourseProgressContractImpl(
             courseCompleted = result.courseCompleted,
             stampAcquired = result.stampAcquired,
             estimatedKcal = result.estimatedKcal,
+            targetPoseId = result.targetPoseId,
+            targetPoseName = result.targetPoseName,
+            bodyPartCode = result.bodyPartCode,
+            level = result.level,
+            acquiredStampCount = result.acquiredStampCount,
+            requiredStampCount = result.requiredStampCount,
+            targetPoseCompleted = result.targetPoseCompleted,
         )
     }
 }

@@ -169,17 +169,46 @@ data class SessionExerciseRecordResponse(
 
 /**
  * **서버가 course 에서 받아온 값이다.** training 이 계산하지 않는다 (docs/domains.md §2).
+ *
+ * 완료 리포트 한 화면이 여기서 다 나온다 — 헤더의 `골반 난이도 상 · 낙타자세`,
+ * `낙타자세 해냈어요! 1 / 4회` 세그먼트, 자세 완성 축하 화면의 신호까지다. 자세 정보를 얻으려고
+ * `GET /courses/{courseId}` 나 `GET /catalog/target-poses/{id}` 를 다시 부르지 않아도 된다.
  */
 @Schema(description = "세션 완료가 코스 진행도에 반영된 결과")
 data class CourseProgressResponse(
-    @field:Schema(description = "완료한 스텝 수", example = "2")
+    @field:Schema(description = "이번 회차에서 완료한 스텝 수. **파이어로그 세그먼트가 아니다**", example = "2")
     val completedStepCount: Int,
-    @field:Schema(description = "전체 스텝 수", example = "6")
+    @field:Schema(description = "이 코스의 전체 스텝 수", example = "6")
     val totalStepCount: Int,
-    @field:Schema(description = "코스를 완성했는지", example = "false")
+    @field:Schema(
+        description = "이번 회차의 스텝을 전부 끝냈는지. **자세 완성과 다르다** — 완성은 4 회 완주다",
+        example = "false",
+    )
     val courseCompleted: Boolean,
-    @field:Schema(description = "이 호출로 도장이 새로 붙었는지. 재시도에서는 false 다", example = "false")
+    @field:Schema(description = "이 호출로 이번 회차의 도장이 새로 붙었는지. 재시도에서는 false 다", example = "false")
     val stampAcquired: Boolean,
+    @field:Schema(description = "이 코스의 목표 자세 식별자", example = "3")
+    val targetPoseId: Long,
+    @field:Schema(description = "목표 자세 이름. 리포트 헤더와 파이어로그 카드에 쓴다", example = "낙타자세")
+    val targetPoseName: String,
+    @field:Schema(description = "목표 자세의 부위. catalog 에 자세가 없으면 null 이다", nullable = true)
+    val bodyPartCode: BodyPartCode?,
+    @field:Schema(description = "목표 자세의 난이도 단계", example = "3", nullable = true)
+    val level: Int?,
+    @field:Schema(
+        description =
+            "이 자세를 지금까지 완주한 횟수 = 붙은 도장 수. **`1 / 4회` 의 분자다.** " +
+                "코스를 한 번 완주할 때마다 하나씩 오른다",
+        example = "1",
+    )
+    val acquiredStampCount: Int,
+    @field:Schema(description = "완성에 필요한 완주 횟수. `1 / 4회` 의 분모다", example = "4")
+    val requiredStampCount: Int,
+    @field:Schema(
+        description = "이 자세를 완성했는지. `stampAcquired` 와 함께 true 면 방금 완성한 것이라 축하 화면을 띄운다",
+        example = "false",
+    )
+    val targetPoseCompleted: Boolean,
 ) {
     companion object {
         fun from(view: CourseProgressView) =
@@ -188,6 +217,13 @@ data class CourseProgressResponse(
                 totalStepCount = view.totalStepCount,
                 courseCompleted = view.courseCompleted,
                 stampAcquired = view.stampAcquired,
+                targetPoseId = view.targetPoseId,
+                targetPoseName = view.targetPoseName,
+                bodyPartCode = view.bodyPartCode?.let(BodyPartCode::from),
+                level = view.level,
+                acquiredStampCount = view.acquiredStampCount,
+                requiredStampCount = view.requiredStampCount,
+                targetPoseCompleted = view.targetPoseCompleted,
             )
     }
 }

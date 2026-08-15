@@ -11,10 +11,14 @@ import team.aligner.course.infrastructure.ExerciseCatalogPort
 import team.aligner.course.infrastructure.MemberBodyPort
 import team.aligner.course.infrastructure.TargetPoseCatalogEntry
 import team.aligner.course.infrastructure.TargetPoseCatalogPort
+import team.aligner.course.infrastructure.TargetPoseStampCount
 
 /**
  * 「자세 도전 현황」이 **회원이 시작한 코스가 아니라 서비스가 제공하는 핀포즈 전체**를 펼친다는
  * 것을 고정한다. 코스는 추천이라 아직 시작하지 않은 자세도 화면에 나온다.
+ *
+ * **`3 / 4` 는 파이어로그다.** 코스를 한 번 완주할 때마다 도장이 하나 붙고 4 개를 채워야
+ * 완성이다 — 코스 안에서 완료한 스텝 수가 아니다.
  */
 class TargetPoseProgressTest :
     DescribeSpec({
@@ -54,6 +58,11 @@ class TargetPoseProgressTest :
             steps = emptyList(),
         )
 
+        /** 도장이 하나도 없는 상태. 도장을 세는 테스트만 이 기본값을 덮는다. */
+        beforeTest {
+            every { courseQueryRepository.findStampCounts(1L) } returns emptyList()
+        }
+
         describe("getTargetPoseProgress") {
             it("코스를 하나도 시작하지 않아도 자세 전체가 나온다") {
                 every { targetPoseCatalogPort.findAll() } returns poses()
@@ -78,6 +87,7 @@ class TargetPoseProgressTest :
                 item.courseId.shouldBeNull()
                 item.completedStepCount.shouldBeNull()
                 item.totalStepCount.shouldBeNull()
+                item.acquiredStampCount.shouldBeNull()
                 item.completed shouldBe false
             }
 
@@ -88,6 +98,8 @@ class TargetPoseProgressTest :
                         skeleton(courseId = 20L, targetPoseId = 1L, completed = true, completedStepCount = 4),
                         skeleton(courseId = 21L, targetPoseId = 2L, completed = false, completedStepCount = 1),
                     )
+                every { courseQueryRepository.findStampCounts(1L) } returns
+                    listOf(TargetPoseStampCount(targetPoseId = 1L, acquiredStampCount = 4))
 
                 val result = service().getTargetPoseProgress(memberId = 1L, completedOnly = null)
 
@@ -96,6 +108,25 @@ class TargetPoseProgressTest :
                 result.inProgressCount shouldBe 1
                 result.targetPoses.map { it.courseId } shouldBe listOf(20L, 21L, null)
                 result.targetPoses.map { it.completedStepCount } shouldBe listOf(4, 1, null)
+                result.targetPoses.map { it.acquiredStampCount } shouldBe listOf(4, 0, null)
+            }
+
+            it("코스를 완주해도 도장 4 개를 채우기 전에는 완성이 아니다") {
+                // 화면의 3 / 4 는 완주 횟수다. 한 번 완주한 자세는 아직 "도전 중" 이고,
+                // 회원이 도전 현황에서 그 자세를 다시 눌러 두 번째 도전을 시작한다.
+                every { targetPoseCatalogPort.findAll() } returns poses()
+                every { courseQueryRepository.findAllCourseSkeletons(1L) } returns
+                    listOf(skeleton(courseId = 20L, targetPoseId = 1L, completed = true, completedStepCount = 4))
+                every { courseQueryRepository.findStampCounts(1L) } returns
+                    listOf(TargetPoseStampCount(targetPoseId = 1L, acquiredStampCount = 1))
+
+                val result = service().getTargetPoseProgress(memberId = 1L, completedOnly = null)
+
+                result.completedCount shouldBe 0
+                result.inProgressCount shouldBe 1
+                result.targetPoses.first().acquiredStampCount shouldBe 1
+                result.targetPoses.first().requiredStampCount shouldBe 4
+                result.targetPoses.first().completed shouldBe false
             }
 
             it("부위와 레벨을 실어 화면이 섹션을 그릴 수 있다") {
@@ -113,6 +144,8 @@ class TargetPoseProgressTest :
                 every { targetPoseCatalogPort.findAll() } returns poses()
                 every { courseQueryRepository.findAllCourseSkeletons(1L) } returns
                     listOf(skeleton(courseId = 20L, targetPoseId = 1L, completed = true, completedStepCount = 4))
+                every { courseQueryRepository.findStampCounts(1L) } returns
+                    listOf(TargetPoseStampCount(targetPoseId = 1L, acquiredStampCount = 4))
 
                 val result = service().getTargetPoseProgress(memberId = 1L, completedOnly = true)
 
@@ -125,6 +158,8 @@ class TargetPoseProgressTest :
                 every { targetPoseCatalogPort.findAll() } returns poses()
                 every { courseQueryRepository.findAllCourseSkeletons(1L) } returns
                     listOf(skeleton(courseId = 20L, targetPoseId = 1L, completed = true, completedStepCount = 4))
+                every { courseQueryRepository.findStampCounts(1L) } returns
+                    listOf(TargetPoseStampCount(targetPoseId = 1L, acquiredStampCount = 4))
 
                 val result = service().getTargetPoseProgress(memberId = 1L, completedOnly = false)
 

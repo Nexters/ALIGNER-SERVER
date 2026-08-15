@@ -60,6 +60,10 @@ internal class CourseCommandServiceImpl(
      *
      * **멱등하다.** 같은 자세의 코스가 이미 있으면 새로 만들지 않고 그것을 돌려준다 —
      * `(member_id, target_pose_id)` 유니크가 DB 에서도 같은 것을 막는다.
+     *
+     * **완주한 코스는 여기서 다시 열린다.** 완주할 때마다 도장이 하나 붙고 4 개를 채워야 자세
+     * 완성이라, 도전 현황에서 같은 자세를 다시 누른 회원이 두 번째 도전을 시작할 경로가
+     * 필요하다 ([restartIfCompleted]).
      */
     override fun recommend(
         memberId: Long,
@@ -73,7 +77,7 @@ internal class CourseCommandServiceImpl(
             targetPoseCatalogPort.findByBodyPartCodeAndLevel(command.bodyPartCode, command.level)
                 ?: throw CourseTemplateNotFoundException()
 
-        findExistingCourse(memberId, targetPose.targetPoseId)?.let { return it }
+        findExistingCourse(memberId, targetPose.targetPoseId)?.let { return restartIfCompleted(memberId, it) }
 
         val template =
             courseTemplateRepository.findByTargetPoseId(targetPose.targetPoseId)
@@ -91,17 +95,54 @@ internal class CourseCommandServiceImpl(
             //
             // 조회만으로 막으려 하면 이 틈이 남는다. 제약을 최종 방어선으로 두고 여기서
             // 흡수하는 것이 순서다.
-            findExistingCourse(memberId, targetPose.targetPoseId) ?: throw e
+            findExistingCourse(memberId, targetPose.targetPoseId)?.let { restartIfCompleted(memberId, it) } ?: throw e
         }
     }
 
     /**
-     * 스텝 완료를 반영한다. 마지막 스텝이었으면 도장이 붙는다.
+     * 완주한 코스를 다시 연다. 스텝이 처음 상태로 돌아가고 회차가 하나 오른다.
+     *
+     * **진행 중인 코스는 건드리지 않는다.** 추천 재호출이 진행도를 지우면 안 된다 — 홈에서
+     * 돌아온 회원이 도전 현황에서 같은 자세를 다시 눌러도 하던 자리에서 이어가야 한다.
+     *
+     * **도장을 다 채웠으면 열지 않는다.** 4 개가 상한이라 다시 열어도 더 붙을 도장이 없다.
+     * 완성한 자세는 그 상태로 남는다.
+     *
+     * 코스 식별자는 어느 쪽이든 같다. 재도전은 새 코스가 아니라 **같은 코스의 다음 회차**다.
+     */
+    private fun restartIfCompleted(
+        memberId: Long,
+        course: Course,
+    ): CourseIdentity {
+        val identity = checkNotNull(course.identity) { "저장된 코스에 식별자가 없다" }
+        if (course.status != CourseStatus.COMPLETED) {
+            return identity
+        }
+        if (stampRepository.countAcquired(memberId, course.targetPoseId) >= Stamp.REQUIRED_COUNT) {
+            return identity
+        }
+
+        return try {
+            courseRepository.save(course.restart())
+            identity
+        } catch (_: OptimisticLockingFailureException) {
+            // 두 번 눌린 요청이 함께 들어와 다른 쪽이 이미 다시 열었다. 여기서 재시도하면
+            // 회차가 두 번 오르므로 그대로 돌려준다 — 결과는 이미 회원이 원한 상태다.
+            identity
+        }
+    }
+
+    /**
+     * 스텝 완료를 반영한다. 마지막 스텝이었으면 **이번 회차의 도장**이 붙는다.
      *
      * 도장 부여가 `training` 이 아니라 여기 있는 것이 이 도메인 분할의 요점이다 —
      * 기록은 training, **판단은 course** 다 (docs/domains.md §2).
      *
      * **멱등하다.** 이미 완료된 코스에 재시도가 들어와도 도장이 두 번 붙지 않는다.
+     *
+     * 완료 리포트가 그리는 "파이어로그 N / 4회" 와 헤더의 `골반 난이도 상 · 낙타자세` 를 여기서
+     * 함께 실어 보낸다. 도장 수도 자세 정보도 course 가 이미 들고 있는 값이라, training 이
+     * 따로 조회하면 같은 값을 다른 시점에 읽게 된다.
      */
     override fun completeStep(
         memberId: Long,
@@ -110,28 +151,45 @@ internal class CourseCommandServiceImpl(
         performedExercises: List<PerformedExercise>,
     ): CourseProgressResult {
         val completed = saveCompletedStep(memberId, courseId, stepOrder)
+        val courseCompleted = completed.status == CourseStatus.COMPLETED
 
         // **도장 획득 여부를 서비스가 짐작하지 않는다.** "방금 코스가 완료됐나" 로 판단하면
         // 두 요청이 동시에 마지막 스텝을 밀어넣을 때 둘 다 획득으로 볼 수 있다.
         // 저장이 실제로 새 행을 넣었는지가 유일한 근거다.
+        //
+        // 회차 상한을 여기서도 본다. 재도전을 열어주는 쪽(restartIfCompleted)이 이미 막지만,
+        // 상한을 넘긴 회차가 어떤 경로로든 생기면 5 번째 도장이 붙어서는 안 된다.
         val stampAcquired =
-            completed.status == CourseStatus.COMPLETED &&
+            courseCompleted &&
+                completed.attemptNo <= Stamp.REQUIRED_COUNT &&
                 stampRepository.saveIfAbsent(
                     Stamp.acquire(
                         memberId = memberId,
                         targetPoseId = completed.targetPoseId,
                         courseId = courseId,
+                        attemptNo = completed.attemptNo,
                         at = completed.completedAt ?: Instant.now(),
                     ),
                 )
+
+        val acquiredStampCount = stampRepository.countAcquired(memberId, completed.targetPoseId)
+        val targetPose = targetPoseCatalogPort.findAllByIds(listOf(completed.targetPoseId)).firstOrNull()
 
         return CourseProgressResult(
             courseId = courseId,
             completedStepCount = completed.completedStepCount,
             totalStepCount = completed.totalStepCount,
-            courseCompleted = completed.status == CourseStatus.COMPLETED,
+            courseCompleted = courseCompleted,
             stampAcquired = stampAcquired,
             estimatedKcal = estimateKcal(memberId, completed, performedExercises),
+            targetPoseId = completed.targetPoseId,
+            // catalog 에 자세가 없어도 리포트를 실패시키지 않는다. 도메인 간 FK 가 없어
+            // course seed 가 catalog 보다 앞서갈 수 있다 (CourseQueryServiceImpl 과 같은 판단).
+            targetPoseName = targetPose?.name ?: "",
+            bodyPartCode = targetPose?.bodyPartCode,
+            level = targetPose?.level,
+            acquiredStampCount = acquiredStampCount,
+            targetPoseCompleted = acquiredStampCount >= Stamp.REQUIRED_COUNT,
         )
     }
 
@@ -218,10 +276,7 @@ internal class CourseCommandServiceImpl(
     private fun findExistingCourse(
         memberId: Long,
         targetPoseId: Long,
-    ): CourseIdentity? =
-        courseRepository
-            .findByMemberIdAndTargetPoseId(memberId, targetPoseId)
-            ?.let { checkNotNull(it.identity) { "저장된 코스에 식별자가 없다" } }
+    ): Course? = courseRepository.findByMemberIdAndTargetPoseId(memberId, targetPoseId)
 
     /**
      * 진단에서 이 부위의 원인을 찾아 스냅샷으로 남긴다. **없어도 막지 않는다.**
@@ -266,10 +321,24 @@ data class CourseProgressResult(
     val completedStepCount: Int,
     val totalStepCount: Int,
     val courseCompleted: Boolean,
+    /** 이 호출로 이번 회차의 도장이 새로 붙었는지. 재시도에서는 false 다. */
     val stampAcquired: Boolean,
     /** 이번 세션의 소모 칼로리. 계산이 성립하지 않으면 null 이다. */
     val estimatedKcal: Int?,
-)
+    val targetPoseId: Long,
+    /** catalog 에 자세가 없으면 빈 문자열이다. 리포트를 실패시키지 않는다. */
+    val targetPoseName: String,
+    /** 리포트 헤더의 `골반 난이도 상`. catalog 에 자세가 없으면 null 이다. */
+    val bodyPartCode: String?,
+    val level: Int?,
+    /** 이 자세에 지금까지 붙은 도장 수. 리포트의 "파이어로그 N / 4회" 의 N 이다. */
+    val acquiredStampCount: Int,
+    /** 도장을 [Stamp.REQUIRED_COUNT] 개 채웠는지. 자세 완성 축하 화면의 신호다. */
+    val targetPoseCompleted: Boolean,
+) {
+    /** 리포트의 분모. 화면이 세그먼트 개수를 하드코딩하지 않게 서버가 함께 내린다. */
+    val requiredStampCount: Int get() = Stamp.REQUIRED_COUNT
+}
 
 /** `training` 이 넘기는 실측 수행 시간. 계산은 course 가 한다. */
 data class PerformedExercise(

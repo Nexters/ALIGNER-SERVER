@@ -5,6 +5,7 @@ import team.aligner.course.infrastructure.CourseQueryRepository
 import team.aligner.course.infrastructure.CourseSkeleton
 import team.aligner.course.infrastructure.CourseStepExerciseSkeleton
 import team.aligner.course.infrastructure.CourseStepSkeleton
+import team.aligner.course.infrastructure.TargetPoseStampCount
 import java.time.Instant
 
 /**
@@ -112,6 +113,29 @@ internal class CourseQueryRepositoryImpl(
                     currentStepOrder = rs.getIntOrNull("current_step_order"),
                     // 목록 화면은 스텝 내역을 그리지 않는다.
                     steps = emptyList(),
+                )
+            }.list()
+
+    /**
+     * 자세별 도장 수. 도전 현황의 `3 / 4` 이자 완성 판정의 근거다.
+     *
+     * 도장이 없는 자세는 행이 없다. 조립하는 쪽이 "코스를 시작했는가" 로 0 과 null 을
+     * 가른다 — 0/4 는 "시작했는데 아직 한 번도 완주 못 함" 이고 null 은 "아직 열지 않음" 이다.
+     */
+    override fun findStampCounts(memberId: Long): List<TargetPoseStampCount> =
+        jdbcClient
+            .sql(
+                """
+                SELECT target_pose_id, count(*) AS acquired_stamp_count
+                FROM course.stamp
+                WHERE member_id = :memberId
+                GROUP BY target_pose_id
+                """.trimIndent(),
+            ).param("memberId", memberId)
+            .query { rs, _ ->
+                TargetPoseStampCount(
+                    targetPoseId = rs.getLong("target_pose_id"),
+                    acquiredStampCount = rs.getInt("acquired_stamp_count"),
                 )
             }.list()
 

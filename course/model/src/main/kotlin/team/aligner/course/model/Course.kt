@@ -29,6 +29,13 @@ data class Course(
     val createdAt: Instant?,
     val completedAt: Instant?,
     /**
+     * 몇 번째 도전인가. 완주한 코스를 다시 시작하면 하나 오른다.
+     *
+     * 완주할 때마다 도장이 하나 붙고 [Stamp.REQUIRED_COUNT] 개를 채우면 자세 완성이다. 다시
+     * 시작하면 스텝이 전부 `NOT_STARTED` 로 돌아가므로 **스텝 상태만으로는 회차를 알 수 없다.**
+     */
+    val attemptNo: Int = 1,
+    /**
      * 낙관적 락 버전. 저장 어댑터가 쓰는 값이라 도메인 규칙에는 관여하지 않는다.
      *
      * 애그리거트에 두는 것은 저장 시점에 "어떤 버전을 읽고 고쳤는가" 를 알아야 하기 때문이다.
@@ -87,6 +94,29 @@ data class Course(
         )
     }
 
+    /**
+     * 완주한 코스를 처음부터 다시 연다. 스텝이 전부 `NOT_STARTED` 로 돌아가고 회차가 하나
+     * 오른다.
+     *
+     * **완주한 코스만 다시 연다.** 진행 중인 코스에 대고 부르면 아무 일도 일어나지 않는다 —
+     * 추천 재호출이 진행 중인 코스의 진행도를 지우면 안 된다.
+     *
+     * **몇 번까지 다시 열 수 있는지는 여기서 막지 않는다.** 상한은 이미 붙은 도장 수로
+     * 판정하는데 도장은 다른 애그리거트라 코스가 알 수 없다. 판단은 서비스가 한다
+     * ([Stamp.REQUIRED_COUNT]).
+     */
+    fun restart(): Course {
+        if (status != CourseStatus.COMPLETED) {
+            return this
+        }
+        return copy(
+            steps = steps.map { it.reopen() },
+            status = CourseStatus.IN_PROGRESS,
+            completedAt = null,
+            attemptNo = attemptNo + 1,
+        )
+    }
+
     companion object {
         /**
          * 템플릿을 회원의 코스로 복사한다.
@@ -133,6 +163,7 @@ data class Course(
                     },
                 createdAt = null,
                 completedAt = null,
+                attemptNo = 1,
                 version = null,
             )
         }
@@ -150,6 +181,12 @@ data class CourseStep(
     val exercises: List<CourseStepExercise>,
 ) {
     fun complete(at: Instant): CourseStep = copy(status = CourseStepStatus.COMPLETED, completedAt = at)
+
+    /**
+     * 재도전을 위해 처음 상태로 되돌린다. `completed_at` 도 같이 비운다 — DDL 의
+     * `ck_course_step_completed_at` 이 상태와 시각을 함께 묶는다.
+     */
+    fun reopen(): CourseStep = copy(status = CourseStepStatus.NOT_STARTED, completedAt = null)
 }
 
 /**
