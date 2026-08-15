@@ -9,6 +9,10 @@ on:
       - 'v*'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
+
 permissions:
   contents: read
   packages: write
@@ -59,9 +63,9 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=develop,enable=${{ github.ref_name == 'develop' }}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
+            type=raw,value=main,enable=${{ github.ref_name == 'main' }}
             type=semver,pattern={{version}}
             type=sha,prefix=sha-
 
@@ -77,7 +81,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Output image digest and tag
+      - name: Log image details
         run: |
           echo "Image digest: ${{ steps.build-push.outputs.digest }}"
           echo "Image tags: ${{ steps.meta.outputs.tags }}"
@@ -86,8 +90,10 @@ jobs:
     name: Deploy to Sandbox (Dev)
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
-    environment: sandbox
+    if: github.ref_name == 'develop'
+    environment:
+      name: sandbox
+      url: https://test.aligneryoga.com
     steps:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
@@ -124,7 +130,7 @@ jobs:
           printf '%s\n' "$KUBECONFIG_DATA" > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
 
-      - name: Inject Kubernetes Secret and Trigger Rollout
+      - name: Inject Secret and Rollout Restart
         if: steps.tailscale-check.outputs.available == 'true'
         env:
           DEV_ENV_FILE: ${{ secrets.DEV_ENV_FILE }}
@@ -137,23 +143,33 @@ jobs:
             echo "Injecting secret aligner-api-secrets into namespace aligner-sandbox..."
             kubectl create secret generic aligner-api-secrets \
               --from-env-file="$TMP_ENV_FILE" \
-              --namespace=aligner-sandbox \
+              --namespace="aligner-sandbox" \
               --dry-run=client -o yaml | kubectl apply -f -
 
             rm -f "$TMP_ENV_FILE"
           else
-            echo "::warning::DEV_ENV_FILE secret payload is empty for sandbox."
+            echo "::warning::DEV_ENV_FILE secret is empty."
           fi
 
           echo "Triggering rollout restart for deployment/aligner-sandbox-api in namespace aligner-sandbox..."
           kubectl rollout restart deployment/aligner-sandbox-api -n aligner-sandbox
 
+      - name: Deployment Summary
+        run: |
+          echo "### 🚀 Sandbox (Dev) 배포 완료!" >> $GITHUB_STEP_SUMMARY
+          echo "- **환경**: \`aligner-sandbox\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **접속 도메인**: [https://test.aligneryoga.com](https://test.aligneryoga.com)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Swagger UI**: [https://test.aligneryoga.com/swagger-ui/index.html](https://test.aligneryoga.com/swagger-ui/index.html)" >> $GITHUB_STEP_SUMMARY
+          echo "- **이미지**: \`ghcr.io/${{ github.repository_owner }}/aligner-server:develop\`" >> $GITHUB_STEP_SUMMARY
+
   deploy-production:
     name: Deploy to Production (Prod)
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-    environment: production
+    if: github.ref_name == 'main' || startsWith(github.ref_name, 'v')
+    environment:
+      name: production
+      url: https://api.aligneryoga.com
     steps:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
@@ -190,7 +206,7 @@ jobs:
           printf '%s\n' "$KUBECONFIG_DATA" > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
 
-      - name: Inject Kubernetes Secret and Trigger Rollout
+      - name: Inject Secret and Rollout Restart
         if: steps.tailscale-check.outputs.available == 'true'
         env:
           PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
@@ -203,13 +219,20 @@ jobs:
             echo "Injecting secret aligner-api-secrets into namespace aligner..."
             kubectl create secret generic aligner-api-secrets \
               --from-env-file="$TMP_ENV_FILE" \
-              --namespace=aligner \
+              --namespace="aligner" \
               --dry-run=client -o yaml | kubectl apply -f -
 
             rm -f "$TMP_ENV_FILE"
           else
-            echo "::warning::PROD_ENV_FILE secret payload is empty for production."
+            echo "::warning::PROD_ENV_FILE secret is empty."
           fi
 
           echo "Triggering rollout restart for deployment/aligner-api in namespace aligner..."
           kubectl rollout restart deployment/aligner-api -n aligner
+
+      - name: Deployment Summary
+        run: |
+          echo "### 🏢 Production 배포 완료!" >> $GITHUB_STEP_SUMMARY
+          echo "- **환경**: \`aligner\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **접속 도메인**: [https://api.aligneryoga.com](https://api.aligneryoga.com)" >> $GITHUB_STEP_SUMMARY
+          echo "- **이미지**: \`ghcr.io/${{ github.repository_owner }}/aligner-server:latest\`" >> $GITHUB_STEP_SUMMARY
