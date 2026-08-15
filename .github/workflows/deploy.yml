@@ -68,7 +68,7 @@ jobs:
             type=raw,value=develop,enable=${{ github.ref_name == 'develop' }}
             type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
             type=raw,value=main,enable=${{ github.ref_name == 'main' }}
-            type=semver,pattern={{version}}
+            "type=semver,pattern={{version}}"
             type=sha,prefix=sha-
 
       - name: Build and push Docker image
@@ -93,9 +93,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref_name == 'develop'
-    environment:
-      name: dev
-      url: https://test.aligneryoga.com
+    environment: dev
     steps:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
@@ -169,9 +167,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref_name == 'main' || startsWith(github.ref_name, 'v')
-    environment:
-      name: prod
-      url: https://api.aligneryoga.com
+    environment: prod
     steps:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
