@@ -62,7 +62,13 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 �
 
 `TargetPose`는 목표 자세 콘텐츠의 이름이다. 예전 기획 용어인 `PoseCheckpoint`를 현재
 서버가 제공한다고 가정하면 안 된다. 현재 도메인 결정에서는 `PoseCheckpoint`를 만들지 않으며,
-**자세 도전 현황의 `3 / 4`는 자세 포인트 체크가 아니라 코스 안에서 완료한 스텝 개수**다.
+**자세 도전 현황과 완료 리포트의 `3 / 4`는 자세 포인트 체크가 아니라 그 자세의 코스를 완주한
+횟수**다 — 파이어로그다.
+
+**완주 횟수와 스텝 진행도는 다른 값이다.** 코스 안에서 몇 번째 스텝까지 했는지는
+`completedStepCount / totalStepCount`이고, 파이어로그는 **코스를 처음부터 끝까지 마칠 때마다
+하나씩** 오르는 `acquiredStampCount / requiredStampCount`(=4)다. 4 개를 채워야 그 자세가
+`completed`다.
 
 핀포즈 직후의 "어땠어요?" 3지선다(`PerceivedResult`)는 `PoseCheckpoint`가 아니다. 자세
 포인트를 항목별로 체크하는 것이 아니라 **세션 하나에 대한 회원의 체감을 기록만** 하며,
@@ -702,6 +708,17 @@ Content-Type: application/json
 **멱등하다.** 같은 자세의 코스가 이미 있으면 새로 만들지 않고 그 코스를 돌려준다. 재시도해도
 안전하고, 이 경우도 201이다.
 
+**완주한 코스는 여기서 다시 열린다.** 파이어로그 4 개를 채워야 자세가 완성이므로, 도전
+현황에서 완주한 자세를 다시 누르면 이 API 가 **같은 `courseId` 의 스텝을 처음 상태로
+되돌린다.** 다음 회차가 시작되는 것이고 새 코스가 생기는 것이 아니다.
+
+- **진행 중인 코스는 초기화되지 않는다.** 하던 자리에서 이어가므로 홈에서 돌아와 다시 눌러도
+  안전하다
+- **이미 완성한 자세(파이어로그 4/4)는 다시 열리지 않는다.** 더 붙을 도장이 없어 코스는
+  완성 상태 그대로다
+- 응답은 어느 경우든 `{ "courseId": 20 }` 하나라, 다시 열렸는지는 이어서 부르는
+  `GET /courses/{courseId}` 의 스텝 상태로 확인한다
+
 실패는 넷이다.
 
 | 상태 | 코드 | 화면 처리 |
@@ -818,8 +835,10 @@ Content-Type: application/json
       "bodyPartCode": "BACK",
       "level": 1,
       "courseId": 20,
-      "completedStepCount": 3,
-      "totalStepCount": 4,
+      "completedStepCount": 2,
+      "totalStepCount": 6,
+      "acquiredStampCount": 3,
+      "requiredStampCount": 4,
       "completed": false
     },
     {
@@ -831,18 +850,21 @@ Content-Type: application/json
       "courseId": null,
       "completedStepCount": null,
       "totalStepCount": null,
+      "acquiredStampCount": null,
+      "requiredStampCount": 4,
       "completed": false
     }
   ]
 }
 ```
 
-**아직 시작하지 않은 자세는 `courseId`·`completedStepCount`·`totalStepCount`가 `null`이다.**
-`0 / 4`가 아니다 — 0/4는 "시작했는데 아직 한 스텝도 안 함"이고 `null`은 "아직 열지 않음"이라
-화면이 둘을 다르게 그린다. 회색 카드는 `courseId === null`로 판별한다.
+**아직 시작하지 않은 자세는 코스 쪽 값이 전부 `null`이다.** `0 / 4`가 아니다 — 0/4는
+"시작했는데 아직 한 번도 완주하지 못함"이고 `null`은 "아직 열지 않음"이라 화면이 둘을 다르게
+그린다. 회색 카드는 `courseId === null`로 판별한다.
 
-**`completedStepCount / totalStepCount`가 화면의 `3 / 4`다.** 자세 포인트 체크가 아니라
-**코스 안에서 완료한 스텝 개수**다.
+**`acquiredStampCount / requiredStampCount`가 화면의 `3 / 4`다.** 자세 포인트 체크도, 코스 안
+스텝 개수도 아니다 — **그 자세의 코스를 완주한 횟수**이고 4 번 완주하면 완성이다.
+`completedStepCount / totalStepCount`는 이번 회차가 어디까지 왔는지라 다른 값이다.
 
 세 상태는 이렇게 나뉜다.
 
@@ -851,6 +873,10 @@ Content-Type: application/json
 | 아직 안 열림 | `courseId === null` | 회색, 진행도 뱃지 없음 |
 | 도전 중 | `courseId !== null && !completed` | 링 진행도 + `3 / 4` |
 | 완성 | `completed === true` | 노란 링 + `완성` |
+
+**완주했는데도 `completed`가 `false`인 상태가 정상이다.** 한 번 완주하면 파이어로그가 1 이 되고
+`completedStepCount === totalStepCount`가 되지만, 4 번을 채우기 전까지는 여전히 "도전 중"이다.
+그 자세를 다시 누르면 `POST /courses`가 코스를 처음 상태로 되돌려 다음 회차를 연다.
 
 **칩 세 개는 루트의 집계로 그린다.** `totalCount`·`inProgressCount`·`completedCount`는
 `completed` 파라미터와 **무관하게 언제나 전체 기준**이라, 걸러도 나머지 칩의 숫자가 유지된다.
@@ -969,7 +995,14 @@ Content-Type: application/json
     "completedStepCount": 2,
     "totalStepCount": 6,
     "courseCompleted": false,
-    "stampAcquired": false
+    "stampAcquired": false,
+    "targetPoseId": 3,
+    "targetPoseName": "낙타자세",
+    "bodyPartCode": "PELVIS",
+    "level": 3,
+    "acquiredStampCount": 1,
+    "requiredStampCount": 4,
+    "targetPoseCompleted": false
   }
 }
 ```
@@ -984,9 +1017,17 @@ Content-Type: application/json
    재시도로 들어온 호출에서는 `stampAcquired`가 `false`다 — 네트워크 오류 후 재시도를
    안전하게 해도 된다
 
-`courseCompleted`가 `true`이고 `stampAcquired`가 `true`면 그 자세를 처음 완성한 것이다.
-축하 화면을 띄운다면 이 조합을 신호로 쓴다. 이후 `GET /courses/progress/target-poses`에서
-그 자세가 `completed:true`로 바뀐다.
+`courseCompleted`가 `true`면 **이번 회차**를 끝낸 것이고, 그때 파이어로그가 하나 오른다
+(`stampAcquired`). **자세를 완성한 것은 아니다** — 완성은 4 회 완주이고 `targetPoseCompleted`가
+알려준다.
+
+| 신호 | 뜻 | 화면 |
+| --- | --- | --- |
+| `courseCompleted && stampAcquired` | 이번 회차를 마쳐 파이어로그가 하나 올랐다 | 리포트의 세그먼트가 한 칸 찬다 |
+| `targetPoseCompleted && stampAcquired` | 방금 4 번째를 채웠다 | **자세 완성 축하 화면** |
+| `targetPoseCompleted && !stampAcquired` | 이미 완성한 자세를 또 수행했다 | 축하 화면을 다시 띄우지 않는다 |
+
+완성한 뒤 `GET /courses/progress/target-poses`에서 그 자세가 `completed:true`로 바뀐다.
 
 ### 운동 완료 리포트에 쓰는 값
 
@@ -1007,9 +1048,13 @@ Content-Type: application/json
 "모름"과 다르다. 온보딩에서 몸무게를 아직 받지 않은 회원이 흔하므로 이 화면은 `null` 상태를
 반드시 함께 만든다.
 
-`파이어로그 해냈어요! 1 / 4회`와 세그먼트는 `courseProgress`의
-`completedStepCount / totalStepCount`다. 헤더의 `골반 레벨 3 · 파이어로그 로드맵`은 코스의
-`targetPoseId`로 `GET /catalog/target-poses/{id}`를 한 번 더 불러 `bodyPartCode`·`level`을 얻는다.
+`낙타자세 해냈어요! 1 / 4회`와 세그먼트는 `courseProgress`의
+**`acquiredStampCount / requiredStampCount`**다. `completedStepCount / totalStepCount`가
+아니다 — 세그먼트는 **코스를 완주한 횟수**이고, 코스 안 스텝을 몇 개 했는지와 다르다.
+
+헤더의 `골반 난이도 상 · 낙타자세`도 같은 응답의 `bodyPartCode`·`level`·`targetPoseName`으로
+그린다. **완료 직후에 `GET /courses/{courseId}`나 `GET /catalog/target-poses/{id}`를 다시 부를
+필요가 없다.**
 
 ### `POST /sessions/{sessionId}/perceived-result`
 
