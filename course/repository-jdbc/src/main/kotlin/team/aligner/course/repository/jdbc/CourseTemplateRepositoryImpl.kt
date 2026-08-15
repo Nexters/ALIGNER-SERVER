@@ -1,5 +1,6 @@
 package team.aligner.course.repository.jdbc
 
+import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import team.aligner.course.infrastructure.CourseTemplateRepository
 import team.aligner.course.model.CourseTemplate
@@ -28,22 +29,42 @@ internal class CourseTemplateRepositoryImpl(
                     WHERE target_pose_id = :targetPoseId
                     """.trimIndent(),
                 ).param("targetPoseId", targetPoseId)
-                .query { rs, _ ->
-                    CourseTemplate(
-                        templateId = rs.getLong("template_id"),
-                        targetPoseId = rs.getLong("target_pose_id"),
-                        name = rs.getString("name"),
-                        recommendationReason = rs.getString("recommendation_reason"),
-                        steps = emptyList(),
-                    )
-                }.optional()
+                .query(BaseRowMapper)
+                .optional()
                 .orElse(null) ?: return null
 
-        return base.copy(steps = findSteps(base.templateId))
+        return base.copy(steps = findSteps(listOf(base.templateId))[base.templateId].orEmpty())
     }
 
-    private fun findSteps(templateId: Long): List<CourseTemplateStep> {
+    /**
+     * 템플릿 개수와 무관하게 2 쿼리다. 템플릿마다 스텝을 읽으면 조회가 템플릿 수만큼 늘어난다.
+     */
+    override fun findAll(): List<CourseTemplate> {
+        val bases =
+            jdbcClient
+                .sql(
+                    """
+                    SELECT template_id, target_pose_id, name, recommendation_reason
+                    FROM course.course_template
+                    ORDER BY template_id
+                    """.trimIndent(),
+                ).query(BaseRowMapper)
+                .list()
+
+        if (bases.isEmpty()) {
+            return emptyList()
+        }
+
+        val stepsByTemplateId = findSteps(bases.map { it.templateId })
+        return bases.map { it.copy(steps = stepsByTemplateId[it.templateId].orEmpty()) }
+    }
+
+    /**
+     * `IN (:templateIds)` 에 빈 리스트를 넘기면 SQL 이 깨진다. 호출부가 비어 있지 않음을 보장한다.
+     */
+    private fun findSteps(templateIds: List<Long>): Map<Long, List<CourseTemplateStep>> {
         data class Row(
+            val templateId: Long,
             val stepOrder: Int,
             val exercise: CourseTemplateStepExercise?,
         )
@@ -53,21 +74,22 @@ internal class CourseTemplateRepositoryImpl(
             jdbcClient
                 .sql(
                     """
-                    SELECT ts.step_order, tse.exercise_id, tse.display_order,
+                    SELECT ts.template_id, ts.step_order, tse.exercise_id, tse.display_order,
                            tse.duration_seconds, tse.set_count
                     FROM course.template_step ts
                     LEFT JOIN course.template_step_exercise tse
                            ON tse.template_step_id = ts.template_step_id
-                    WHERE ts.template_id = :templateId
-                    ORDER BY ts.step_order, tse.display_order
+                    WHERE ts.template_id IN (:templateIds)
+                    ORDER BY ts.template_id, ts.step_order, tse.display_order
                     """.trimIndent(),
-                ).param("templateId", templateId)
+                ).param("templateIds", templateIds)
                 .query { rs, _ ->
                     val exerciseId = rs.getLong("exercise_id")
                     // wasNull() 은 마지막으로 읽은 컬럼을 가리킨다. step_order 를 읽은 뒤에
                     // 물으면 항상 false 라 운동이 없는 스텝에 exerciseId 0 이 들어간다.
                     val hasExercise = !rs.wasNull()
                     Row(
+                        templateId = rs.getLong("template_id"),
                         stepOrder = rs.getInt("step_order"),
                         exercise =
                             if (!hasExercise) {
@@ -84,12 +106,33 @@ internal class CourseTemplateRepositoryImpl(
                 }.list()
 
         return rows
-            .groupBy { it.stepOrder }
-            .toSortedMap()
-            .map { (stepOrder, grouped) ->
-                CourseTemplateStep(
-                    stepOrder = stepOrder,
-                    exercises = grouped.mapNotNull { it.exercise }.sortedBy { it.displayOrder },
+            .groupBy { it.templateId }
+            .mapValues { (_, templateRows) ->
+                templateRows
+                    .groupBy { it.stepOrder }
+                    .toSortedMap()
+                    .map { (stepOrder, grouped) ->
+                        CourseTemplateStep(
+                            stepOrder = stepOrder,
+                            exercises = grouped.mapNotNull { it.exercise }.sortedBy { it.displayOrder },
+                        )
+                    }
+            }
+    }
+
+    /**
+     * 단건 조회와 전체 조회가 같은 컬럼을 읽으므로 매핑을 한 곳에 둔다.
+     * `steps` 는 호출부가 두 번째 쿼리 결과로 채운다.
+     */
+    private companion object {
+        val BaseRowMapper =
+            RowMapper { rs, _ ->
+                CourseTemplate(
+                    templateId = rs.getLong("template_id"),
+                    targetPoseId = rs.getLong("target_pose_id"),
+                    name = rs.getString("name"),
+                    recommendationReason = rs.getString("recommendation_reason"),
+                    steps = emptyList(),
                 )
             }
     }

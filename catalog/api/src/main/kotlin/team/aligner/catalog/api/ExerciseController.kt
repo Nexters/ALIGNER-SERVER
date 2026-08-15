@@ -22,7 +22,9 @@ import team.aligner.catalog.service.ExerciseQueryService
  * SecurityConfig 기본값이 anyRequest().authenticated() 라 인증 자체는 여전히 필요하다
  * — permitAll 을 추가하지 않는다.
  *
- * 목록 엔드포인트를 만들지 않는다. 운동 전체를 그리는 화면이 없다 (docs/architecture.md §4).
+ * **회원용 목록 엔드포인트를 만들지 않는다.** 운동 전체를 그리는 회원 화면이 없다
+ * (docs/architecture.md §4). 감수 콘텐츠 점검용 전체 목록은 ExerciseOperationController 가
+ * `/operation/exercises` 로 따로 낸다.
  *
  * 이 클래스는 CatalogApiAutoConfiguration 이 @Bean 으로 등록한다. ComponentScan 이 없어
  * @RestController 만으로는 등록되지 않는다 — 빠지면 기동은 되고 호출만 404 다 (§5).

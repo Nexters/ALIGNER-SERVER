@@ -27,7 +27,20 @@ class CatalogContractImplTest :
         describe("ExerciseContractImpl.findAllByIds") {
             it("모든 필드를 빠짐없이 옮긴다") {
                 every { exerciseQueryService.getAll(listOf(ExerciseIdentity.of(1L))) } returns
-                    listOf(ExerciseSummaryView(1L, "캣카우", "exercise/cat-cow", 1, 12, 120, BigDecimal("2.30"), "하", "가동성 웜업"))
+                    listOf(
+                        ExerciseSummaryView(
+                            exerciseId = 1L,
+                            name = "캣카우",
+                            imageAssetKey = "exercise/cat-cow",
+                            thumbnailUrl = "https://ymove.test/cat-cow.jpg",
+                            defaultSetCount = 1,
+                            defaultRepCount = 12,
+                            defaultDurationSeconds = 120,
+                            metValue = BigDecimal("2.30"),
+                            difficulty = "하",
+                            category = "가동성 웜업",
+                        ),
+                    )
 
                 val response = exerciseContract.findAllByIds(listOf(1L)).single()
 

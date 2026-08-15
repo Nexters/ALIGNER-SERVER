@@ -200,6 +200,35 @@ class UserFlowE2eIntegrationTest {
         status shouldBe HttpStatus.NOT_FOUND
     }
 
+    /**
+     * 운영 조회 둘이 실제로 매핑되고 seed 를 그대로 내리는지 본다.
+     *
+     * 컨트롤러를 @Bean 으로 올리지 않으면 기동은 되고 호출만 404 다 — 그 자리를 여기서 잡는다
+     * (docs/architecture.md §5).
+     *
+     * **회원 플로우와 섞지 않는다.** 이 둘은 마스터 조회라 회원 상태에 기대지 않고, 그래서
+     * DB 에 없는 회원의 토큰으로도 200 이어야 한다. 인증 자체는 여전히 필요하다.
+     */
+    @Test
+    fun `운영 조회가 seed 를 그대로 내린다`() {
+        val token = signDevToken(DEV_MEMBER_ID)
+
+        val exercises = get("/operation/exercises", token).body!!
+        exercises.size() shouldBe 29
+        exercises[0]["exerciseId"].asLong() shouldBe 101L
+        // 목록에서 그림을 확인할 수 있어야 한다. imageAssetKey 는 프론트가 정적 파일로 매핑하는
+        // 키라 그대로 열리지 않고, 감수자가 브라우저로 볼 수 있는 값은 thumbnailUrl 뿐이다.
+        exercises[0]["thumbnailUrl"].asText().startsWith("https://exercise-api.ymove.app/") shouldBe true
+
+        val templates = get("/operation/course-templates", token).body!!
+        templates.size() shouldBe 9
+        // 자세 이름과 운동 이름은 catalog port 로 붙는다. 비어 있으면 배선이 끊긴 것이다 —
+        // 찾지 못하면 예외가 아니라 빈 문자열이라 여기서만 드러난다.
+        templates[0]["targetPoseName"].asText().isEmpty() shouldBe false
+        templates[0]["stepCount"].asInt() shouldBeGreaterThan 0
+        templates[0]["steps"][0]["exercises"][0]["name"].asText().isEmpty() shouldBe false
+    }
+
     /** scripts/dev-token.sh 와 같은 헤더·클레임·서명이다. */
     private fun signDevToken(memberId: Long): String {
         val now = System.currentTimeMillis() / 1000

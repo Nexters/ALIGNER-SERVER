@@ -1,5 +1,6 @@
 package team.aligner.catalog.repository.jdbc
 
+import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import team.aligner.catalog.infrastructure.ExerciseQueryRepository
 import team.aligner.catalog.model.ExerciseIdentity
@@ -67,30 +68,29 @@ internal class ExerciseQueryRepositoryImpl(
         )
     }
 
+    override fun findAll(): List<ExerciseSummaryView> =
+        jdbcClient
+            .sql(
+                """
+                $SUMMARY_COLUMNS
+                FROM catalog.exercise
+                ORDER BY exercise_id
+                """.trimIndent(),
+            ).query(SummaryRowMapper)
+            .list()
+
     override fun findAllByIdentities(exerciseIdentities: List<ExerciseIdentity>): List<ExerciseSummaryView> =
         jdbcClient
             .sql(
                 """
-                SELECT exercise_id, name, image_asset_key, default_set_count, default_rep_count,
-                       default_duration_seconds, met_value, difficulty, category
+                $SUMMARY_COLUMNS
                 FROM catalog.exercise
                 WHERE exercise_id IN (:exerciseIds)
                 ORDER BY exercise_id
                 """.trimIndent(),
             ).param("exerciseIds", exerciseIdentities.map { it.value })
-            .query { rs, _ ->
-                ExerciseSummaryView(
-                    exerciseId = rs.getLong("exercise_id"),
-                    name = rs.getString("name"),
-                    imageAssetKey = rs.getString("image_asset_key"),
-                    defaultSetCount = rs.getIntOrNull("default_set_count"),
-                    defaultRepCount = rs.getIntOrNull("default_rep_count"),
-                    defaultDurationSeconds = rs.getIntOrNull("default_duration_seconds"),
-                    metValue = rs.getBigDecimal("met_value"),
-                    difficulty = rs.getString("difficulty"),
-                    category = rs.getString("category"),
-                )
-            }.list()
+            .query(SummaryRowMapper)
+            .list()
 
     /**
      * `ymove_slug IS NOT NULL` 을 SQL 에서 거른다. 맵에 null 값을 담아 호출부가 다시 거르게
@@ -144,4 +144,30 @@ internal class ExerciseQueryRepositoryImpl(
                     content = rs.getString("content"),
                 )
             }.list()
+
+    /**
+     * 전체 조회와 일괄 조회가 같은 뷰를 돌려주므로 컬럼 목록과 매핑을 한 곳에 둔다.
+     * 둘로 두면 요약에 컬럼이 늘 때 한쪽만 고치게 된다.
+     */
+    private companion object {
+        const val SUMMARY_COLUMNS =
+            "SELECT exercise_id, name, image_asset_key, thumbnail_url, default_set_count, default_rep_count, " +
+                "default_duration_seconds, met_value, difficulty, category"
+
+        val SummaryRowMapper =
+            RowMapper { rs, _ ->
+                ExerciseSummaryView(
+                    exerciseId = rs.getLong("exercise_id"),
+                    name = rs.getString("name"),
+                    imageAssetKey = rs.getString("image_asset_key"),
+                    thumbnailUrl = rs.getString("thumbnail_url"),
+                    defaultSetCount = rs.getIntOrNull("default_set_count"),
+                    defaultRepCount = rs.getIntOrNull("default_rep_count"),
+                    defaultDurationSeconds = rs.getIntOrNull("default_duration_seconds"),
+                    metValue = rs.getBigDecimal("met_value"),
+                    difficulty = rs.getString("difficulty"),
+                    category = rs.getString("category"),
+                )
+            }
+    }
 }

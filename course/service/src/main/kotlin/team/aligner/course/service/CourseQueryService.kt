@@ -2,6 +2,7 @@ package team.aligner.course.service
 
 import org.springframework.transaction.annotation.Transactional
 import team.aligner.course.infrastructure.CourseQueryRepository
+import team.aligner.course.infrastructure.CourseTemplateRepository
 import team.aligner.course.infrastructure.ExerciseCatalogEntry
 import team.aligner.course.infrastructure.ExerciseCatalogPort
 import team.aligner.course.infrastructure.ExerciseComposition
@@ -14,6 +15,9 @@ import team.aligner.course.model.exception.InProgressCourseNotFoundException
 import team.aligner.course.model.view.CourseDetailView
 import team.aligner.course.model.view.CourseStepExerciseView
 import team.aligner.course.model.view.CourseStepView
+import team.aligner.course.model.view.CourseTemplateStepExerciseView
+import team.aligner.course.model.view.CourseTemplateStepView
+import team.aligner.course.model.view.CourseTemplateView
 import team.aligner.course.model.view.TargetPoseProgressSummaryView
 import team.aligner.course.model.view.TargetPoseProgressView
 import team.aligner.course.model.view.TodayCourseView
@@ -37,6 +41,14 @@ interface CourseQueryService {
         memberId: Long,
         completedOnly: Boolean?,
     ): TargetPoseProgressSummaryView
+
+    /**
+     * 운영 목록용 코스 템플릿 전체.
+     *
+     * **memberId 를 받지 않는다.** 회원별 인스턴스가 아니라 마스터라 회원과 무관하다 —
+     * 이 인터페이스에서 유일하게 회원을 묻지 않는 조회다.
+     */
+    fun getAllCourseTemplates(): List<CourseTemplateView>
 }
 
 /**
@@ -51,6 +63,9 @@ interface CourseQueryService {
 @Transactional(readOnly = true)
 internal class CourseQueryServiceImpl(
     private val courseQueryRepository: CourseQueryRepository,
+    // 운영 목록이 읽는 템플릿 마스터다. 쓰기가 없는 seed 라 Command 전용 리포지토리가 아니고,
+    // 여기서 읽어도 Command 를 Query 로 끌어오는 것이 아니다 (CourseTemplateRepository 주석).
+    private val courseTemplateRepository: CourseTemplateRepository,
     private val targetPoseCatalogPort: TargetPoseCatalogPort,
     private val exerciseCatalogPort: ExerciseCatalogPort,
     private val memberBodyPort: MemberBodyPort,
@@ -321,6 +336,65 @@ internal class CourseQueryServiceImpl(
      * 자세를 본다. 둘을 섞는다.
      */
     private fun previewSeed(memberId: Long): Int = (memberId * 31 + today().toEpochDay()).toInt()
+
+    /**
+     * 코스 템플릿 전체. 감수자가 적재된 코스 정본을 눈으로 확인하는 목록이다.
+     *
+     * **자세·운동을 템플릿마다 부르지 않는다.** 전체에서 식별자를 한 번에 모아 port 를 두 번만
+     * 친다 — 템플릿 9 개 × 스텝 7 개면 그러지 않을 경우 호출이 수십 번이 된다.
+     */
+    override fun getAllCourseTemplates(): List<CourseTemplateView> {
+        val templates = courseTemplateRepository.findAll()
+        if (templates.isEmpty()) {
+            return emptyList()
+        }
+
+        val poses =
+            targetPoseCatalogPort
+                .findAllByIds(templates.map { it.targetPoseId }.distinct())
+                .associateBy { it.targetPoseId }
+        val exerciseIds =
+            templates
+                .flatMap { template -> template.steps.flatMap { step -> step.exercises.map { it.exerciseId } } }
+                .distinct()
+        val exercises =
+            when {
+                exerciseIds.isEmpty() -> emptyMap()
+                else -> exerciseCatalogPort.findAllByIds(exerciseIds).associateBy { it.exerciseId }
+            }
+
+        return templates.map { template ->
+            CourseTemplateView(
+                templateId = template.templateId,
+                targetPoseId = template.targetPoseId,
+                targetPoseName = poses[template.targetPoseId].displayName(),
+                name = template.name,
+                recommendationReason = template.recommendationReason,
+                stepCount = template.steps.size,
+                exerciseCount = template.steps.sumOf { it.exercises.size },
+                steps =
+                    template.steps.map { step ->
+                        CourseTemplateStepView(
+                            stepOrder = step.stepOrder,
+                            exercises =
+                                step.exercises.map { exercise ->
+                                    val catalog = exercises[exercise.exerciseId]
+                                    CourseTemplateStepExerciseView(
+                                        exerciseId = exercise.exerciseId,
+                                        name = catalog?.name ?: UNKNOWN_NAME,
+                                        imageAssetKey = catalog?.imageAssetKey,
+                                        category = catalog?.category,
+                                        displayOrder = exercise.displayOrder,
+                                        durationSeconds =
+                                            exercise.durationSeconds ?: catalog?.defaultDurationSeconds,
+                                        setCount = exercise.setCount ?: catalog?.defaultSetCount,
+                                    )
+                                },
+                        )
+                    },
+            )
+        }
+    }
 
     /**
      * 코스에 실린 운동을 한 번에 읽는다. 스텝마다 부르면 조회가 스텝 수만큼 늘어난다.

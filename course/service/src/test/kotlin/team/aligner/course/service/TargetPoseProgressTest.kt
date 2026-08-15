@@ -7,6 +7,7 @@ import io.mockk.every
 import io.mockk.mockk
 import team.aligner.course.infrastructure.CourseQueryRepository
 import team.aligner.course.infrastructure.CourseSkeleton
+import team.aligner.course.infrastructure.CourseTemplateRepository
 import team.aligner.course.infrastructure.ExerciseCatalogPort
 import team.aligner.course.infrastructure.MemberBodyPort
 import team.aligner.course.infrastructure.TargetPoseCatalogEntry
@@ -28,6 +29,8 @@ class TargetPoseProgressTest :
         fun service() =
             CourseQueryServiceImpl(
                 courseQueryRepository = courseQueryRepository,
+                // 이 화면은 템플릿을 읽지 않는다. 운영 목록 조회만 쓰는 의존이다.
+                courseTemplateRepository = mockk<CourseTemplateRepository>(),
                 targetPoseCatalogPort = targetPoseCatalogPort,
                 exerciseCatalogPort = mockk<ExerciseCatalogPort>(),
                 memberBodyPort = mockk<MemberBodyPort>(),

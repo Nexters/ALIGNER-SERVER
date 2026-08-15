@@ -61,7 +61,13 @@ class CatalogRepositoryIntegrationTest {
         insertMuscle("ERECTOR_SPINAE", "척추기립근", "BACK", backKey = "erector-spinae-back")
         insertMuscle("ILIOPSOAS", "장요근", "PELVIS", frontKey = "iliopsoas-front")
 
-        insertExercise(1L, "camel-pose", "낙타자세", imageAssetKey = "exercise/camel")
+        insertExercise(
+            1L,
+            "camel-pose",
+            "낙타자세",
+            imageAssetKey = "exercise/camel",
+            thumbnailUrl = "https://ymove.test/camel.jpg",
+        )
         insertExerciseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRENGTHEN, 1)
         insertExerciseMuscle(1L, "ILIOPSOAS", MuscleRole.STRETCH, 2)
         insertVoiceCue(1L, 1, null, null, "무릎을 골반 너비로 벌리세요")
@@ -122,6 +128,29 @@ class CatalogRepositoryIntegrationTest {
         // 타임코드 미확정 큐와 구간 큐가 섞여 있어도 그대로 돌아와야 한다.
         detail.voiceCues.map { it.startOffsetSeconds } shouldBe listOf(null, 35)
         detail.voiceCues.map { it.endOffsetSeconds } shouldBe listOf(null, 75)
+    }
+
+    /**
+     * 운영 목록의 전체 조회다.
+     *
+     * 일괄 조회(`findAllByIdentities`)와 매핑을 공유하므로, 공유한 뒤에도 두 조회가 같은 값을
+     * 돌려주는지 함께 본다. 정렬은 SQL 이 책임진다 — 화면이 다시 정렬하지 않는다.
+     */
+    @Test
+    fun `운동 전체 조회가 식별자 순으로 전부 돌려준다`() {
+        val all = exerciseQueryRepository.findAll()
+
+        all.map { it.exerciseId } shouldBe listOf(1L, 2L)
+        all.map { it.name } shouldBe listOf("낙타자세", "캣카우")
+        all.first().imageAssetKey shouldBe "exercise/camel"
+        // 감수자가 목록에서 그림을 확인하는 값이다. imageAssetKey 는 키라 그대로 열리지 않는다.
+        all.first().thumbnailUrl shouldBe "https://ymove.test/camel.jpg"
+        all.last().thumbnailUrl.shouldBeNull()
+        // 일괄 조회와 같은 매핑을 쓴다. 한쪽만 고치면 여기서 깨진다.
+        all shouldBe
+            exerciseQueryRepository.findAllByIdentities(
+                listOf(ExerciseIdentity.of(1L), ExerciseIdentity.of(2L)),
+            )
     }
 
     /**
@@ -417,20 +446,22 @@ class CatalogRepositoryIntegrationTest {
         category: String? = "가동성 웜업",
         imageAssetKey: String? = null,
         videoUrl: String? = null,
+        thumbnailUrl: String? = null,
     ) = jdbcClient
         .sql(
             """
             INSERT INTO catalog.exercise (exercise_id, ymove_slug, name, image_asset_key, video_url,
-                                          default_set_count, default_rep_count,
+                                          thumbnail_url, default_set_count, default_rep_count,
                                           default_duration_seconds, met_value, difficulty, category, caution_note)
             VALUES (:id, :slug, :name, :imageAssetKey, :videoUrl,
-                    :setCount, :repCount, 120, 2.30, '하', :category, '통증이 오면 중단하세요')
+                    :thumbnailUrl, :setCount, :repCount, 120, 2.30, '하', :category, '통증이 오면 중단하세요')
             """.trimIndent(),
         ).param("id", id)
         .param("slug", slug)
         .param("name", name)
         .param("imageAssetKey", imageAssetKey)
         .param("videoUrl", videoUrl)
+        .param("thumbnailUrl", thumbnailUrl)
         .param("setCount", setCount)
         .param("repCount", repCount)
         .param("category", category)

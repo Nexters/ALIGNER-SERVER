@@ -47,12 +47,14 @@ class CourseServiceAutoConfiguration {
     @Bean
     fun courseQueryService(
         courseQueryRepository: CourseQueryRepository,
+        courseTemplateRepository: CourseTemplateRepository,
         targetPoseCatalogPort: TargetPoseCatalogPort,
         exerciseCatalogPort: ExerciseCatalogPort,
         memberBodyPort: MemberBodyPort,
     ): CourseQueryService =
         CourseQueryServiceImpl(
             courseQueryRepository,
+            courseTemplateRepository,
             targetPoseCatalogPort,
             exerciseCatalogPort,
             memberBodyPort,

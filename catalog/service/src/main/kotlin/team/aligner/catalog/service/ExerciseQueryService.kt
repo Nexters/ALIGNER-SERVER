@@ -12,6 +12,14 @@ interface ExerciseQueryService {
     fun getDetail(exerciseIdentity: ExerciseIdentity): ExerciseDetailView
 
     fun getAll(exerciseIdentities: List<ExerciseIdentity>): List<ExerciseSummaryView>
+
+    /**
+     * 운영 목록용 전체 조회.
+     *
+     * **`getAll(emptyList())` 와 뜻이 다르다.** 인자를 받는 쪽은 "지정한 것만" 이라 빈 목록이면
+     * 빈 결과이고, 이쪽은 "적재된 전부" 다.
+     */
+    fun getAll(): List<ExerciseSummaryView>
 }
 
 /**
@@ -60,4 +68,10 @@ internal class ExerciseQueryServiceImpl(
         }
         return exerciseQueryRepository.findAllByIdentities(exerciseIdentities)
     }
+
+    /**
+     * 재생 URL 을 붙이지 않는다. 목록에서 YMove 를 행 수만큼 치면 안 되고, 요약 뷰에
+     * `videoUrl` 이 아예 없다 — `getDetail` 과 같은 판단이다.
+     */
+    override fun getAll(): List<ExerciseSummaryView> = exerciseQueryRepository.findAll()
 }
