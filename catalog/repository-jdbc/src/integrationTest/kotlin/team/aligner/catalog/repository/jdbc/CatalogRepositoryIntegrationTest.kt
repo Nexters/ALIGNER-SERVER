@@ -85,7 +85,7 @@ class CatalogRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'catalog-%'")
             .query(Int::class.java)
-            .single() shouldBe 9
+            .single() shouldBe 11
     }
 
     @Test

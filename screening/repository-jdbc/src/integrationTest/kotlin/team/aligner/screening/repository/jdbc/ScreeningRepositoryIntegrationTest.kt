@@ -88,7 +88,7 @@ class ScreeningRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'screening-%'")
             .query(Int::class.java)
-            .single() shouldBe 8
+            .single() shouldBe 9
     }
 
     @Test

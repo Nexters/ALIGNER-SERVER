@@ -78,3 +78,17 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/007-relax-screening-result-body-part.sql
             relativeToChangelogFile: true
+
+  # 여기부터 seed 다. DDL 과 달리 감수로 값이 바뀌므로 rollback 을 붙인다
+  # (catalog changelog 와 같은 판단).
+  - changeSet:
+      id: screening-0009-seed-body-part
+      author: aligner
+      comment: 부위 3 개 적재
+      changes:
+        - sqlFile:
+            path: seed/001-body-part.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM screening.body_part WHERE body_part_code IN ('BACK', 'ABDOMEN', 'PELVIS')

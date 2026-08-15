@@ -105,3 +105,21 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/010-add-stamp-attempt-no.sql
             relativeToChangelogFile: true
+
+  # 여기부터 seed 다. 코스 템플릿은 감수 콘텐츠라 rollback 을 붙인다
+  # (catalog changelog 와 같은 판단). 자식부터 지워야 FK 에 걸리지 않는다.
+  - changeSet:
+      id: course-0012-seed-course-template
+      author: aligner
+      comment: 9 개 루틴의 코스 템플릿·스텝·스텝 운동 적재
+      changes:
+        - sqlFile:
+            path: seed/001-course-template.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM course.template_step_exercise WHERE template_step_id BETWEEN 1 AND 63
+        - sql:
+            sql: DELETE FROM course.template_step WHERE template_step_id BETWEEN 1 AND 63
+        - sql:
+            sql: DELETE FROM course.course_template WHERE template_id BETWEEN 1 AND 9
