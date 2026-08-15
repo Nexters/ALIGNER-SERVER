@@ -96,7 +96,10 @@ class SessionController(
             "수행 결과를 저장하고 **코스 진행도에 반영한다.** 응답의 `courseProgress` 가 반영 결과다. " +
                 "요청에 없는 운동은 수행하지 않은 것으로 남는다 — 부분 완료가 정상이다. " +
                 "**멱등하다.** 같은 요청이 재시도돼도 진행도가 두 번 오르지 않고 도장도 한 번만 붙는다. " +
-                "재시도로 들어온 호출에서는 `stampAcquired` 가 false 다.",
+                "재시도로 들어온 호출에서는 `stampAcquired` 가 false 다. " +
+                "`courseProgress` 에 완료 리포트가 쓰는 값이 다 들어 있다 — 헤더의 자세 이름·부위·난이도와 " +
+                "**파이어로그 `acquiredStampCount / requiredStampCount`**(그 자세를 완주한 횟수)까지다. " +
+                "자세를 방금 완성했는지는 `targetPoseCompleted && stampAcquired` 로 판단한다.",
     )
     @ApiResponses(
         value = [

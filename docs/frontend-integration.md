@@ -998,8 +998,8 @@ Content-Type: application/json
     "stampAcquired": false,
     "targetPoseId": 3,
     "targetPoseName": "낙타자세",
-    "bodyPartCode": "PELVIS",
-    "level": 3,
+    "bodyPartCode": "BACK",
+    "level": 1,
     "acquiredStampCount": 1,
     "requiredStampCount": 4,
     "targetPoseCompleted": false
@@ -1025,7 +1025,7 @@ Content-Type: application/json
 | --- | --- | --- |
 | `courseCompleted && stampAcquired` | 이번 회차를 마쳐 파이어로그가 하나 올랐다 | 리포트의 세그먼트가 한 칸 찬다 |
 | `targetPoseCompleted && stampAcquired` | 방금 4 번째를 채웠다 | **자세 완성 축하 화면** |
-| `targetPoseCompleted && !stampAcquired` | 이미 완성한 자세를 또 수행했다 | 축하 화면을 다시 띄우지 않는다 |
+| `targetPoseCompleted && !stampAcquired` | 이미 완성한 자세를 또 수행했거나, **4 회째 완료 요청을 재시도했다** | 축하 화면을 다시 띄우지 않는다 |
 
 완성한 뒤 `GET /courses/progress/target-poses`에서 그 자세가 `completed:true`로 바뀐다.
 
@@ -1052,9 +1052,9 @@ Content-Type: application/json
 **`acquiredStampCount / requiredStampCount`**다. `completedStepCount / totalStepCount`가
 아니다 — 세그먼트는 **코스를 완주한 횟수**이고, 코스 안 스텝을 몇 개 했는지와 다르다.
 
-헤더의 `골반 난이도 상 · 낙타자세`도 같은 응답의 `bodyPartCode`·`level`·`targetPoseName`으로
-그린다. **완료 직후에 `GET /courses/{courseId}`나 `GET /catalog/target-poses/{id}`를 다시 부를
-필요가 없다.**
+헤더의 `등 난이도 하 · 낙타자세`(디자인의 `골반 난이도 상 · 파이어로그 로드맵` 자리)도 같은
+응답의 `bodyPartCode`·`level`·`targetPoseName`으로 그린다. **완료 직후에
+`GET /courses/{courseId}`나 `GET /catalog/target-poses/{id}`를 다시 부를 필요가 없다.**
 
 ### `POST /sessions/{sessionId}/perceived-result`
 

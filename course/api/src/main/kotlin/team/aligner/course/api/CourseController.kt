@@ -52,7 +52,9 @@ class CourseController(
                 "원인은 서버가 최신 진단에서 찾아 스냅샷으로 남긴다. " +
                 "**진단 결과에 없는 부위도 받는다.** 코스는 추천이라 회원이 「자세 도전 현황」에서 아무 자세나 " +
                 "골라 시작할 수 있고, 그 경우 원인 스냅샷만 비어 있다. " +
-                "**멱등하다.** 같은 자세의 코스가 이미 있으면 새로 만들지 않고 그 코스를 돌려준다.",
+                "**멱등하다.** 같은 자세의 코스가 이미 있으면 새로 만들지 않고 그 코스를 돌려준다. " +
+                "**완주한 코스는 여기서 다시 열린다** — 스텝이 처음 상태로 돌아가 다음 회차가 시작된다. " +
+                "진행 중인 코스는 초기화되지 않고, 이미 완성한 자세(도장 4 개)도 다시 열리지 않는다.",
     )
     @ApiResponses(
         value = [
@@ -111,8 +113,9 @@ class CourseController(
         description =
             "**서비스가 제공하는 핀포즈 전체**가 나온다. 회원이 시작한 코스만이 아니다 — 코스는 추천이라 " +
                 "아직 시작하지 않은 자세도 목록에 있고, 그 경우 `courseId` · `completedStepCount` · " +
-                "`totalStepCount` 가 **null** 이다 (`0 / 4` 가 아니다). " +
-                "**`completedStepCount / totalStepCount` 가 화면의 `3 / 4`** 이고 코스 안에서 완료한 스텝 개수다. " +
+                "`totalStepCount` · `acquiredStampCount` 가 **null** 이다 (`0 / 4` 가 아니다). " +
+                "**`acquiredStampCount / requiredStampCount` 가 화면의 `3 / 4`** 이고 그 자세의 코스를 완주한 횟수다 — " +
+                "`completedStepCount / totalStepCount`(이번 회차의 스텝 진행도)와 다른 값이고, 4 회를 채워야 `completed` 다. " +
                 "루트의 집계 셋은 `completed` 필터와 무관하게 언제나 전체 기준이라 칩 세 개를 한 번에 그릴 수 있다. " +
                 "`completed=true` 로 거르면 프로필의 \"완수한 자세 목록\" 이 된다 — 별도 API 를 만들지 않는다.",
     )
