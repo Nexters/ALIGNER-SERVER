@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/Nexters/ALIGNER-SERVER/compare/aligner-server-v0.1.0...aligner-server-v0.2.0) (2026-08-16)
+
+
+### ✨ 신규 기능 (Features)
+
+* Spring Boot Actuator 추가 및 완전 은닉 헬스체크 설정 ([#57](https://github.com/Nexters/ALIGNER-SERVER/issues/57)) ([e19ea24](https://github.com/Nexters/ALIGNER-SERVER/commit/e19ea24b5c89ab6524e0796a66fb12465ecbcaa2))
+
 ## 0.1.0 (2026-08-15)
 
 
