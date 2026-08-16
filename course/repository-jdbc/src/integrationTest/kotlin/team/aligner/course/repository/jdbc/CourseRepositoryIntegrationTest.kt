@@ -563,6 +563,6 @@ class CourseRepositoryIntegrationTest {
         @Container
         @ServiceConnection
         @JvmStatic
-        val postgres = PostgreSQLContainer("postgres:17-alpine")
+        val postgres = PostgreSQLContainer("postgres:16-alpine")
     }
 }

@@ -7,7 +7,6 @@ spring:
   application:
     name: aligner-server
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/aligner}
     username: ${DB_USERNAME:aligner}
     password: ${DB_PASSWORD}
   liquibase:
@@ -71,7 +70,7 @@ spring:
     activate:
       on-profile: test
   liquibase:
-    contexts: ${LIQUIBASE_CONTEXTS:prod}
+    contexts: prod
 
 logging:
   level:
@@ -80,10 +79,10 @@ logging:
 aligner:
   web:
     cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+      allowed-origins: http://localhost:5173,http://localhost:3000
   auth:
     kakao:
-      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao}
+      redirect-uri: http://localhost:5173/oauth/kakao
 
 springdoc:
   api-docs:
@@ -99,6 +98,15 @@ spring:
   config:
     activate:
       on-profile: dev
+  datasource:
+    primary:
+      url: ${DB_PRIMARY_URL}
+      maximum-pool-size: ${DB_PRIMARY_MAX_POOL_SIZE:10}
+      pool-name: HikariPool-Primary
+    readonly:
+      url: ${DB_READONLY_URL}
+      maximum-pool-size: ${DB_READONLY_MAX_POOL_SIZE:20}
+      pool-name: HikariPool-Replica
   liquibase:
     contexts: ${LIQUIBASE_CONTEXTS:dev,prod}
 
@@ -128,6 +136,15 @@ spring:
   config:
     activate:
       on-profile: prod
+  datasource:
+    primary:
+      url: ${DB_PRIMARY_URL}
+      maximum-pool-size: ${DB_PRIMARY_MAX_POOL_SIZE:10}
+      pool-name: HikariPool-Primary
+    readonly:
+      url: ${DB_READONLY_URL}
+      maximum-pool-size: ${DB_READONLY_MAX_POOL_SIZE:20}
+      pool-name: HikariPool-Replica
   liquibase:
     contexts: ${LIQUIBASE_CONTEXTS:prod}
 
