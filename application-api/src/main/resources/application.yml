@@ -1,5 +1,5 @@
 # ==============================================================================
-# 1. 공통 기본 설정 (Common Base & Fallback)
+# 1. 공통 기본 설정 (Common Base)
 # ==============================================================================
 spring:
   config:
@@ -7,9 +7,16 @@ spring:
   application:
     name: aligner-server
   datasource:
-    url: ${DB_PRIMARY_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    primary:
+      url: ${DB_PRIMARY_URL}
+      maximum-pool-size: ${DB_PRIMARY_MAX_POOL_SIZE:10}
+      pool-name: HikariPool-Primary
+    readonly:
+      url: ${DB_READONLY_URL}
+      maximum-pool-size: ${DB_READONLY_MAX_POOL_SIZE:20}
+      pool-name: HikariPool-Replica
   liquibase:
     change-log: classpath:db/changelog-master.yaml
     liquibase-schema: public
@@ -99,15 +106,6 @@ spring:
   config:
     activate:
       on-profile: dev
-  datasource:
-    primary:
-      url: ${DB_PRIMARY_URL}
-      maximum-pool-size: ${DB_PRIMARY_MAX_POOL_SIZE:10}
-      pool-name: HikariPool-Primary
-    readonly:
-      url: ${DB_READONLY_URL}
-      maximum-pool-size: ${DB_READONLY_MAX_POOL_SIZE:20}
-      pool-name: HikariPool-Replica
   liquibase:
     contexts: ${LIQUIBASE_CONTEXTS:dev,prod}
 
@@ -137,15 +135,6 @@ spring:
   config:
     activate:
       on-profile: prod
-  datasource:
-    primary:
-      url: ${DB_PRIMARY_URL}
-      maximum-pool-size: ${DB_PRIMARY_MAX_POOL_SIZE:10}
-      pool-name: HikariPool-Primary
-    readonly:
-      url: ${DB_READONLY_URL}
-      maximum-pool-size: ${DB_READONLY_MAX_POOL_SIZE:20}
-      pool-name: HikariPool-Replica
   liquibase:
     contexts: ${LIQUIBASE_CONTEXTS:prod}
 
