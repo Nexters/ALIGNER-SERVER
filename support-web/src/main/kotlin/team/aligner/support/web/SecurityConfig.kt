@@ -2,6 +2,7 @@ package team.aligner.support.web
 
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.security.autoconfigure.actuate.web.servlet.ManagementWebSecurityAutoConfiguration
 import org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.http.HttpHeaders
@@ -44,7 +45,12 @@ import tools.jackson.databind.ObjectMapper
  * `@Order(BASIC_AUTH_ORDER)` 가 우리 것(순서 미지정)보다 앞서 매칭된다. 결과적으로 아래 설정이
  * 전부 죽는다.
  */
-@AutoConfiguration(before = [ServletWebSecurityAutoConfiguration::class])
+@AutoConfiguration(
+    before = [
+        ServletWebSecurityAutoConfiguration::class,
+        ManagementWebSecurityAutoConfiguration::class,
+    ],
+)
 @EnableWebSecurity
 @EnableConfigurationProperties(CorsProperties::class)
 class SecurityConfig {
@@ -70,6 +76,8 @@ class SecurityConfig {
                 // 열 수 없다. 근거와 끄는 방법은 PublicPaths 에 적었다.
                 it.requestMatchers(HttpMethod.GET, *PublicPaths.API_DOCS).permitAll()
                 it.requestMatchers(HttpMethod.GET, *PublicPaths.SWAGGER_UI).permitAll()
+                // K8s 프로브 및 헬스체크. GET 메서드만 인증 없이 허용한다.
+                it.requestMatchers(HttpMethod.GET, *PublicPaths.ACTUATOR).permitAll()
                 it.anyRequest().authenticated()
             }
             // JwtAuthenticationFilter 를 @Bean 으로 올리지 않는다. Boot 의 서블릿 필터 자동 등록이
