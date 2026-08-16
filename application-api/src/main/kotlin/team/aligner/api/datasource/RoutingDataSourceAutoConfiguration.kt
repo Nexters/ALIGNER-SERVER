@@ -21,7 +21,12 @@ import javax.sql.DataSource
  * LazyConnectionDataSourceProxy 를 @Primary DataSource 로 등록하여
  * 실제 첫 쿼리 실행 시점까지 커넥션 획득을 지연시키고 올바른 노드로 라우팅한다.
  */
-@AutoConfiguration(beforeName = ["org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration"])
+@AutoConfiguration(
+    beforeName = [
+        "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
+        "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration",
+    ],
+)
 @ConditionalOnClass(HikariDataSource::class)
 @ConditionalOnProperty(name = ["spring.datasource.readonly.url"])
 @EnableConfigurationProperties(RoutingDataSourceProperties::class)
