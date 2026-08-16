@@ -44,7 +44,12 @@ import tools.jackson.databind.ObjectMapper
  * `@Order(BASIC_AUTH_ORDER)` 가 우리 것(순서 미지정)보다 앞서 매칭된다. 결과적으로 아래 설정이
  * 전부 죽는다.
  */
-@AutoConfiguration(before = [ServletWebSecurityAutoConfiguration::class])
+@AutoConfiguration(
+    beforeName = [
+        "org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration",
+        "org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration",
+    ],
+)
 @EnableWebSecurity
 @EnableConfigurationProperties(CorsProperties::class)
 class SecurityConfig {
