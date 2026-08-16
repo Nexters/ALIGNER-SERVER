@@ -99,6 +99,15 @@ spring:
   config:
     activate:
       on-profile: dev
+  datasource:
+    primary:
+      url: ${DB_PRIMARY_URL:jdbc:postgresql://aligner-db-rw.aligner-data.svc:5432/aligner}
+      maximum-pool-size: ${DB_PRIMARY_MAX_POOL_SIZE:10}
+      pool-name: HikariPool-Primary
+    readonly:
+      url: ${DB_READONLY_URL:jdbc:postgresql://aligner-db-ro.aligner-data.svc:5432/aligner}
+      maximum-pool-size: ${DB_READONLY_MAX_POOL_SIZE:20}
+      pool-name: HikariPool-Replica
   liquibase:
     contexts: ${LIQUIBASE_CONTEXTS:dev,prod}
 
@@ -128,6 +137,15 @@ spring:
   config:
     activate:
       on-profile: prod
+  datasource:
+    primary:
+      url: ${DB_PRIMARY_URL:jdbc:postgresql://aligner-db-rw.aligner-data.svc:5432/aligner}
+      maximum-pool-size: ${DB_PRIMARY_MAX_POOL_SIZE:10}
+      pool-name: HikariPool-Primary
+    readonly:
+      url: ${DB_READONLY_URL:jdbc:postgresql://aligner-db-ro.aligner-data.svc:5432/aligner}
+      maximum-pool-size: ${DB_READONLY_MAX_POOL_SIZE:20}
+      pool-name: HikariPool-Replica
   liquibase:
     contexts: ${LIQUIBASE_CONTEXTS:prod}
 
