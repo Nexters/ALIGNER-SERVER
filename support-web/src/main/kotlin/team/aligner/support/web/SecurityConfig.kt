@@ -2,6 +2,7 @@ package team.aligner.support.web
 
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.security.autoconfigure.actuate.web.servlet.ManagementWebSecurityAutoConfiguration
 import org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.http.HttpHeaders
@@ -45,9 +46,9 @@ import tools.jackson.databind.ObjectMapper
  * 전부 죽는다.
  */
 @AutoConfiguration(
-    beforeName = [
-        "org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration",
-        "org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration",
+    before = [
+        ServletWebSecurityAutoConfiguration::class,
+        ManagementWebSecurityAutoConfiguration::class,
     ],
 )
 @EnableWebSecurity
