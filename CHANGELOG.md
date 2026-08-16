@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.2.0...v0.2.1) (2026-08-16)
+
+
+### 🔧 빌드 및 설정 (Maintenance)
+
+* 릴리즈 자동화 대상 브랜치를 main으로 설정 및 태그 정비 ([#60](https://github.com/Nexters/ALIGNER-SERVER/issues/60)) ([ddeaa51](https://github.com/Nexters/ALIGNER-SERVER/commit/ddeaa5173cd0e57109b4c79ee53e230da8a14dca))
+
 ## [0.2.0](https://github.com/Nexters/ALIGNER-SERVER/compare/aligner-server-v0.1.0...aligner-server-v0.2.0) (2026-08-16)
 
 
