@@ -51,6 +51,18 @@ springdoc:
     tags-sorter: alpha
     operations-sorter: method
 
+management:
+  endpoints:
+    web:
+      base-path: ${ACTUATOR_BASE_PATH}
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
 ---
 # ==============================================================================
 # 2. 로컬 테스트 환경 프로필 (test Profile)
@@ -61,6 +73,11 @@ spring:
       on-profile: test
   liquibase:
     contexts: ${LIQUIBASE_CONTEXTS:prod}
+
+management:
+  endpoints:
+    web:
+      base-path: /actuator
 
 logging:
   level:
