@@ -5,6 +5,8 @@
       "release-type": "simple",
       "package-name": "aligner-server",
       "initial-version": "0.1.0",
+      "default-branch": "main",
+      "include-component-in-tag": false,
       "changelog-sections": [
         { "type": "feat", "section": "✨ 신규 기능 (Features)", "hidden": false },
         { "type": "fix", "section": "🐛 버그 수정 (Bug Fixes)", "hidden": false },
