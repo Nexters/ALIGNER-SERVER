@@ -6,9 +6,6 @@ spring:
     import: "optional:file:./application-secret.properties"
   application:
     name: aligner-server
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aligner}
     username: ${DB_USERNAME:aligner}
@@ -57,7 +54,6 @@ springdoc:
 management:
   endpoints:
     web:
-      base-path: ${ACTUATOR_BASE_PATH}
       exposure:
         include: health
   endpoint:
@@ -76,11 +72,6 @@ spring:
       on-profile: test
   liquibase:
     contexts: ${LIQUIBASE_CONTEXTS:prod}
-
-management:
-  endpoints:
-    web:
-      base-path: /actuator
 
 logging:
   level:

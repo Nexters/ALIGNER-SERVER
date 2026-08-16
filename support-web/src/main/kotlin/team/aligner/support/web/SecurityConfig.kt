@@ -1,6 +1,5 @@
 package team.aligner.support.web
 
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration
@@ -55,8 +54,6 @@ class SecurityConfig {
         jwtTokenProvider: JwtTokenProvider,
         corsConfigurationSource: CorsConfigurationSource,
         objectMapper: ObjectMapper,
-        @Value("\${management.endpoints.web.base-path:\${ACTUATOR_BASE_PATH:/actuator}}")
-        actuatorBasePath: String,
     ): SecurityFilterChain =
         http
             // 소스를 이름 규약("corsConfigurationSource" Bean 탐색)에 맡기지 않고 직접 넘긴다.
@@ -73,8 +70,8 @@ class SecurityConfig {
                 // 열 수 없다. 근거와 끄는 방법은 PublicPaths 에 적었다.
                 it.requestMatchers(HttpMethod.GET, *PublicPaths.API_DOCS).permitAll()
                 it.requestMatchers(HttpMethod.GET, *PublicPaths.SWAGGER_UI).permitAll()
-                // 헬스체크 및 Actuator 엔드포인트는 인증 없이 허용한다.
-                it.requestMatchers(HttpMethod.GET, actuatorBasePath, "$actuatorBasePath/**").permitAll()
+                // K8s 프로브 및 헬스체크. GET 메서드만 인증 없이 허용한다.
+                it.requestMatchers(HttpMethod.GET, *PublicPaths.ACTUATOR).permitAll()
                 it.anyRequest().authenticated()
             }
             // JwtAuthenticationFilter 를 @Bean 으로 올리지 않는다. Boot 의 서블릿 필터 자동 등록이
