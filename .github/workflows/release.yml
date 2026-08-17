@@ -15,22 +15,28 @@ jobs:
     name: Release Please
     runs-on: ubuntu-latest
     steps:
-      - name: Run Release Please (develop - PR 관리)
-        if: github.ref_name == 'develop'
-        uses: googleapis/release-please-action@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-          target-branch: develop
-          skip-github-release: true
-
-      - name: Run Release Please (main - 릴리즈/태그 발행)
-        if: github.ref_name == 'main'
+      - name: Run Release Please
+        id: release
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           target-branch: main
-          skip-github-pull-request: true
+
+      # main에서 릴리즈가 생성되었을 때 main 변경사항을 develop으로 자동 백머지 (역방향 싱크)
+      - name: Checkout develop for Auto-Sync
+        if: github.ref_name == 'main' && steps.release.outputs.releases_created == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto Back-Merge main to develop
+        if: github.ref_name == 'main' && steps.release.outputs.releases_created == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git merge origin/main --no-edit || git merge --strategy-option=theirs origin/main --no-edit
+          git push origin develop
