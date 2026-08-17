@@ -15,10 +15,22 @@ jobs:
     name: Release Please
     runs-on: ubuntu-latest
     steps:
-      - name: Run Release Please
+      - name: Run Release Please (develop - PR 관리)
+        if: github.ref_name == 'develop'
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-          target-branch: ${{ github.ref_name }}
+          target-branch: develop
+          skip-github-release: true
+
+      - name: Run Release Please (main - 릴리즈/태그 발행)
+        if: github.ref_name == 'main'
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          target-branch: main
+          skip-github-pull-request: true
