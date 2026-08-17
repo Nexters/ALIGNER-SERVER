@@ -163,8 +163,8 @@ jobs:
           {
             echo "### 🚀 Dev (Sandbox) 배포 완료!"
             echo "- **환경**: \`dev\` (namespace: aligner-sandbox)"
-            echo "- **접속 도메인**: [https://test.aligneryoga.com](https://test.aligneryoga.com)"
-            echo "- **Swagger UI**: [https://test.aligneryoga.com/swagger-ui/index.html](https://test.aligneryoga.com/swagger-ui/index.html)"
+            echo "- **접속 도메인**: [https://dev-api.aligneryoga.com](https://dev-api.aligneryoga.com)"
+            echo "- **Swagger UI**: [https://dev-api.aligneryoga.com/swagger-ui/index.html](https://dev-api.aligneryoga.com/swagger-ui/index.html)"
             echo "- **이미지**: \`ghcr.io/${{ github.repository_owner }}/aligner-server:develop\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
