@@ -92,7 +92,7 @@ springdoc:
 
 ---
 # ==============================================================================
-# 3. 개발 / 테스트 서버 프로필 (dev Profile - test.aligneryoga.com)
+# 3. 개발 / 테스트 서버 프로필 (dev Profile - dev-api.aligneryoga.com)
 # ==============================================================================
 spring:
   config:
@@ -117,10 +117,10 @@ logging:
 aligner:
   web:
     cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://test.aligneryoga.com}
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://dev.aligneryoga.com,https://test.aligneryoga.com}
   auth:
     kakao:
-      redirect-uri: ${KAKAO_REDIRECT_URI:https://test.aligneryoga.com/oauth/kakao}
+      redirect-uri: ${KAKAO_REDIRECT_URI:https://dev.aligneryoga.com/oauth/kakao}
 
 springdoc:
   api-docs:
@@ -158,7 +158,7 @@ aligner:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:https://aligneryoga.com,https://www.aligneryoga.com}
   auth:
     kakao:
-      redirect-uri: ${KAKAO_REDIRECT_URI:https://aligneryoga.com/oauth/kakao}
+      redirect-uri: ${KAKAO_REDIRECT_URI:https://www.aligneryoga.com/oauth/kakao}
 
 springdoc:
   api-docs:
