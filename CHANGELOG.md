@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.3.0...v0.3.1) (2026-08-17)
+
+
+### 🐛 버그 수정 (Bug Fixes)
+
+* Release Please 타겟 브랜치를 main으로 명시 ([#68](https://github.com/Nexters/ALIGNER-SERVER/issues/68)) ([a14a070](https://github.com/Nexters/ALIGNER-SERVER/commit/a14a0709974fc3d76c42ece9bbb71c3697303a9d))
+
 ## [0.3.0](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.2.0...v0.3.0) (2026-08-17)
 
 
