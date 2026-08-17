@@ -38,5 +38,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git merge origin/main --no-edit || git merge --strategy-option=theirs origin/main --no-edit
+          git fetch origin main --tags
+          git merge origin/main -m "chore: ${{ steps.release.outputs.tag_name }} 릴리즈 후 main 변경사항 develop 자동 동기화"
           git push origin develop
