@@ -155,7 +155,7 @@ logging:
 aligner:
   web:
     cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS:https://aligneryoga.com,https://www.aligneryoga.com}
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://aligneryoga.com,https://www.aligneryoga.com}
   auth:
     kakao:
       redirect-uri: ${KAKAO_REDIRECT_URI:https://www.aligneryoga.com/oauth/kakao}
