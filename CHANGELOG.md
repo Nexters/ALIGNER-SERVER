@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.3.1](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.3.0...v0.3.1) (2026-08-17)
+
+
+### 🐛 버그 수정 (Bug Fixes)
+
+* Release Please 타겟 브랜치를 main으로 명시 ([#68](https://github.com/Nexters/ALIGNER-SERVER/issues/68)) ([a14a070](https://github.com/Nexters/ALIGNER-SERVER/commit/a14a0709974fc3d76c42ece9bbb71c3697303a9d))
+
+## [0.3.0](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.2.0...v0.3.0) (2026-08-17)
+
+
+### ✨ 신규 기능 (Features)
+
+* PostgreSQL 읽기 및 쓰기 복제 분기 데이터소스 구현 ([#63](https://github.com/Nexters/ALIGNER-SERVER/issues/63)) ([bdd867f](https://github.com/Nexters/ALIGNER-SERVER/commit/bdd867f85b61c1d679639d0035dad7e1a7290771))
+* 개발 서버 도메인을 dev-api.aligneryoga.com 으로 변경 및 카카오 리다이렉트 URI 동기화 ([#64](https://github.com/Nexters/ALIGNER-SERVER/issues/64)) ([705d522](https://github.com/Nexters/ALIGNER-SERVER/commit/705d5221e364031d8507f1d2f883bfe9c35c29d2))
+
+
+### 🐛 버그 수정 (Bug Fixes)
+
+* 스프링 부트 4.x 데이터소스 자동설정 로딩 순서 수정 ([14055e5](https://github.com/Nexters/ALIGNER-SERVER/commit/14055e5fd5294d2ae9402510b4a9a28380680e1a))
+
+
+### 🔧 빌드 및 설정 (Maintenance)
+
+* 릴리즈 자동화 대상 브랜치를 main으로 설정 및 태그 정비 ([#60](https://github.com/Nexters/ALIGNER-SERVER/issues/60)) ([ddeaa51](https://github.com/Nexters/ALIGNER-SERVER/commit/ddeaa5173cd0e57109b4c79ee53e230da8a14dca))
+
 ## [0.2.0](https://github.com/Nexters/ALIGNER-SERVER/compare/aligner-server-v0.1.0...aligner-server-v0.2.0) (2026-08-16)
 
 
