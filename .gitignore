@@ -55,6 +55,8 @@ src/main/resources/application-secret*.yml
 .claude/
 .codex/
 .agents/
+.serena/
+HANDOFF.md
 
 ### 이슈별 로컬 작업 문서 ###
 # docs/ 에는 정본만 둔다. 이슈 단위의 계획·todo·초안은 그 이슈가 끝나면 수명이 다하고,

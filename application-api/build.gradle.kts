@@ -72,6 +72,7 @@ dependencies {
     // 조립이 실제로 서는지는 띄워봐야 안다. Bean 누락·AutoConfiguration.imports 누락은
     // 컴파일에 걸리지 않는다 (docs/architecture.md §5). 목록은 aligner.repository-jdbc 가
     // 통합 테스트에 넣는 것과 같다 — liquibase starter 는 boot-application 이 이미 준다.
+    testImplementation(libs.spring.boot.starter.test)
     integrationTestImplementation(libs.spring.boot.starter.test)
     integrationTestImplementation(libs.spring.boot.testcontainers)
     integrationTestImplementation(libs.testcontainers.postgresql)

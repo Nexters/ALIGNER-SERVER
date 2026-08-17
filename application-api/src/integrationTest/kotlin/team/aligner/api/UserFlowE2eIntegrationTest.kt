@@ -310,7 +310,7 @@ class UserFlowE2eIntegrationTest {
         @Container
         @ServiceConnection
         @JvmStatic
-        val postgres = PostgreSQLContainer("postgres:17-alpine")
+        val postgres = PostgreSQLContainer("postgres:16-alpine")
 
         /** 인가 코드 교환을 대신한다. 같은 kakaoId 라 재로그인해도 같은 회원이다. */
         @JvmStatic
