@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.3.1...v0.4.0) (2026-08-18)
+
+
+### ✨ 신규 기능 (Features)
+
+* 근육맵 seed 적재 — 근육 마스터 22 개와 운동별 근육 매핑 ([#74](https://github.com/Nexters/ALIGNER-SERVER/issues/74)) ([4251141](https://github.com/Nexters/ALIGNER-SERVER/commit/425114148102a979a641d5fcfdbb110d10288a21))
+* 근육별 핵심 동작 문구와 프론트 요청 필드 보완 ([#76](https://github.com/Nexters/ALIGNER-SERVER/issues/76)) ([976c370](https://github.com/Nexters/ALIGNER-SERVER/commit/976c370c4af7b7fdd21e8ef77489a95e57eadbdb))
+
+
+### 🔧 빌드 및 설정 (Maintenance)
+
+* develop -&gt; main 반영 ([59d16a2](https://github.com/Nexters/ALIGNER-SERVER/commit/59d16a27662117693d513093008ce12db24d3f10))
+
 ## [0.3.1](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.3.0...v0.3.1) (2026-08-17)
 
 
