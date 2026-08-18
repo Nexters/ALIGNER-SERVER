@@ -931,6 +931,7 @@ Content-Type: application/json
   "targetPoseId": 3,
   "targetPoseName": "낙타자세",
   "targetPoseImageAssetKey": "target-pose/camel",
+  "targetPoseThumbnailUrl": "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
   "name": "낙타자세 정복하기",
   "completedStepCount": 1,
   "totalStepCount": 6,
@@ -967,6 +968,11 @@ Content-Type: application/json
 `targetPoseImageAssetKey`는 개요 상단 히어로에 쓴다 — 홈 카드와 같은 그림이라 같은 키다.
 스텝의 `imageAssetKey`는 코스 순서 카드의 썸네일이다. 둘 다 URL이 아니라 키이고, seed 전에는
 `null`이다.
+
+**`targetPoseThumbnailUrl`은 히어로에 쓸 수 있는 URL이다.** `targetPoseImageAssetKey`가 키인
+것과 달리 그대로 `<img src>`에 넣는다. 자세 일러스트(프론트 정적 자산)를 아직 갖고 있지
+않아도 화면이 비지 않도록 넣은 값이고, 소스는 그 자세의 YMove 영상 한 프레임이다. 같은 값이
+홈 카드·내일 미리보기·자세 도전 현황에도 함께 나간다.
 
 **스텝 운동의 `thumbnailUrl`은 반대로 URL 그대로 쓴다.** 실제 영상의 한 프레임이고 소스가
 YMove라 파일을 프론트가 갖지 않는다. 재생 URL(`videoUrl`)과 달리 서명도 만료도 없어 DB에
