@@ -97,26 +97,32 @@ jobs:
     if: github.ref_name == 'develop'
     environment: dev
     steps:
+      - name: Validate Deployment Prerequisites
+        env:
+          TS_CLIENT_ID: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          TS_SECRET: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+          DEV_ENV_FILE: ${{ secrets.DEV_ENV_FILE }}
+        run: |
+          set -euo pipefail
+          missing_secrets=()
+          [[ -z "$TS_CLIENT_ID" ]] && missing_secrets+=("TAILSCALE_OAUTH_CLIENT_ID")
+          [[ -z "$TS_SECRET" ]] && missing_secrets+=("TAILSCALE_OAUTH_SECRET")
+          [[ -z "$KUBECONFIG_DATA" ]] && missing_secrets+=("KUBECONFIG")
+          [[ -z "$DEV_ENV_FILE" ]] && missing_secrets+=("DEV_ENV_FILE")
+
+          if [[ ${#missing_secrets[@]} -gt 0 ]]; then
+            echo "::error title=Missing Required Secrets::The following required secrets are missing in 'dev' environment: ${missing_secrets[*]}"
+            exit 1
+          fi
+          echo "All required deployment secrets are verified."
+
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: 'latest'
 
-      - name: Check Tailscale credentials
-        id: tailscale-check
-        env:
-          TS_CLIENT_ID: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
-          TS_SECRET: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
-        run: |
-          if [[ -n "$TS_CLIENT_ID" && -n "$TS_SECRET" ]]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Tailscale credentials (TAILSCALE_OAUTH_CLIENT_ID / TAILSCALE_OAUTH_SECRET) are not configured. Skipping Kubernetes deployment."
-          fi
-
       - name: Connect to Tailscale
-        if: steps.tailscale-check.outputs.available == 'true'
         uses: tailscale/github-action@v3
         with:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
@@ -124,41 +130,60 @@ jobs:
           tags: tag:ci
 
       - name: Configure Kubeconfig
-        if: steps.tailscale-check.outputs.available == 'true'
         env:
           KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
         run: |
-          if [[ -n "$KUBECONFIG_DATA" ]]; then
-            mkdir -p "$HOME/.kube"
-            printf '%s\n' "$KUBECONFIG_DATA" > "$HOME/.kube/config"
-            chmod 600 "$HOME/.kube/config"
-          fi
+          mkdir -p "$HOME/.kube"
+          printf '%s\n' "$KUBECONFIG_DATA" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
 
       - name: Inject Secret and Rollout Restart
-        if: steps.tailscale-check.outputs.available == 'true'
         env:
           DEV_ENV_FILE: ${{ secrets.DEV_ENV_FILE }}
         run: |
-          if [[ -n "$DEV_ENV_FILE" ]]; then
-            TMP_ENV_FILE=$(mktemp)
-            trap 'rm -f "$TMP_ENV_FILE"' EXIT
-            printf '%s\n' "$DEV_ENV_FILE" > "$TMP_ENV_FILE"
-            chmod 600 "$TMP_ENV_FILE"
+          set -euo pipefail
+          TMP_ENV_FILE=$(mktemp)
+          trap 'rm -f "$TMP_ENV_FILE"' EXIT
+          printf '%s\n' "$DEV_ENV_FILE" > "$TMP_ENV_FILE"
+          chmod 600 "$TMP_ENV_FILE"
 
-            echo "Injecting secret aligner-api-secrets into namespace aligner-sandbox..."
-            kubectl create secret generic aligner-api-secrets \
-              --from-env-file="$TMP_ENV_FILE" \
-              --namespace="aligner-sandbox" \
-              --dry-run=client -o yaml | kubectl apply -f -
-          else
-            echo "::warning::DEV_ENV_FILE secret is empty."
-          fi
+          echo "Injecting secret aligner-api-secrets into namespace aligner-sandbox..."
+          kubectl create secret generic aligner-api-secrets \
+            --from-env-file="$TMP_ENV_FILE" \
+            --namespace="aligner-sandbox" \
+            --dry-run=client -o yaml | kubectl apply -f -
 
           echo "Triggering rollout restart for deployment/aligner-sandbox-api in namespace aligner-sandbox..."
           kubectl rollout restart deployment/aligner-sandbox-api -n aligner-sandbox
+
+      - name: Verify Kubernetes Workload Rollout
+        run: |
+          echo "Waiting for deployment/aligner-sandbox-api rollout to complete (timeout: 180s)..."
           kubectl rollout status deployment/aligner-sandbox-api -n aligner-sandbox --timeout=180s
 
+      - name: Verify Active HTTP Health Probe
+        run: |
+          set -euo pipefail
+          HEALTH_URL="https://dev-api.aligneryoga.com/swagger-ui/index.html"
+          MAX_ATTEMPTS=12
+          SLEEP_SECONDS=5
+
+          echo "Probing application health at $HEALTH_URL..."
+          for ((i=1; i<=MAX_ATTEMPTS; i++)); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" || true)
+            if [[ "$STATUS" == "200" ]]; then
+              echo "✅ Health check passed! HTTP status $STATUS received (attempt $i/$MAX_ATTEMPTS)"
+              exit 0
+            fi
+            echo "Attempt $i/$MAX_ATTEMPTS: Received HTTP status '$STATUS'. Retrying in ${SLEEP_SECONDS}s..."
+            sleep "$SLEEP_SECONDS"
+          done
+
+          echo "::error title=Health Check Failed::Active health probe to $HEALTH_URL failed after $MAX_ATTEMPTS attempts."
+          exit 1
+
       - name: Deployment Summary
+        if: success()
         run: |
           {
             echo "### 🚀 Dev (Sandbox) 배포 완료!"
@@ -175,26 +200,32 @@ jobs:
     if: github.ref_name == 'main' || startsWith(github.ref_name, 'v')
     environment: prod
     steps:
+      - name: Validate Deployment Prerequisites
+        env:
+          TS_CLIENT_ID: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          TS_SECRET: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+        run: |
+          set -euo pipefail
+          missing_secrets=()
+          [[ -z "$TS_CLIENT_ID" ]] && missing_secrets+=("TAILSCALE_OAUTH_CLIENT_ID")
+          [[ -z "$TS_SECRET" ]] && missing_secrets+=("TAILSCALE_OAUTH_SECRET")
+          [[ -z "$KUBECONFIG_DATA" ]] && missing_secrets+=("KUBECONFIG")
+          [[ -z "$PROD_ENV_FILE" ]] && missing_secrets+=("PROD_ENV_FILE")
+
+          if [[ ${#missing_secrets[@]} -gt 0 ]]; then
+            echo "::error title=Missing Required Secrets::The following required secrets are missing in 'prod' environment: ${missing_secrets[*]}"
+            exit 1
+          fi
+          echo "All required deployment secrets are verified."
+
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: 'latest'
 
-      - name: Check Tailscale credentials
-        id: tailscale-check
-        env:
-          TS_CLIENT_ID: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
-          TS_SECRET: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
-        run: |
-          if [[ -n "$TS_CLIENT_ID" && -n "$TS_SECRET" ]]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Tailscale credentials (TAILSCALE_OAUTH_CLIENT_ID / TAILSCALE_OAUTH_SECRET) are not configured. Skipping Kubernetes deployment."
-          fi
-
       - name: Connect to Tailscale
-        if: steps.tailscale-check.outputs.available == 'true'
         uses: tailscale/github-action@v3
         with:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
@@ -202,41 +233,60 @@ jobs:
           tags: tag:ci
 
       - name: Configure Kubeconfig
-        if: steps.tailscale-check.outputs.available == 'true'
         env:
           KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
         run: |
-          if [[ -n "$KUBECONFIG_DATA" ]]; then
-            mkdir -p "$HOME/.kube"
-            printf '%s\n' "$KUBECONFIG_DATA" > "$HOME/.kube/config"
-            chmod 600 "$HOME/.kube/config"
-          fi
+          mkdir -p "$HOME/.kube"
+          printf '%s\n' "$KUBECONFIG_DATA" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
 
       - name: Inject Secret and Rollout Restart
-        if: steps.tailscale-check.outputs.available == 'true'
         env:
           PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
         run: |
-          if [[ -n "$PROD_ENV_FILE" ]]; then
-            TMP_ENV_FILE=$(mktemp)
-            trap 'rm -f "$TMP_ENV_FILE"' EXIT
-            printf '%s\n' "$PROD_ENV_FILE" > "$TMP_ENV_FILE"
-            chmod 600 "$TMP_ENV_FILE"
+          set -euo pipefail
+          TMP_ENV_FILE=$(mktemp)
+          trap 'rm -f "$TMP_ENV_FILE"' EXIT
+          printf '%s\n' "$PROD_ENV_FILE" > "$TMP_ENV_FILE"
+          chmod 600 "$TMP_ENV_FILE"
 
-            echo "Injecting secret aligner-api-secrets into namespace aligner..."
-            kubectl create secret generic aligner-api-secrets \
-              --from-env-file="$TMP_ENV_FILE" \
-              --namespace="aligner" \
-              --dry-run=client -o yaml | kubectl apply -f -
-          else
-            echo "::warning::PROD_ENV_FILE secret is empty."
-          fi
+          echo "Injecting secret aligner-api-secrets into namespace aligner..."
+          kubectl create secret generic aligner-api-secrets \
+            --from-env-file="$TMP_ENV_FILE" \
+            --namespace="aligner" \
+            --dry-run=client -o yaml | kubectl apply -f -
 
           echo "Triggering rollout restart for deployment/aligner-api in namespace aligner..."
           kubectl rollout restart deployment/aligner-api -n aligner
+
+      - name: Verify Kubernetes Workload Rollout
+        run: |
+          echo "Waiting for deployment/aligner-api rollout to complete (timeout: 180s)..."
           kubectl rollout status deployment/aligner-api -n aligner --timeout=180s
 
+      - name: Verify Active HTTP Health Probe
+        run: |
+          set -euo pipefail
+          HEALTH_URL="https://api.aligneryoga.com/swagger-ui/index.html"
+          MAX_ATTEMPTS=12
+          SLEEP_SECONDS=5
+
+          echo "Probing application health at $HEALTH_URL..."
+          for ((i=1; i<=MAX_ATTEMPTS; i++)); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" || true)
+            if [[ "$STATUS" == "200" ]]; then
+              echo "✅ Health check passed! HTTP status $STATUS received (attempt $i/$MAX_ATTEMPTS)"
+              exit 0
+            fi
+            echo "Attempt $i/$MAX_ATTEMPTS: Received HTTP status '$STATUS'. Retrying in ${SLEEP_SECONDS}s..."
+            sleep "$SLEEP_SECONDS"
+          done
+
+          echo "::error title=Health Check Failed::Active health probe to $HEALTH_URL failed after $MAX_ATTEMPTS attempts."
+          exit 1
+
       - name: Deployment Summary
+        if: success()
         run: |
           {
             echo "### 🏢 Prod (Production) 배포 완료!"
