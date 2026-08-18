@@ -120,7 +120,7 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: 'v1.31.0'
+          version: 'v1.36.1'
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v3
@@ -223,7 +223,7 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: 'v1.31.0'
+          version: 'v1.36.1'
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v3
