@@ -182,6 +182,18 @@ jobs:
           echo "::error title=Health Check Failed::Active health probe to $HEALTH_URL failed after $MAX_ATTEMPTS attempts."
           exit 1
 
+      - name: Collect Logs on Failure
+        if: failure()
+        run: |
+          echo "::warning title=Deployment Failed::Deployment failed or timed out. Fetching forensic logs..."
+          
+          echo "--- Recent Events ---"
+          kubectl get events -n aligner-sandbox --sort-by='.metadata.creationTimestamp' | tail -n 20 || true
+          
+          echo "--- Pod Logs ---"
+          kubectl logs deployment/aligner-sandbox-api -n aligner-sandbox --all-containers=true --tail=100 || true
+
+
       - name: Deployment Summary
         if: success()
         run: |
@@ -284,6 +296,17 @@ jobs:
 
           echo "::error title=Health Check Failed::Active health probe to $HEALTH_URL failed after $MAX_ATTEMPTS attempts."
           exit 1
+
+      - name: Collect Logs on Failure
+        if: failure()
+        run: |
+          echo "::warning title=Deployment Failed::Deployment failed or timed out. Fetching forensic logs..."
+          
+          echo "--- Recent Events ---"
+          kubectl get events -n aligner --sort-by='.metadata.creationTimestamp' | tail -n 20 || true
+          
+          echo "--- Pod Logs ---"
+          kubectl logs deployment/aligner-api -n aligner --all-containers=true --tail=100 || true
 
       - name: Deployment Summary
         if: success()
