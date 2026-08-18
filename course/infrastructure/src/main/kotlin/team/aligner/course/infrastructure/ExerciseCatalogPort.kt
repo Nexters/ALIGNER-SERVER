@@ -25,6 +25,11 @@ data class ExerciseCatalogEntry(
     val name: String,
     /** 코스 순서 카드가 스텝마다 그리는 그림. URL 이 아니라 키다. */
     val imageAssetKey: String?,
+    /**
+     * 영상 포스터 프레임. [imageAssetKey] 와 달리 **URL 그대로**다 — YMove 자산이라 파일을
+     * 프론트가 갖지 않는다. 재생 URL 과 달리 만료가 없어 DB 에 저장돼 있다.
+     */
+    val thumbnailUrl: String?,
     val category: String?,
     val defaultSetCount: Int?,
     val defaultDurationSeconds: Int?,

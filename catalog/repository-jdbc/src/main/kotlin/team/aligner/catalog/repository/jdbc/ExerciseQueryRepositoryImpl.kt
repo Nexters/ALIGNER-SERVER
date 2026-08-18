@@ -116,7 +116,7 @@ internal class ExerciseQueryRepositoryImpl(
                 """
                 SELECT m.muscle_code, m.name, m.body_part_code,
                        m.front_highlight_asset_key, m.back_highlight_asset_key,
-                       em.role, em.display_order
+                       em.role, em.display_order, em.description
                 FROM catalog.exercise_muscle em
                 JOIN catalog.muscle m ON m.muscle_code = em.muscle_code
                 WHERE em.exercise_id = :exerciseId

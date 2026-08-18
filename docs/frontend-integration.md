@@ -425,7 +425,8 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
       "frontHighlightAssetKey": null,
       "backHighlightAssetKey": "muscle/example-back",
       "role": "STRETCH",
-      "displayOrder": 1
+      "displayOrder": 1,
+      "description": null
     }
   ]
 }
@@ -434,11 +435,81 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
 `role`은 현재 `STRETCH`(신장)와 `STRENGTHEN`(강화)만 사용한다. 근육 배열은
 `displayOrder` 순서로 표시한다.
 
+**`description`은 자세 상세에서 항상 `null`이다.** 「핵심 동작」 문구는 운동 가이드 화면에만
+있고, 자세를 그리는 화면이 아직 없어 자세-근육 매핑에는 문구를 적재하지 않았다.
+
 **하이라이트 키가 앞·뒤 두 개다.** 세션 플레이어의 근육맵이 인체 앞면과 뒷면을 토글로
 보여주고 각각 근육을 칠하므로, 앞면 그림에는 `frontHighlightAssetKey`가 있는 근육만,
 뒷면 그림에는 `backHighlightAssetKey`가 있는 근육만 얹는다. 척추기립근처럼 뒤에만 보이는
 근육은 `frontHighlightAssetKey`가 `null`이다. **둘 다 `null`인 경우도 정상이다** — 자산 키가
 아직 감수 전이라 그렇고, 그때는 그 근육을 칠하지 않는다.
+
+**현재 seed에서는 앞뒤 양쪽 키를 가진 근육이 하나도 없다.** Figma 근육맵 컴포넌트가 근육을
+앞면과 뒷면으로 완전히 갈라놨기 때문이고, 항상 한쪽이 `null`이다. 양쪽에 걸치는 레이어가
+생기면 그때 둘 다 채워진다 — 계약은 이미 그 경우를 허용한다.
+
+**이 자세 상세 응답의 `muscles`는 현재 항상 빈 배열이다.** 근육맵을 그리는 화면이 운동
+상세뿐이라 자세-근육 매핑(`pose_muscle`)을 아직 적재하지 않았다. 서버 오류가 아니다. 자세
+상세 화면이 생기면 그때 채운다.
+
+#### 근육 22개 대응표
+
+**행 집합의 정본은 Figma 근육맵 컴포넌트다** (`front/기본` 758:8956, `back` 758:8957).
+프론트가 칠할 수 있는 근육이 이 22개뿐이라 서버도 이 집합만 내려보낸다. `muscleCode`로
+레이어를 찾고, 화면에 쓰는 이름은 `name`이다 — `name`이 Figma 레이어명과 같다.
+
+| `muscleCode` | `name` | `bodyPartCode` | 그림 |
+| --- | --- | --- | --- |
+| `DELTOID` | 델토근 | `BACK` | front |
+| `PECTORALIS_MAJOR` | 대흉근 | `BACK` | front |
+| `SERRATUS_ANTERIOR` | 전거근 | `BACK` | front |
+| `BICEPS_BRACHII` | 상완이두근 | `BACK` | front |
+| `FOREARM` | 전완근 | `BACK` | front |
+| `FOREARM_FLEXOR` | 전완굴곡근 | `BACK` | front |
+| `RECTUS_ABDOMINIS` | 복직근 | `ABDOMEN` | front |
+| `EXTERNAL_OBLIQUE` | 외복사근 | `ABDOMEN` | front |
+| `ILIOPSOAS` | 장요근 | `PELVIS` | front |
+| `RECTUS_FEMORIS` | 대퇴직근 | `PELVIS` | front |
+| `ADDUCTOR` | 내전근 | `PELVIS` | front |
+| `TIBIALIS_ANTERIOR` | 전경골근 | `PELVIS` | front |
+| `TRAPEZIUS` | 승모근 | `BACK` | back |
+| `TRAPEZIUS_MID_LOWER` | 중 하부 승모근 | `BACK` | back |
+| `ROTATOR_CUFF` | 회전근개 | `BACK` | back |
+| `LATISSIMUS_DORSI` | 광배근 | `BACK` | back |
+| `TRICEPS_BRACHII` | 상완삼두근 | `BACK` | back |
+| `ERECTOR_SPINAE` | 척추기립근 | `BACK` | back |
+| `GLUTEUS_MEDIUS` | 중둔근 | `PELVIS` | back |
+| `GLUTEUS_MAXIMUS` | 대둔근 | `PELVIS` | back |
+| `HAMSTRING` | 햄스트링 | `PELVIS` | back |
+| `GASTROCNEMIUS` | 비복근 | `PELVIS` | back |
+
+`TRICEPS_BRACHII`의 Figma 레이어명은 `이부근`(758:9032)이지만 뒷면 양팔 위쪽 위치라
+상완삼두근으로 본다. 레이어명이 정정되면 이 표도 함께 고친다.
+
+**어느 운동에도 걸리지 않는 근육이 5개 있다** — `BICEPS_BRACHII`, `FOREARM`,
+`FOREARM_FLEXOR`, `TIBIALIS_ANTERIOR`, `TRAPEZIUS`. 콘텐츠 정본이 이들을 주동·신장 근육으로
+지목하지 않아서이고 데이터 누락이 아니다. 근육맵에서 회색으로 남는다.
+
+**팔 근육 5개(`DELTOID`·`BICEPS_BRACHII`·`TRICEPS_BRACHII`·`FOREARM`·`FOREARM_FLEXOR`)의
+`bodyPartCode`가 `BACK`인 것은 잠정 배정이다.** `BACK`·`ABDOMEN`·`PELVIS` 셋 중 자연스러운
+자리가 없어 상체로 몰았다. 부위 탭을 이 값으로 그룹핑하면 `허리` 탭에 팔 근육이 뜬다 —
+탭 구성이 확정되면 서버가 값을 고친다.
+
+콘텐츠 정본(`docs/context/routine-content.md`)의 근육 표기는 위 22개 중 하나로 흡수된다.
+
+| 정본 표기 | 귀속 |
+| --- | --- |
+| 다열근, 요방형근, 회선근 | `ERECTOR_SPINAE` |
+| 복횡근, 내·외복사근 | `EXTERNAL_OBLIQUE` |
+| 극하근·소원근 | `ROTATOR_CUFF` |
+| 대원근 | `LATISSIMUS_DORSI` |
+| 대퇴사두근 | `RECTUS_FEMORIS` |
+| 삼각근 전면·후면 | `DELTOID` |
+| 장·단내전근, 대내전근, 박근, 치골근 | `ADDUCTOR` |
+| 이상근, 소둔근, 심부 외회전근(상·하쌍자근·내외폐쇄근·대퇴방형근) | `GLUTEUS_MEDIUS` |
+| 가자미근, 아킬레스 | `GASTROCNEMIUS` |
+| 상부 승모근 | `TRAPEZIUS` |
+| 중·하부 승모근 | `TRAPEZIUS_MID_LOWER` |
 
 ### `GET /catalog/exercises/{exerciseId}`
 
@@ -457,7 +528,28 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
   "difficulty": "beginner",
   "category": "가동성 웜업",
   "cautionNote": "허리에 불편함이 있으면 범위를 줄입니다.",
-  "muscles": [],
+  "muscles": [
+    {
+      "muscleCode": "ERECTOR_SPINAE",
+      "name": "척추기립근",
+      "bodyPartCode": "BACK",
+      "frontHighlightAssetKey": null,
+      "backHighlightAssetKey": "muscle/erector_spinae_back",
+      "role": "STRENGTHEN",
+      "displayOrder": 1,
+      "description": "가슴을 먼저 들어 올린 뒤에 뒤로 젖히세요."
+    },
+    {
+      "muscleCode": "ILIOPSOAS",
+      "name": "장요근",
+      "bodyPartCode": "PELVIS",
+      "frontHighlightAssetKey": "muscle/iliopsoas_front",
+      "backHighlightAssetKey": null,
+      "role": "STRETCH",
+      "displayOrder": 2,
+      "description": "골반을 앞으로 밀어 고관절 앞쪽을 늘이세요."
+    }
+  ],
   "voiceCues": [
     {
       "displayOrder": 1,
@@ -480,6 +572,16 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
   kcal이 필요하면 계산해서 내려주는 쪽을 쓴다 — 코스·홈은 `estimatedKcal`(현재 몸무게로
   매번 계산한 **예상치**), 완료 리포트는 세션의 `estimatedKcal`(완료 시점에 계산해 **저장한
   실측 기반 값**)이다. 프론트가 MET으로 직접 계산하지 않는다.
+- **`description`이 「핵심 동작」이다.** 근육맵에서 근육을 짚었을 때 옆 카드에 그리는 한
+  문장이고, 이 운동에서 그 근육을 어떻게 쓰는지를 말한다. 같은 운동 안에서도 근육마다 다르다 —
+  낙타자세의 척추기립근은 "가슴을 먼저 들어 올린 뒤"이고 장요근은 "골반을 앞으로 밀어"다.
+  하나는 주동근이고 하나는 신장근이라 지시가 갈린다.
+- **`description`이 `null`인 근육이 있을 수 있다.** 감수 전 데이터라 문구가 아직 없는
+  경우이고, 그때는 카드를 그리지 않는다. 빈 문자열로 바꾸지 않는다.
+- **부위 탭은 `muscles`의 `bodyPartCode`로 묶어 만든다.** 탭 개수는 운동마다 다르다 — 근육이
+  한 부위에만 걸린 운동은 탭이 하나이고(로우 런지 → `PELVIS`), 세 부위 전부인 운동도 있다.
+  **탭을 3개로 고정하지 않는다.** 탭을 누르면 그 `bodyPartCode`를 가진 근육을 근육맵에 칠하고,
+  해당 근육의 `description`을 카드에 그린다.
 - 음성 큐는 `displayOrder` 순서다. `startOffsetSeconds`가 null이면 타임코드가 확정되지
   않은 상태이므로 순차 재생으로 처리한다. `endOffsetSeconds`가 null인 큐는 유지 구간이
   없는 문장이다.
@@ -829,6 +931,7 @@ Content-Type: application/json
   "targetPoseId": 3,
   "targetPoseName": "낙타자세",
   "targetPoseImageAssetKey": "target-pose/camel",
+  "targetPoseThumbnailUrl": "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
   "name": "낙타자세 정복하기",
   "completedStepCount": 1,
   "totalStepCount": 6,
@@ -837,6 +940,7 @@ Content-Type: application/json
     {
       "courseStepId": 31,
       "stepOrder": 1,
+      "totalStepCount": 6,
       "completed": true,
       "completedAt": "2026-08-09T00:00:00Z",
       "exercises": [
@@ -845,6 +949,7 @@ Content-Type: application/json
           "exerciseId": 7,
           "name": "캣카우",
           "imageAssetKey": "exercise/cat-cow",
+          "thumbnailUrl": "https://exercise-api.ymove.app/api/v2/thumbnail/df1bcf35-...?library=clean",
           "category": "가동성 웜업",
           "displayOrder": 1,
           "durationSeconds": 120,
@@ -863,6 +968,25 @@ Content-Type: application/json
 `targetPoseImageAssetKey`는 개요 상단 히어로에 쓴다 — 홈 카드와 같은 그림이라 같은 키다.
 스텝의 `imageAssetKey`는 코스 순서 카드의 썸네일이다. 둘 다 URL이 아니라 키이고, seed 전에는
 `null`이다.
+
+**`targetPoseThumbnailUrl`은 히어로에 쓸 수 있는 URL이다.** `targetPoseImageAssetKey`가 키인
+것과 달리 그대로 `<img src>`에 넣는다. 자세 일러스트(프론트 정적 자산)를 아직 갖고 있지
+않아도 화면이 비지 않도록 넣은 값이고, 소스는 그 자세의 YMove 영상 한 프레임이다. 같은 값이
+홈 카드·내일 미리보기·자세 도전 현황에도 함께 나간다.
+
+**스텝 운동의 `thumbnailUrl`은 반대로 URL 그대로 쓴다.** 실제 영상의 한 프레임이고 소스가
+YMove라 파일을 프론트가 갖지 않는다. 재생 URL(`videoUrl`)과 달리 서명도 만료도 없어 DB에
+저장돼 있고, **YMove 장애와 무관하게 값이 있다.** `imageAssetKey`(일러스트)와 `thumbnailUrl`
+(영상 한 컷) 중 무엇을 그릴지는 화면이 고른다.
+
+**스텝마다 `totalStepCount`가 함께 온다.** 운동 가이드 화면 상단의 `1 / 6`이
+`stepOrder / totalStepCount`다. 코스 전체 값이라 스텝마다 같은 숫자가 반복되지만, 스텝
+하나만 들고 화면을 이동해도 헤더를 그릴 수 있도록 각 스텝에 실어 보낸다.
+
+**이 두 숫자는 `GET /catalog/exercises/{exerciseId}`에는 없다.** 단계는 코스가 소유한
+개념이고 운동은 코스와 무관한 마스터 데이터다 — 같은 운동(캣카우)이 9개 루틴의 서로 다른
+순번에 들어가므로 운동 식별자만으로는 답이 정해지지 않는다. 운동 가이드 화면은 코스 개요에서
+받은 `stepOrder`·`totalStepCount`를 그대로 들고 이동한다.
 
 없는 코스와 남의 코스는 똑같이 404 `COURSE_NOT_FOUND`다.
 

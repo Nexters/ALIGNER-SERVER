@@ -21,4 +21,12 @@ data class MuscleView(
     val backHighlightAssetKey: String?,
     val role: MuscleRole,
     val displayOrder: Int,
+    /**
+     * 운동 가이드의 「핵심 동작」 한 문장. 이 운동에서 그 근육을 어떻게 쓰는지다.
+     *
+     * **자세(`pose_muscle`)에는 없어 항상 null 이다.** 자세 상세를 그리는 화면이 아직 없어
+     * 문구를 적재하지 않았다. 운동에서도 감수 전이면 null 일 수 있고, 그때 화면은 카드를
+     * 그리지 않는다.
+     */
+    val description: String?,
 )

@@ -57,6 +57,12 @@ data class TodayCourseResponse(
     @field:Schema(description = "목표 자세 이미지 asset 키. URL 이 아니다", nullable = true)
     val targetPoseImageAssetKey: String?,
     @field:Schema(
+        description = "자세 영상의 포스터 프레임 URL. **위 asset 키와 달리 URL 그대로 쓴다** — YMove 자산이라 파일을 프론트가 갖지 않는다",
+        example = "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
+        nullable = true,
+    )
+    val targetPoseThumbnailUrl: String?,
+    @field:Schema(
         description = "목표 자세 레벨. 회원이 고른 난이도와 같다. catalog 에서 자세를 찾지 못하면 null 이다",
         example = "1",
         nullable = true,
@@ -102,6 +108,7 @@ data class TodayCourseResponse(
                 targetPoseId = view.targetPoseId,
                 targetPoseName = view.targetPoseName,
                 targetPoseImageAssetKey = view.targetPoseImageAssetKey,
+                targetPoseThumbnailUrl = view.targetPoseThumbnailUrl,
                 targetPoseLevel = view.targetPoseLevel,
                 name = view.name,
                 recommendationReason = view.recommendationReason,
@@ -138,6 +145,12 @@ data class TomorrowCoursePreviewResponse(
     val targetPoseName: String,
     @field:Schema(description = "목표 자세 이미지 asset 키. URL 이 아니다", nullable = true)
     val targetPoseImageAssetKey: String?,
+    @field:Schema(
+        description = "자세 영상의 포스터 프레임 URL. **위 asset 키와 달리 URL 그대로 쓴다** — YMove 자산이라 파일을 프론트가 갖지 않는다",
+        example = "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
+        nullable = true,
+    )
+    val targetPoseThumbnailUrl: String?,
     @field:Schema(description = "이 자세의 부위. 오늘의 코스와 같은 부위다. **코스 추천 호출에 그대로 쓴다**")
     val bodyPartCode: BodyPartCode,
     @field:Schema(description = "난이도. **코스 추천의 level 로 그대로 쓴다**", example = "2")
@@ -167,6 +180,7 @@ data class TomorrowCoursePreviewResponse(
                 targetPoseId = view.targetPoseId,
                 targetPoseName = view.targetPoseName,
                 targetPoseImageAssetKey = view.targetPoseImageAssetKey,
+                targetPoseThumbnailUrl = view.targetPoseThumbnailUrl,
                 bodyPartCode = BodyPartCode.from(view.bodyPartCode),
                 level = view.level,
                 name = view.name,
@@ -193,6 +207,12 @@ data class CourseDetailResponse(
         nullable = true,
     )
     val targetPoseImageAssetKey: String?,
+    @field:Schema(
+        description = "자세 영상의 포스터 프레임 URL. **위 asset 키와 달리 URL 그대로 쓴다** — YMove 자산이라 파일을 프론트가 갖지 않는다",
+        example = "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
+        nullable = true,
+    )
+    val targetPoseThumbnailUrl: String?,
     @field:Schema(description = "코스 이름", example = "낙타자세 정복하기")
     val name: String,
     @field:Schema(description = "코스 추천 이유", nullable = true)
@@ -223,6 +243,7 @@ data class CourseDetailResponse(
                 targetPoseId = view.targetPoseId,
                 targetPoseName = view.targetPoseName,
                 targetPoseImageAssetKey = view.targetPoseImageAssetKey,
+                targetPoseThumbnailUrl = view.targetPoseThumbnailUrl,
                 name = view.name,
                 recommendationReason = view.recommendationReason,
                 completedStepCount = view.completedStepCount,
@@ -231,17 +252,34 @@ data class CourseDetailResponse(
                 totalSetCount = view.totalSetCount,
                 estimatedDurationSeconds = view.estimatedDurationSeconds,
                 estimatedKcal = view.estimatedKcal,
-                steps = view.steps.map(CourseStepResponse::from),
+                steps = view.steps.map { CourseStepResponse.from(it, view.totalStepCount) },
             )
     }
 }
 
+/**
+ * `stepOrder` 와 `totalStepCount` 를 함께 싣는다. 운동 가이드 화면 상단의 `1 / 6` 이 이 둘이다.
+ *
+ * `totalStepCount` 는 코스 전체 값이라 스텝마다 같은 숫자가 반복된다. 그래도 넣는 것은 화면이
+ * 스텝 하나만 들고 이동해도 `1 / 6` 을 그릴 수 있게 하기 위해서다 — 부모 응답을 함께 들고
+ * 다니게 하면 스텝을 어디서 열었느냐에 따라 헤더가 비는 경로가 생긴다.
+ *
+ * **`GET /catalog/exercises/{id}` 에는 넣지 않는다.** 단계는 코스가 소유한 개념이고 운동은
+ * 코스와 무관한 마스터 데이터다 — catalog 가 course 를 참조하면 의존 방향이 역전된다
+ * (docs/architecture.md §7). 같은 운동이 여러 코스의 서로 다른 순번에 들어가므로 catalog 는
+ * 애초에 답할 수 없는 질문이기도 하다.
+ */
 @Schema(description = "코스 스텝 하나")
 data class CourseStepResponse(
     @field:Schema(description = "스텝 식별자", example = "31")
     val courseStepId: Long,
-    @field:Schema(description = "스텝 순서. 1 부터다", example = "1")
+    @field:Schema(description = "스텝 순서. 1 부터다. 화면의 `1 / 6` 중 앞 숫자다", example = "1")
     val stepOrder: Int,
+    @field:Schema(
+        description = "코스의 전체 스텝 수. 화면의 `1 / 6` 중 뒤 숫자다. 코스 전체 값이라 스텝마다 같다",
+        example = "6",
+    )
+    val totalStepCount: Int,
     @field:Schema(description = "완료 여부", example = "false")
     val completed: Boolean,
     @field:Schema(description = "완료 시각. 아직이면 null 이다", nullable = true)
@@ -250,14 +288,17 @@ data class CourseStepResponse(
     val exercises: List<CourseStepExerciseResponse>,
 ) {
     companion object {
-        fun from(view: CourseStepView) =
-            CourseStepResponse(
-                courseStepId = view.courseStepId,
-                stepOrder = view.stepOrder,
-                completed = view.completed,
-                completedAt = view.completedAt,
-                exercises = view.exercises.map(CourseStepExerciseResponse::from),
-            )
+        fun from(
+            view: CourseStepView,
+            totalStepCount: Int,
+        ) = CourseStepResponse(
+            courseStepId = view.courseStepId,
+            stepOrder = view.stepOrder,
+            totalStepCount = totalStepCount,
+            completed = view.completed,
+            completedAt = view.completedAt,
+            exercises = view.exercises.map(CourseStepExerciseResponse::from),
+        )
     }
 }
 
@@ -279,6 +320,14 @@ data class CourseStepExerciseResponse(
         nullable = true,
     )
     val imageAssetKey: String?,
+    @field:Schema(
+        description =
+            "영상 포스터 프레임 URL. **imageAssetKey 와 달리 URL 그대로 쓴다** — YMove 자산이라 파일을 프론트가 갖지 않는다. " +
+                "재생 URL 과 달리 만료가 없어 YMove 장애와 무관하게 값이 있다",
+        example = "https://exercise-api.ymove.app/api/v2/thumbnail/df1bcf35-11a2-4836-a9b5-f7da273f46cb?library=clean",
+        nullable = true,
+    )
+    val thumbnailUrl: String?,
     @field:Schema(description = "분류. 값 집합이 아직 고정되지 않았다", example = "가동성 웜업", nullable = true)
     val category: String?,
     @field:Schema(description = "표시 순서", example = "1")
@@ -297,6 +346,7 @@ data class CourseStepExerciseResponse(
                 exerciseId = view.exerciseId,
                 name = view.name,
                 imageAssetKey = view.imageAssetKey,
+                thumbnailUrl = view.thumbnailUrl,
                 category = view.category,
                 displayOrder = view.displayOrder,
                 durationSeconds = view.durationSeconds,
@@ -357,6 +407,12 @@ data class TargetPoseProgressItem(
     val targetPoseName: String,
     @field:Schema(description = "목표 자세 이미지 asset 키", nullable = true)
     val targetPoseImageAssetKey: String?,
+    @field:Schema(
+        description = "자세 영상의 포스터 프레임 URL. **위 asset 키와 달리 URL 그대로 쓴다** — YMove 자산이라 파일을 프론트가 갖지 않는다",
+        example = "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
+        nullable = true,
+    )
+    val targetPoseThumbnailUrl: String?,
     @field:Schema(description = "이 자세가 속한 부위. 화면의 섹션 구분이다")
     val bodyPartCode: BodyPartCode,
     @field:Schema(description = "난이도 단계. 부위 안에서 작을수록 쉽다", example = "1")
@@ -390,6 +446,7 @@ data class TargetPoseProgressItem(
                 targetPoseId = view.targetPoseId,
                 targetPoseName = view.targetPoseName,
                 targetPoseImageAssetKey = view.targetPoseImageAssetKey,
+                targetPoseThumbnailUrl = view.targetPoseThumbnailUrl,
                 bodyPartCode = BodyPartCode.from(view.bodyPartCode),
                 level = view.level,
                 courseId = view.courseId,

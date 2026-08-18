@@ -67,10 +67,10 @@ class TomorrowCoursePreviewTest :
         /** 등 3 개, 복부 1 개. */
         fun poses() =
             listOf(
-                TargetPoseCatalogEntry(1L, "낙타자세", "pose/camel", "BACK", 1),
-                TargetPoseCatalogEntry(2L, "휠", "pose/wheel", "BACK", 2),
-                TargetPoseCatalogEntry(3L, "비둘기자세", "pose/pigeon", "BACK", 3),
-                TargetPoseCatalogEntry(4L, "보트자세", "pose/boat", "ABDOMEN", 1),
+                TargetPoseCatalogEntry(1L, "낙타자세", "pose/camel", null, "BACK", 1),
+                TargetPoseCatalogEntry(2L, "휠", "pose/wheel", null, "BACK", 2),
+                TargetPoseCatalogEntry(3L, "비둘기자세", "pose/pigeon", null, "BACK", 3),
+                TargetPoseCatalogEntry(4L, "보트자세", "pose/boat", null, "ABDOMEN", 1),
             )
 
         fun exercise(
@@ -115,8 +115,8 @@ class TomorrowCoursePreviewTest :
             every { memberBodyPort.findWeightKg(1L) } returns 60
             every { exerciseCatalogPort.findAllByIds(any()) } returns
                 listOf(
-                    ExerciseCatalogEntry(10L, "캣카우", "exercise/cat-cow", "가동성 웜업", 1, 60, BigDecimal("2.5")),
-                    ExerciseCatalogEntry(11L, "브릿지", "exercise/bridge", "강화", 2, 90, BigDecimal("3.0")),
+                    ExerciseCatalogEntry(10L, "캣카우", "exercise/cat-cow", null, "가동성 웜업", 1, 60, BigDecimal("2.5")),
+                    ExerciseCatalogEntry(11L, "브릿지", "exercise/bridge", null, "강화", 2, 90, BigDecimal("3.0")),
                 )
             every { courseQueryRepository.findStampCounts(1L) } returns emptyList()
         }

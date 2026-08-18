@@ -20,6 +20,7 @@ internal class ExerciseContractImpl(
                     exerciseId = it.exerciseId,
                     name = it.name,
                     imageAssetKey = it.imageAssetKey,
+                    thumbnailUrl = it.thumbnailUrl,
                     defaultSetCount = it.defaultSetCount,
                     defaultRepCount = it.defaultRepCount,
                     defaultDurationSeconds = it.defaultDurationSeconds,
