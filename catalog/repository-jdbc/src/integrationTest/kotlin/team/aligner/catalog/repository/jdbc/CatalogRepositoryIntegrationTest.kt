@@ -51,7 +51,8 @@ class CatalogRepositoryIntegrationTest {
         jdbcClient
             .sql(
                 """
-                TRUNCATE catalog.exercise_voice_cue, catalog.pose_muscle, catalog.exercise_muscle,
+                TRUNCATE catalog.exercise_voice_cue, catalog.exercise_body_part_guide,
+                         catalog.pose_muscle, catalog.exercise_muscle,
                          catalog.exercise, catalog.target_pose, catalog.muscle
                 RESTART IDENTITY CASCADE
                 """.trimIndent(),
@@ -72,6 +73,8 @@ class CatalogRepositoryIntegrationTest {
         insertExerciseMuscle(1L, "ILIOPSOAS", MuscleRole.STRETCH, 2)
         insertVoiceCue(1L, 1, null, null, "무릎을 골반 너비로 벌리세요")
         insertVoiceCue(1L, 2, 35, 75, "명치를 천장으로 끌어올리고 유지하세요")
+        insertBodyPartGuide(1L, "BACK", "가슴을 먼저 들어 올린 뒤에 뒤로 젖히세요.", 1)
+        insertBodyPartGuide(1L, "PELVIS", "골반을 앞으로 밀어 허리를 보호하세요.", 2)
 
         insertExercise(2L, "cat-cow-pose", "캣카우")
 
@@ -86,19 +89,19 @@ class CatalogRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'catalog'")
             .query(Int::class.java)
-            .single() shouldBe 6
+            .single() shouldBe 7
 
         // changeset 을 추가할 때마다 함께 올린다. 0012~0014 는 YMove 연동(썸네일 컬럼,
-        // slug·썸네일 seed, 음성 큐 seed)이고 0015~0016 은 근육맵 seed 다.
+        // slug·썸네일 seed, 음성 큐 seed), 0015~0016 은 근육맵 seed, 0017~0018 은 부위 가이드다.
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'catalog-%'")
             .query(Int::class.java)
-            .single() shouldBe 16
+            .single() shouldBe 18
     }
 
     @Test
     fun `도메인 테이블이 public 에 새지 않는다`() {
-        listOf("exercise", "target_pose", "muscle", "exercise_voice_cue").forEach { table ->
+        listOf("exercise", "target_pose", "muscle", "exercise_voice_cue", "exercise_body_part_guide").forEach { table ->
             jdbcClient
                 .sql("SELECT to_regclass('public.$table')")
                 .query(String::class.java)
@@ -109,7 +112,7 @@ class CatalogRepositoryIntegrationTest {
     }
 
     @Test
-    fun `운동 상세가 근육과 음성 큐를 순서대로 싣는다`() {
+    fun `운동 상세가 근육과 음성 큐와 부위 가이드를 순서대로 싣는다`() {
         val detail = exerciseQueryRepository.findDetail(ExerciseIdentity.of(1L)).shouldNotBeNull()
 
         detail.name shouldBe "낙타자세"
@@ -128,6 +131,10 @@ class CatalogRepositoryIntegrationTest {
         // 타임코드 미확정 큐와 구간 큐가 섞여 있어도 그대로 돌아와야 한다.
         detail.voiceCues.map { it.startOffsetSeconds } shouldBe listOf(null, 35)
         detail.voiceCues.map { it.endOffsetSeconds } shouldBe listOf(null, 75)
+        // 부위 탭 순서와 문구를 서버가 정해서 내린다. 화면이 다시 정렬하지 않는다.
+        detail.bodyPartGuides.map { it.bodyPartCode } shouldBe listOf("BACK", "PELVIS")
+        detail.bodyPartGuides.map { it.content } shouldBe
+            listOf("가슴을 먼저 들어 올린 뒤에 뒤로 젖히세요.", "골반을 앞으로 밀어 허리를 보호하세요.")
     }
 
     /**
@@ -185,6 +192,7 @@ class CatalogRepositoryIntegrationTest {
 
         detail.muscles shouldBe emptyList()
         detail.voiceCues shouldBe emptyList()
+        detail.bodyPartGuides shouldBe emptyList()
     }
 
     @Test
@@ -539,6 +547,23 @@ class CatalogRepositoryIntegrationTest {
         .param("start", start)
         .param("end", end)
         .param("content", content)
+        .update()
+
+    private fun insertBodyPartGuide(
+        exerciseId: Long,
+        bodyPartCode: String,
+        content: String,
+        displayOrder: Int,
+    ) = jdbcClient
+        .sql(
+            """
+            INSERT INTO catalog.exercise_body_part_guide (exercise_id, body_part_code, content, display_order)
+            VALUES (:exerciseId, :bodyPartCode, :content, :displayOrder)
+            """.trimIndent(),
+        ).param("exerciseId", exerciseId)
+        .param("bodyPartCode", bodyPartCode)
+        .param("content", content)
+        .param("displayOrder", displayOrder)
         .update()
 
     companion object {

@@ -4,6 +4,7 @@ import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.simple.JdbcClient
 import team.aligner.catalog.infrastructure.ExerciseQueryRepository
 import team.aligner.catalog.model.ExerciseIdentity
+import team.aligner.catalog.model.view.ExerciseBodyPartGuideView
 import team.aligner.catalog.model.view.ExerciseDetailView
 import team.aligner.catalog.model.view.ExerciseSummaryView
 import team.aligner.catalog.model.view.ExerciseVoiceCueView
@@ -21,10 +22,10 @@ internal class ExerciseQueryRepositoryImpl(
     private val jdbcClient: JdbcClient,
 ) : ExerciseQueryRepository {
     /**
-     * 본체·근육·음성 큐를 3 회로 나눠 읽는다.
+     * 본체·근육·음성 큐·부위 가이드를 4 회로 나눠 읽는다.
      *
-     * 한 번에 조인하면 근육 n 개 × 큐 m 개의 카티션 곱이 나온다. 자식이 둘이라 조인으로는
-     * 중복 제거 비용이 더 크다.
+     * 한 번에 조인하면 근육 n 개 × 큐 m 개 × 가이드 k 개의 카티션 곱이 나온다. 자식이 셋이라
+     * 조인으로는 중복 제거 비용이 더 크다.
      */
     override fun findDetail(exerciseIdentity: ExerciseIdentity): ExerciseDetailView? {
         val exerciseId = exerciseIdentity.value
@@ -58,6 +59,7 @@ internal class ExerciseQueryRepositoryImpl(
                         cautionNote = rs.getString("caution_note"),
                         muscles = emptyList(),
                         voiceCues = emptyList(),
+                        bodyPartGuides = emptyList(),
                     )
                 }.optional()
                 .orElse(null) ?: return null
@@ -65,6 +67,7 @@ internal class ExerciseQueryRepositoryImpl(
         return base.copy(
             muscles = findMuscles(exerciseId),
             voiceCues = findVoiceCues(exerciseId),
+            bodyPartGuides = findBodyPartGuides(exerciseId),
         )
     }
 
@@ -142,6 +145,24 @@ internal class ExerciseQueryRepositoryImpl(
                     startOffsetSeconds = rs.getIntOrNull("start_offset_seconds"),
                     endOffsetSeconds = rs.getIntOrNull("end_offset_seconds"),
                     content = rs.getString("content"),
+                )
+            }.list()
+
+    private fun findBodyPartGuides(exerciseId: Long) =
+        jdbcClient
+            .sql(
+                """
+                SELECT body_part_code, content, display_order
+                FROM catalog.exercise_body_part_guide
+                WHERE exercise_id = :exerciseId
+                ORDER BY display_order
+                """.trimIndent(),
+            ).param("exerciseId", exerciseId)
+            .query { rs, _ ->
+                ExerciseBodyPartGuideView(
+                    bodyPartCode = rs.getString("body_part_code"),
+                    content = rs.getString("content"),
+                    displayOrder = rs.getInt("display_order"),
                 )
             }.list()
 

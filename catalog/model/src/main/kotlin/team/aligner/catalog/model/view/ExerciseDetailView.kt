@@ -37,4 +37,9 @@ data class ExerciseDetailView(
     val cautionNote: String?,
     val muscles: List<MuscleView>,
     val voiceCues: List<ExerciseVoiceCueView>,
+    /**
+     * 부위 탭마다 붙는 핵심 동작 문구. 탭 집합은 [muscles] 의 부위 집합과 같다 — 근육은
+     * 있는데 문구가 없는 탭이 생기지 않도록 seed 를 그렇게 맞춰 두었다.
+     */
+    val bodyPartGuides: List<ExerciseBodyPartGuideView>,
 )

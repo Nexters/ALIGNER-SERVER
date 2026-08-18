@@ -1,6 +1,7 @@
 package team.aligner.catalog.api.dto
 
 import io.swagger.v3.oas.annotations.media.Schema
+import team.aligner.catalog.model.view.ExerciseBodyPartGuideView
 import team.aligner.catalog.model.view.ExerciseDetailView
 import team.aligner.catalog.model.view.ExerciseVoiceCueView
 import java.math.BigDecimal
@@ -63,6 +64,8 @@ data class ExerciseDetailResponse(
     val muscles: List<MuscleResponse>,
     @field:Schema(description = "음성 큐잉 대본. displayOrder 오름차순이다")
     val voiceCues: List<VoiceCueResponse>,
+    @field:Schema(description = "부위 탭마다 표시하는 핵심 동작. displayOrder 오름차순이고 탭 순서가 곧 이 순서다")
+    val bodyPartGuides: List<ExerciseBodyPartGuideResponse>,
 ) {
     companion object {
         fun from(view: ExerciseDetailView): ExerciseDetailResponse =
@@ -81,6 +84,35 @@ data class ExerciseDetailResponse(
                 cautionNote = view.cautionNote,
                 muscles = view.muscles.map(MuscleResponse::from),
                 voiceCues = view.voiceCues.map(VoiceCueResponse::from),
+                bodyPartGuides = view.bodyPartGuides.map(ExerciseBodyPartGuideResponse::from),
+            )
+    }
+}
+
+/**
+ * 운동 가이드 부위 탭 하나. 근육맵 옆의 「핵심 동작」 카드가 이 문구를 그린다.
+ *
+ * **탭 집합의 정본이 이 배열이다.** `muscles` 의 `bodyPartCode` 를 모아 탭을 만들면 근육은
+ * 있는데 문구가 없는 탭이 생길 수 있다 — 이 배열로 탭을 그리고, 각 탭에서 같은
+ * `bodyPartCode` 를 가진 근육을 칠한다.
+ *
+ * 음성 큐와 자리가 다르다. 저쪽은 재생 중 순서대로 읽어주는 대본이고 이쪽은 재생 전 설명이다.
+ */
+@Schema(description = "운동 가이드 부위 탭 하나")
+data class ExerciseBodyPartGuideResponse(
+    @field:Schema(description = "탭이 가리키는 부위 코드")
+    val bodyPartCode: BodyPartCode,
+    @field:Schema(description = "이 부위의 핵심 동작 한 문장", example = "명치를 끌어올리듯 배에 힘을 주어 상체를 지탱하세요.")
+    val content: String,
+    @field:Schema(description = "탭 표시 순서. 작을수록 먼저다", example = "1")
+    val displayOrder: Int,
+) {
+    companion object {
+        fun from(view: ExerciseBodyPartGuideView): ExerciseBodyPartGuideResponse =
+            ExerciseBodyPartGuideResponse(
+                bodyPartCode = BodyPartCode.from(view.bodyPartCode),
+                content = view.content,
+                displayOrder = view.displayOrder,
             )
     }
 }

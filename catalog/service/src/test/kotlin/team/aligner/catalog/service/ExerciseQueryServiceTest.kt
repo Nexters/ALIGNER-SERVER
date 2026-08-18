@@ -13,6 +13,7 @@ import team.aligner.catalog.infrastructure.PoseVideoPort
 import team.aligner.catalog.model.ExerciseIdentity
 import team.aligner.catalog.model.MuscleRole
 import team.aligner.catalog.model.exception.ExerciseNotFoundException
+import team.aligner.catalog.model.view.ExerciseBodyPartGuideView
 import team.aligner.catalog.model.view.ExerciseDetailView
 import team.aligner.catalog.model.view.ExerciseSummaryView
 import team.aligner.catalog.model.view.ExerciseVoiceCueView
@@ -59,6 +60,11 @@ class ExerciseQueryServiceTest :
                                 ExerciseVoiceCueView(1, null, null, "무릎을 골반 너비로 벌리세요"),
                                 ExerciseVoiceCueView(2, 35, 75, "명치를 천장으로 끌어올리고 40 초 유지하세요"),
                             ),
+                        bodyPartGuides =
+                            listOf(
+                                ExerciseBodyPartGuideView("BACK", "가슴을 먼저 들어 올린 뒤에 뒤로 젖히세요.", 1),
+                                ExerciseBodyPartGuideView("PELVIS", "골반을 앞으로 밀어 허리를 보호하세요.", 2),
+                            ),
                     )
 
                 val detail = exerciseQueryService.getDetail(exerciseIdentity)
@@ -70,6 +76,8 @@ class ExerciseQueryServiceTest :
                 // 따로 칠하므로 반대쪽은 null 로 남아야 한다.
                 detail.muscles.map { it.frontHighlightAssetKey } shouldBe listOf(null, "iliopsoas-front")
                 detail.muscles.map { it.backHighlightAssetKey } shouldBe listOf("erector-spinae-back", null)
+                // 부위 탭 순서를 서버가 정해서 내린다. 화면이 다시 정렬하지 않는다.
+                detail.bodyPartGuides.map { it.bodyPartCode } shouldBe listOf("BACK", "PELVIS")
                 detail.voiceCues.map { it.startOffsetSeconds } shouldBe listOf(null, 35)
                 detail.voiceCues.map { it.endOffsetSeconds } shouldBe listOf(null, 75)
             }
@@ -184,5 +192,10 @@ private fun detailView() =
             listOf(
                 ExerciseVoiceCueView(1, null, null, "무릎을 골반 너비로 벌리세요"),
                 ExerciseVoiceCueView(2, 35, 75, "명치를 천장으로 끌어올리고 40 초 유지하세요"),
+            ),
+        bodyPartGuides =
+            listOf(
+                ExerciseBodyPartGuideView("BACK", "가슴을 먼저 들어 올린 뒤에 뒤로 젖히세요.", 1),
+                ExerciseBodyPartGuideView("PELVIS", "골반을 앞으로 밀어 허리를 보호하세요.", 2),
             ),
     )

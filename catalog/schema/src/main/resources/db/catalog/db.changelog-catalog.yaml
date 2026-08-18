@@ -175,3 +175,26 @@ databaseChangeLog:
       rollback:
         - sql:
             sql: DELETE FROM catalog.exercise_muscle WHERE exercise_id BETWEEN 101 AND 129
+
+  # 부위 탭의 핵심 동작 문구. DDL 과 seed 를 나눠 쌓는다 — 테이블은 스키마이고 문구는 감수
+  # 대상이라 되돌리는 단위가 다르다.
+  - changeSet:
+      id: catalog-0017-create-exercise-body-part-guide
+      author: aligner
+      comment: 운동 가이드 부위 탭의 핵심 동작 테이블 생성
+      changes:
+        - sqlFile:
+            path: ddl/010-create-exercise-body-part-guide.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0018-seed-exercise-body-part-guide
+      author: aligner
+      comment: 운동 29 개의 부위별 핵심 동작 문구 적재
+      changes:
+        - sqlFile:
+            path: seed/007-exercise-body-part-guide.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM catalog.exercise_body_part_guide WHERE exercise_id BETWEEN 101 AND 129
