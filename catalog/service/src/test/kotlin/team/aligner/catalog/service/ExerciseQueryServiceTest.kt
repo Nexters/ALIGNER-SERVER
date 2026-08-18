@@ -51,8 +51,26 @@ class ExerciseQueryServiceTest :
                         cautionNote = "목을 뒤로 완전히 젖히지 마세요",
                         muscles =
                             listOf(
-                                MuscleView("ERECTOR_SPINAE", "척추기립근", "BACK", null, "erector-spinae-back", MuscleRole.STRENGTHEN, 1),
-                                MuscleView("ILIOPSOAS", "장요근", "PELVIS", "iliopsoas-front", null, MuscleRole.STRETCH, 2),
+                                MuscleView(
+                                    "ERECTOR_SPINAE",
+                                    "척추기립근",
+                                    "BACK",
+                                    null,
+                                    "erector-spinae-back",
+                                    MuscleRole.STRENGTHEN,
+                                    1,
+                                    "가슴을 먼저 들어 올린 뒤에 뒤로 젖히세요.",
+                                ),
+                                MuscleView(
+                                    "ILIOPSOAS",
+                                    "장요근",
+                                    "PELVIS",
+                                    "iliopsoas-front",
+                                    null,
+                                    MuscleRole.STRETCH,
+                                    2,
+                                    "골반을 앞으로 밀어 고관절 앞쪽을 늘이세요.",
+                                ),
                             ),
                         voiceCues =
                             listOf(
@@ -65,6 +83,9 @@ class ExerciseQueryServiceTest :
 
                 detail.name shouldBe "낙타자세"
                 detail.muscles.map { it.role } shouldBe listOf(MuscleRole.STRENGTHEN, MuscleRole.STRETCH)
+                // 핵심 동작은 근육마다 다르다. 주동근과 신장근이 같은 문장을 쓰면 안 된다.
+                detail.muscles.map { it.description } shouldBe
+                    listOf("가슴을 먼저 들어 올린 뒤에 뒤로 젖히세요.", "골반을 앞으로 밀어 고관절 앞쪽을 늘이세요.")
                 detail.category shouldBe "핀포즈"
                 // 척추기립근은 뒤에만, 장요근은 앞에만 보인다. 세션 플레이어가 앞·뒤 그림을
                 // 따로 칠하므로 반대쪽은 null 로 남아야 한다.
@@ -177,8 +198,17 @@ private fun detailView() =
         cautionNote = "목을 뒤로 완전히 젖히지 마세요",
         muscles =
             listOf(
-                MuscleView("ERECTOR_SPINAE", "척추기립근", "BACK", null, "erector-spinae-back", MuscleRole.STRENGTHEN, 1),
-                MuscleView("ILIOPSOAS", "장요근", "PELVIS", "iliopsoas-front", null, MuscleRole.STRETCH, 2),
+                MuscleView(
+                    "ERECTOR_SPINAE",
+                    "척추기립근",
+                    "BACK",
+                    null,
+                    "erector-spinae-back",
+                    MuscleRole.STRENGTHEN,
+                    1,
+                    "가슴을 먼저 들어 올린 뒤에 뒤로 젖히세요.",
+                ),
+                MuscleView("ILIOPSOAS", "장요근", "PELVIS", "iliopsoas-front", null, MuscleRole.STRETCH, 2, "골반을 앞으로 밀어 고관절 앞쪽을 늘이세요."),
             ),
         voiceCues =
             listOf(

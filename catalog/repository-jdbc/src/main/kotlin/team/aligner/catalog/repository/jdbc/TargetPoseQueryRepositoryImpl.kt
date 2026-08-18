@@ -77,7 +77,10 @@ internal class TargetPoseQueryRepositoryImpl(
                 """
                 SELECT m.muscle_code, m.name, m.body_part_code,
                        m.front_highlight_asset_key, m.back_highlight_asset_key,
-                       pm.role, pm.display_order
+                       pm.role, pm.display_order,
+                       -- 자세에는 핵심 동작 문구가 없다. 운동과 매퍼를 공유하므로 같은
+                       -- 이름으로 NULL 을 내보낸다.
+                       NULL::text AS description
                 FROM catalog.pose_muscle pm
                 JOIN catalog.muscle m ON m.muscle_code = pm.muscle_code
                 WHERE pm.target_pose_id = :targetPoseId
