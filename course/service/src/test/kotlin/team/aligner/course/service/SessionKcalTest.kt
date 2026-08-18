@@ -94,6 +94,7 @@ class SessionKcalTest :
                         exerciseId = it,
                         name = "캣카우",
                         imageAssetKey = null,
+                        thumbnailUrl = null,
                         category = "가동성 웜업",
                         defaultSetCount = 1,
                         defaultDurationSeconds = 120,

@@ -244,6 +244,7 @@ internal class CourseQueryServiceImpl(
                                     exerciseId = exercise.exerciseId,
                                     name = catalog?.name ?: UNKNOWN_NAME,
                                     imageAssetKey = catalog?.imageAssetKey,
+                                    thumbnailUrl = catalog?.thumbnailUrl,
                                     category = catalog?.category,
                                     displayOrder = exercise.displayOrder,
                                     durationSeconds = duration,

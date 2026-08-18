@@ -115,8 +115,8 @@ class TomorrowCoursePreviewTest :
             every { memberBodyPort.findWeightKg(1L) } returns 60
             every { exerciseCatalogPort.findAllByIds(any()) } returns
                 listOf(
-                    ExerciseCatalogEntry(10L, "캣카우", "exercise/cat-cow", "가동성 웜업", 1, 60, BigDecimal("2.5")),
-                    ExerciseCatalogEntry(11L, "브릿지", "exercise/bridge", "강화", 2, 90, BigDecimal("3.0")),
+                    ExerciseCatalogEntry(10L, "캣카우", "exercise/cat-cow", null, "가동성 웜업", 1, 60, BigDecimal("2.5")),
+                    ExerciseCatalogEntry(11L, "브릿지", "exercise/bridge", null, "강화", 2, 90, BigDecimal("3.0")),
                 )
             every { courseQueryRepository.findStampCounts(1L) } returns emptyList()
         }
