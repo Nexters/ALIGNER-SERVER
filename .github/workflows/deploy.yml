@@ -182,16 +182,19 @@ jobs:
           echo "::error title=Health Check Failed::Active health probe to $HEALTH_URL failed after $MAX_ATTEMPTS attempts."
           exit 1
 
-      - name: Collect Logs on Failure
+      - name: Collect Kubernetes Diagnostics on Failure
         if: failure()
         run: |
-          echo "::warning title=Deployment Failed::Deployment failed or timed out. Fetching forensic logs..."
+          echo "::warning title=Deployment Failed::Deployment failed or timed out. Fetching non-sensitive diagnostics..."
           
+          echo "--- Deployment ---"
+          kubectl get deployment/aligner-sandbox-api -n aligner-sandbox -o wide || true
+
+          echo "--- Pods ---"
+          kubectl get pods -n aligner-sandbox -l app=aligner-sandbox-api -o wide || true
+
           echo "--- Recent Events ---"
-          kubectl get events -n aligner-sandbox --sort-by='.metadata.creationTimestamp' | tail -n 20 || true
-          
-          echo "--- Pod Logs ---"
-          kubectl logs deployment/aligner-sandbox-api -n aligner-sandbox --all-containers=true --tail=100 || true
+          kubectl get events -n aligner-sandbox --sort-by='.metadata.creationTimestamp' | tail -n 30 || true
 
 
       - name: Deployment Summary
@@ -297,16 +300,19 @@ jobs:
           echo "::error title=Health Check Failed::Active health probe to $HEALTH_URL failed after $MAX_ATTEMPTS attempts."
           exit 1
 
-      - name: Collect Logs on Failure
+      - name: Collect Kubernetes Diagnostics on Failure
         if: failure()
         run: |
-          echo "::warning title=Deployment Failed::Deployment failed or timed out. Fetching forensic logs..."
+          echo "::warning title=Deployment Failed::Deployment failed or timed out. Fetching non-sensitive diagnostics..."
           
+          echo "--- Deployment ---"
+          kubectl get deployment/aligner-api -n aligner -o wide || true
+
+          echo "--- Pods ---"
+          kubectl get pods -n aligner -l app=aligner-api -o wide || true
+
           echo "--- Recent Events ---"
-          kubectl get events -n aligner --sort-by='.metadata.creationTimestamp' | tail -n 20 || true
-          
-          echo "--- Pod Logs ---"
-          kubectl logs deployment/aligner-api -n aligner --all-containers=true --tail=100 || true
+          kubectl get events -n aligner --sort-by='.metadata.creationTimestamp' | tail -n 30 || true
 
       - name: Deployment Summary
         if: success()
