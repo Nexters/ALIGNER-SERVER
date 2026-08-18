@@ -440,6 +440,73 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
 근육은 `frontHighlightAssetKey`가 `null`이다. **둘 다 `null`인 경우도 정상이다** — 자산 키가
 아직 감수 전이라 그렇고, 그때는 그 근육을 칠하지 않는다.
 
+**현재 seed에서는 앞뒤 양쪽 키를 가진 근육이 하나도 없다.** Figma 근육맵 컴포넌트가 근육을
+앞면과 뒷면으로 완전히 갈라놨기 때문이고, 항상 한쪽이 `null`이다. 양쪽에 걸치는 레이어가
+생기면 그때 둘 다 채워진다 — 계약은 이미 그 경우를 허용한다.
+
+**이 자세 상세 응답의 `muscles`는 현재 항상 빈 배열이다.** 근육맵을 그리는 화면이 운동
+상세뿐이라 자세-근육 매핑(`pose_muscle`)을 아직 적재하지 않았다. 서버 오류가 아니다. 자세
+상세 화면이 생기면 그때 채운다.
+
+#### 근육 22개 대응표
+
+**행 집합의 정본은 Figma 근육맵 컴포넌트다** (`front/기본` 758:8956, `back` 758:8957).
+프론트가 칠할 수 있는 근육이 이 22개뿐이라 서버도 이 집합만 내려보낸다. `muscleCode`로
+레이어를 찾고, 화면에 쓰는 이름은 `name`이다 — `name`이 Figma 레이어명과 같다.
+
+| `muscleCode` | `name` | `bodyPartCode` | 그림 |
+| --- | --- | --- | --- |
+| `DELTOID` | 델토근 | `BACK` | front |
+| `PECTORALIS_MAJOR` | 대흉근 | `BACK` | front |
+| `SERRATUS_ANTERIOR` | 전거근 | `BACK` | front |
+| `BICEPS_BRACHII` | 상완이두근 | `BACK` | front |
+| `FOREARM` | 전완근 | `BACK` | front |
+| `FOREARM_FLEXOR` | 전완굴곡근 | `BACK` | front |
+| `RECTUS_ABDOMINIS` | 복직근 | `ABDOMEN` | front |
+| `EXTERNAL_OBLIQUE` | 외복사근 | `ABDOMEN` | front |
+| `ILIOPSOAS` | 장요근 | `PELVIS` | front |
+| `RECTUS_FEMORIS` | 대퇴직근 | `PELVIS` | front |
+| `ADDUCTOR` | 내전근 | `PELVIS` | front |
+| `TIBIALIS_ANTERIOR` | 전경골근 | `PELVIS` | front |
+| `TRAPEZIUS` | 승모근 | `BACK` | back |
+| `TRAPEZIUS_MID_LOWER` | 중 하부 승모근 | `BACK` | back |
+| `ROTATOR_CUFF` | 회전근개 | `BACK` | back |
+| `LATISSIMUS_DORSI` | 광배근 | `BACK` | back |
+| `TRICEPS_BRACHII` | 상완삼두근 | `BACK` | back |
+| `ERECTOR_SPINAE` | 척추기립근 | `BACK` | back |
+| `GLUTEUS_MEDIUS` | 중둔근 | `PELVIS` | back |
+| `GLUTEUS_MAXIMUS` | 대둔근 | `PELVIS` | back |
+| `HAMSTRING` | 햄스트링 | `PELVIS` | back |
+| `GASTROCNEMIUS` | 비복근 | `PELVIS` | back |
+
+`TRICEPS_BRACHII`의 Figma 레이어명은 `이부근`(758:9032)이지만 뒷면 양팔 위쪽 위치라
+상완삼두근으로 본다. 레이어명이 정정되면 이 표도 함께 고친다.
+
+**어느 운동에도 걸리지 않는 근육이 5개 있다** — `BICEPS_BRACHII`, `FOREARM`,
+`FOREARM_FLEXOR`, `TIBIALIS_ANTERIOR`, `TRAPEZIUS`. 콘텐츠 정본이 이들을 주동·신장 근육으로
+지목하지 않아서이고 데이터 누락이 아니다. 근육맵에서 회색으로 남는다.
+
+**팔 근육 5개(`DELTOID`·`BICEPS_BRACHII`·`TRICEPS_BRACHII`·`FOREARM`·`FOREARM_FLEXOR`)의
+`bodyPartCode`가 `BACK`인 것은 잠정 배정이다.** `BACK`·`ABDOMEN`·`PELVIS` 셋 중 자연스러운
+자리가 없어 상체로 몰았다. 부위 탭을 이 값으로 그룹핑하면 `허리` 탭에 팔 근육이 뜬다 —
+탭 구성이 확정되면 서버가 값을 고친다.
+
+콘텐츠 정본(`docs/context/routine-content.md`)의 근육 표기는 위 22개 중 하나로 흡수된다.
+
+| 정본 표기 | 귀속 |
+| --- | --- |
+| 다열근, 요방형근, 회선근 | `ERECTOR_SPINAE` |
+| 복횡근, 내·외복사근 | `EXTERNAL_OBLIQUE` |
+| 극하근·소원근 | `ROTATOR_CUFF` |
+| 대원근 | `LATISSIMUS_DORSI` |
+| 대퇴사두근 | `RECTUS_FEMORIS` |
+| 삼각근 전면·후면 | `DELTOID` |
+| 장·단내전근, 대내전근, 박근, 치골근 | `ADDUCTOR` |
+| 이상근, 소둔근, 심부 외회전근(상·하쌍자근·내외폐쇄근·대퇴방형근) | `GLUTEUS_MEDIUS` |
+| 가자미근, 아킬레스 | `GASTROCNEMIUS` |
+| 상부 승모근 | `TRAPEZIUS` |
+| 중·하부 승모근 | `TRAPEZIUS_MID_LOWER` |
+
 ### `GET /catalog/exercises/{exerciseId}`
 
 운동 가이드에 필요한 기본 수행 정보·근육·음성 큐를 한 번에 반환한다.
