@@ -68,7 +68,8 @@ class CatalogRepositoryIntegrationTest {
             imageAssetKey = "exercise/camel",
             thumbnailUrl = "https://ymove.test/camel.jpg",
         )
-        insertExerciseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRENGTHEN, 1)
+        insertExerciseMuscle(1L, "ERECTOR_SPINAE", MuscleRole.STRENGTHEN, 1, "가슴을 먼저 들어 올린 뒤에 뒤로 젖히세요.")
+        // 문구가 아직 없는 근육도 정상이다. 감수 전이면 NULL 로 남는다.
         insertExerciseMuscle(1L, "ILIOPSOAS", MuscleRole.STRETCH, 2)
         insertVoiceCue(1L, 1, null, null, "무릎을 골반 너비로 벌리세요")
         insertVoiceCue(1L, 2, 35, 75, "명치를 천장으로 끌어올리고 유지하세요")
@@ -89,11 +90,12 @@ class CatalogRepositoryIntegrationTest {
             .single() shouldBe 6
 
         // changeset 을 추가할 때마다 함께 올린다. 0012~0014 는 YMove 연동(썸네일 컬럼,
-        // slug·썸네일 seed, 음성 큐 seed)이고 0015~0016 은 근육맵 seed 다.
+        // slug·썸네일 seed, 음성 큐 seed), 0015~0016 은 근육맵 seed,
+        // 0017~0018 은 핵심 동작 문구, 0019~0020 은 자세 썸네일이다.
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'catalog-%'")
             .query(Int::class.java)
-            .single() shouldBe 16
+            .single() shouldBe 20
     }
 
     @Test
@@ -128,6 +130,8 @@ class CatalogRepositoryIntegrationTest {
         // 타임코드 미확정 큐와 구간 큐가 섞여 있어도 그대로 돌아와야 한다.
         detail.voiceCues.map { it.startOffsetSeconds } shouldBe listOf(null, 35)
         detail.voiceCues.map { it.endOffsetSeconds } shouldBe listOf(null, 75)
+        // 핵심 동작은 근육마다 다르고, 감수 전이면 NULL 로 남는다.
+        detail.muscles.map { it.description } shouldBe listOf("가슴을 먼저 들어 올린 뒤에 뒤로 젖히세요.", null)
     }
 
     /**
@@ -242,6 +246,9 @@ class CatalogRepositoryIntegrationTest {
         // 이 쿼리에서만 두 컬럼이 뒤바뀌어도 테스트가 통과한다.
         detail.muscles.map { it.frontHighlightAssetKey } shouldBe listOf(null)
         detail.muscles.map { it.backHighlightAssetKey } shouldBe listOf("erector-spinae-back")
+        // 자세에는 핵심 동작 문구가 없다. pose_muscle 에 컬럼이 없어 SQL 이 NULL 을 내보낸다 —
+        // 매퍼를 공유하므로 컬럼 이름이 어긋나면 여기서 깨진다.
+        detail.muscles.map { it.description } shouldBe listOf(null)
     }
 
     @Test
@@ -492,16 +499,18 @@ class CatalogRepositoryIntegrationTest {
         muscleCode: String,
         role: MuscleRole,
         displayOrder: Int,
+        description: String? = null,
     ) = jdbcClient
         .sql(
             """
-            INSERT INTO catalog.exercise_muscle (exercise_id, muscle_code, role, display_order)
-            VALUES (:exerciseId, :muscleCode, :role, :displayOrder)
+            INSERT INTO catalog.exercise_muscle (exercise_id, muscle_code, role, display_order, description)
+            VALUES (:exerciseId, :muscleCode, :role, :displayOrder, :description)
             """.trimIndent(),
         ).param("exerciseId", exerciseId)
         .param("muscleCode", muscleCode)
         .param("role", role.name)
         .param("displayOrder", displayOrder)
+        .param("description", description)
         .update()
 
     private fun insertPoseMuscle(

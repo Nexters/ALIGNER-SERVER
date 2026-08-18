@@ -21,7 +21,7 @@ internal class TargetPoseQueryRepositoryImpl(
             jdbcClient
                 .sql(
                     """
-                    SELECT target_pose_id, name, image_asset_key, body_part_code, level
+                    SELECT target_pose_id, name, image_asset_key, thumbnail_url, body_part_code, level
                     FROM catalog.target_pose
                     WHERE target_pose_id = :targetPoseId
                     """.trimIndent(),
@@ -31,6 +31,7 @@ internal class TargetPoseQueryRepositoryImpl(
                         targetPoseId = rs.getLong("target_pose_id"),
                         name = rs.getString("name"),
                         imageAssetKey = rs.getString("image_asset_key"),
+                        thumbnailUrl = rs.getString("thumbnail_url"),
                         bodyPartCode = rs.getString("body_part_code"),
                         level = rs.getInt("level"),
                         muscles = emptyList(),
@@ -55,7 +56,7 @@ internal class TargetPoseQueryRepositoryImpl(
         jdbcClient
             .sql(
                 """
-                SELECT target_pose_id, name, image_asset_key, body_part_code, level
+                SELECT target_pose_id, name, image_asset_key, thumbnail_url, body_part_code, level
                 FROM catalog.target_pose
                 WHERE (CAST(:bodyPartCode AS VARCHAR) IS NULL OR body_part_code = CAST(:bodyPartCode AS VARCHAR))
                 ORDER BY body_part_code, level, target_pose_id
@@ -66,6 +67,7 @@ internal class TargetPoseQueryRepositoryImpl(
                     targetPoseId = rs.getLong("target_pose_id"),
                     name = rs.getString("name"),
                     imageAssetKey = rs.getString("image_asset_key"),
+                    thumbnailUrl = rs.getString("thumbnail_url"),
                     bodyPartCode = rs.getString("body_part_code"),
                     level = rs.getInt("level"),
                 )
@@ -77,7 +79,10 @@ internal class TargetPoseQueryRepositoryImpl(
                 """
                 SELECT m.muscle_code, m.name, m.body_part_code,
                        m.front_highlight_asset_key, m.back_highlight_asset_key,
-                       pm.role, pm.display_order
+                       pm.role, pm.display_order,
+                       -- 자세에는 핵심 동작 문구가 없다. 운동과 매퍼를 공유하므로 같은
+                       -- 이름으로 NULL 을 내보낸다.
+                       NULL::text AS description
                 FROM catalog.pose_muscle pm
                 JOIN catalog.muscle m ON m.muscle_code = pm.muscle_code
                 WHERE pm.target_pose_id = :targetPoseId

@@ -175,3 +175,48 @@ databaseChangeLog:
       rollback:
         - sql:
             sql: DELETE FROM catalog.exercise_muscle WHERE exercise_id BETWEEN 101 AND 129
+
+  # 근육별 핵심 동작 문구. DDL 과 seed 를 나눠 쌓는다 — 컬럼은 스키마이고 문구는 감수 대상이라
+  # 되돌리는 단위가 다르다.
+  - changeSet:
+      id: catalog-0017-add-exercise-muscle-description
+      author: aligner
+      comment: 운동 근육 매핑에 핵심 동작 문구 컬럼 추가
+      changes:
+        - sqlFile:
+            path: ddl/010-add-exercise-muscle-description.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0018-seed-exercise-muscle-description
+      author: aligner
+      comment: 운동 29 개의 근육별 핵심 동작 문구 적재
+      changes:
+        - sqlFile:
+            path: seed/007-exercise-muscle-description.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: UPDATE catalog.exercise_muscle SET description = NULL WHERE exercise_id BETWEEN 101 AND 129
+
+  # 목표 자세 썸네일. 운동 썸네일(0012~0013)과 같은 자산이라 값을 새로 받지 않고 조인으로 옮긴다.
+  - changeSet:
+      id: catalog-0019-add-target-pose-thumbnail-url
+      author: aligner
+      comment: 목표 자세에 영상 썸네일 URL 컬럼 추가
+      changes:
+        - sqlFile:
+            path: ddl/011-add-target-pose-thumbnail-url.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0020-seed-target-pose-thumbnail-url
+      author: aligner
+      comment: 목표 자세 9 개의 썸네일 URL 을 같은 slug 의 운동에서 적재
+      changes:
+        - sqlFile:
+            path: seed/008-target-pose-thumbnail-url.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: UPDATE catalog.target_pose SET thumbnail_url = NULL WHERE target_pose_id BETWEEN 1 AND 9

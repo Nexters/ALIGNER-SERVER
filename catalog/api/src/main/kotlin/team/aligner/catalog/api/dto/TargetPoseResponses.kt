@@ -22,6 +22,12 @@ data class TargetPoseDetailResponse(
         nullable = true,
     )
     val imageAssetKey: String?,
+    @field:Schema(
+        description = "영상 포스터 프레임 URL. **imageAssetKey 와 달리 URL 그대로 쓴다** — YMove 자산이라 파일을 프론트가 갖지 않는다",
+        example = "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
+        nullable = true,
+    )
+    val thumbnailUrl: String?,
     @field:Schema(description = "이 자세가 겨냥하는 부위 코드. screening 소유 어휘다")
     val bodyPartCode: BodyPartCode,
     @field:Schema(description = "난이도 단계. 작을수록 쉽다", example = "1")
@@ -35,6 +41,7 @@ data class TargetPoseDetailResponse(
                 targetPoseId = view.targetPoseId,
                 name = view.name,
                 imageAssetKey = view.imageAssetKey,
+                thumbnailUrl = view.thumbnailUrl,
                 bodyPartCode = BodyPartCode.from(view.bodyPartCode),
                 level = view.level,
                 muscles = view.muscles.map(MuscleResponse::from),
@@ -53,6 +60,12 @@ data class TargetPoseSummaryResponse(
     val name: String,
     @field:Schema(description = "자세 이미지 asset 키. 파일은 프론트가 정적으로 갖는다", example = "pose/down_dog", nullable = true)
     val imageAssetKey: String?,
+    @field:Schema(
+        description = "영상 포스터 프레임 URL. **imageAssetKey 와 달리 URL 그대로 쓴다** — YMove 자산이라 파일을 프론트가 갖지 않는다",
+        example = "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
+        nullable = true,
+    )
+    val thumbnailUrl: String?,
     @field:Schema(description = "이 자세가 겨냥하는 부위 코드")
     val bodyPartCode: BodyPartCode,
     @field:Schema(description = "난이도 단계. 작을수록 쉽다", example = "1")
@@ -64,6 +77,7 @@ data class TargetPoseSummaryResponse(
                 targetPoseId = view.targetPoseId,
                 name = view.name,
                 imageAssetKey = view.imageAssetKey,
+                thumbnailUrl = view.thumbnailUrl,
                 bodyPartCode = BodyPartCode.from(view.bodyPartCode),
                 level = view.level,
             )

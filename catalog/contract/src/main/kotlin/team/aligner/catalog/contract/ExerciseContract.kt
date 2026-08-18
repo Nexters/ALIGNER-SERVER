@@ -41,6 +41,14 @@ data class ExerciseResponse(
      * 읽고, course·training 이 영상을 필요로 한다는 근거가 없다 (docs/architecture.md §3).
      */
     val imageAssetKey: String?,
+    /**
+     * 영상 포스터 프레임. **`imageAssetKey` 와 달리 URL 이다** — 그림 파일은 프론트가 갖지만
+     * 이 프레임은 YMove 자산이라 우리가 갖지 않는다.
+     *
+     * `videoUrl` 과 달리 서명도 만료도 없어 DB 에 저장돼 있고, **YMove 장애와 무관하게 값이
+     * 있다**. 코스 개요가 스텝 카드에 실제 영상 한 컷을 그리려고 요구한 값이다.
+     */
+    val thumbnailUrl: String?,
     val defaultSetCount: Int?,
     val defaultRepCount: Int?,
     val defaultDurationSeconds: Int?,

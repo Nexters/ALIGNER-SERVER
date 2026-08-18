@@ -30,6 +30,8 @@ data class TargetPoseCatalogEntry(
     val targetPoseId: Long,
     val name: String,
     val imageAssetKey: String?,
+    /** 영상 포스터 프레임. imageAssetKey 는 프론트 정적 자산의 키이고 이쪽은 URL 이다. */
+    val thumbnailUrl: String?,
     val bodyPartCode: String,
     val level: Int,
 )

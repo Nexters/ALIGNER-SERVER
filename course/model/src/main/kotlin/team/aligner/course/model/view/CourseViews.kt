@@ -20,6 +20,8 @@ data class TodayCourseView(
     val targetPoseId: Long,
     val targetPoseName: String,
     val targetPoseImageAssetKey: String?,
+    /** 자세 영상의 포스터 프레임. 위 키와 달리 URL 이고 파일은 YMove 가 갖는다. */
+    val targetPoseThumbnailUrl: String?,
     val targetPoseLevel: Int?,
     val name: String,
     val recommendationReason: String?,
@@ -58,6 +60,8 @@ data class TomorrowCoursePreviewView(
     val targetPoseId: Long,
     val targetPoseName: String,
     val targetPoseImageAssetKey: String?,
+    /** 자세 영상의 포스터 프레임. 위 키와 달리 URL 이고 파일은 YMove 가 갖는다. */
+    val targetPoseThumbnailUrl: String?,
     val bodyPartCode: String,
     val level: Int,
     val name: String,
@@ -78,6 +82,8 @@ data class CourseDetailView(
     val targetPoseName: String,
     /** 개요 상단의 히어로 이미지. 홈 카드와 같은 그림이라 같은 키다. */
     val targetPoseImageAssetKey: String?,
+    /** 자세 영상의 포스터 프레임. 위 키와 달리 URL 이고 파일은 YMove 가 갖는다. */
+    val targetPoseThumbnailUrl: String?,
     val name: String,
     val recommendationReason: String?,
     val completedStepCount: Int,
@@ -108,6 +114,11 @@ data class CourseStepExerciseView(
     val exerciseId: Long,
     val name: String,
     val imageAssetKey: String?,
+    /**
+     * 영상 포스터 프레임. `imageAssetKey` 와 자리가 다르다 — 그림은 프론트 정적 자산의 키이고
+     * 이쪽은 YMove 자산의 URL 이다. 둘 다 있을 수 있고 화면이 무엇을 그릴지 고른다.
+     */
+    val thumbnailUrl: String?,
     val category: String?,
     val displayOrder: Int,
     val durationSeconds: Int?,
@@ -135,6 +146,8 @@ data class TargetPoseProgressView(
     val targetPoseId: Long,
     val targetPoseName: String,
     val targetPoseImageAssetKey: String?,
+    /** 자세 영상의 포스터 프레임. 위 키와 달리 URL 이고 파일은 YMove 가 갖는다. */
+    val targetPoseThumbnailUrl: String?,
     val bodyPartCode: String,
     val level: Int,
     val courseId: Long?,

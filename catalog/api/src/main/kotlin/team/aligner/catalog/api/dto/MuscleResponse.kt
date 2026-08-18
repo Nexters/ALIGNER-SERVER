@@ -36,6 +36,14 @@ data class MuscleResponse(
     val role: String,
     @field:Schema(description = "화면 표시 순서. 작을수록 먼저다", example = "1")
     val displayOrder: Int,
+    @field:Schema(
+        description =
+            "운동 가이드의 「핵심 동작」 한 문장. 이 운동에서 그 근육을 어떻게 쓰는지다. " +
+                "**자세 상세에서는 항상 null 이다** — 자세를 그리는 화면이 없어 문구를 적재하지 않았다",
+        example = "명치를 끌어올리듯 배에 힘을 주어 상체를 지탱하세요.",
+        nullable = true,
+    )
+    val description: String?,
 ) {
     companion object {
         fun from(view: MuscleView): MuscleResponse =
@@ -47,6 +55,7 @@ data class MuscleResponse(
                 backHighlightAssetKey = view.backHighlightAssetKey,
                 role = view.role.name,
                 displayOrder = view.displayOrder,
+                description = view.description,
             )
     }
 }
