@@ -14,6 +14,11 @@ data class TargetPoseSummaryView(
     val targetPoseId: Long,
     val name: String,
     val imageAssetKey: String?,
+    /**
+     * 영상 포스터 프레임. [imageAssetKey] 와 자리가 다르다 — 그림은 프론트 정적 자산의 키이고
+     * 이쪽은 YMove 자산의 URL 이다. 재생 URL 과 달리 만료가 없어 저장돼 있다.
+     */
+    val thumbnailUrl: String?,
     val bodyPartCode: String,
     val level: Int,
 )

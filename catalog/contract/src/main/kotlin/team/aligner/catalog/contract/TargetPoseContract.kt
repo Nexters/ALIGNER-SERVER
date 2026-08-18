@@ -45,6 +45,11 @@ data class TargetPoseResponse(
     val targetPoseId: Long,
     val name: String,
     val imageAssetKey: String?,
+    /**
+     * 영상 포스터 프레임. **imageAssetKey 와 달리 URL 이다** — 그림 파일은 프론트가 갖지만
+     * 이 프레임은 YMove 자산이라 우리가 갖지 않는다. 코스 개요 히어로와 홈 카드가 쓴다.
+     */
+    val thumbnailUrl: String?,
     val bodyPartCode: String,
     val level: Int,
 )

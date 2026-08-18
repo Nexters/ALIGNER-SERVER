@@ -67,10 +67,10 @@ class TomorrowCoursePreviewTest :
         /** 등 3 개, 복부 1 개. */
         fun poses() =
             listOf(
-                TargetPoseCatalogEntry(1L, "낙타자세", "pose/camel", "BACK", 1),
-                TargetPoseCatalogEntry(2L, "휠", "pose/wheel", "BACK", 2),
-                TargetPoseCatalogEntry(3L, "비둘기자세", "pose/pigeon", "BACK", 3),
-                TargetPoseCatalogEntry(4L, "보트자세", "pose/boat", "ABDOMEN", 1),
+                TargetPoseCatalogEntry(1L, "낙타자세", "pose/camel", null, "BACK", 1),
+                TargetPoseCatalogEntry(2L, "휠", "pose/wheel", null, "BACK", 2),
+                TargetPoseCatalogEntry(3L, "비둘기자세", "pose/pigeon", null, "BACK", 3),
+                TargetPoseCatalogEntry(4L, "보트자세", "pose/boat", null, "ABDOMEN", 1),
             )
 
         fun exercise(

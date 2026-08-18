@@ -198,3 +198,25 @@ databaseChangeLog:
       rollback:
         - sql:
             sql: UPDATE catalog.exercise_muscle SET description = NULL WHERE exercise_id BETWEEN 101 AND 129
+
+  # 목표 자세 썸네일. 운동 썸네일(0012~0013)과 같은 자산이라 값을 새로 받지 않고 조인으로 옮긴다.
+  - changeSet:
+      id: catalog-0019-add-target-pose-thumbnail-url
+      author: aligner
+      comment: 목표 자세에 영상 썸네일 URL 컬럼 추가
+      changes:
+        - sqlFile:
+            path: ddl/011-add-target-pose-thumbnail-url.sql
+            relativeToChangelogFile: true
+
+  - changeSet:
+      id: catalog-0020-seed-target-pose-thumbnail-url
+      author: aligner
+      comment: 목표 자세 9 개의 썸네일 URL 을 같은 slug 의 운동에서 적재
+      changes:
+        - sqlFile:
+            path: seed/008-target-pose-thumbnail-url.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: UPDATE catalog.target_pose SET thumbnail_url = NULL WHERE target_pose_id BETWEEN 1 AND 9

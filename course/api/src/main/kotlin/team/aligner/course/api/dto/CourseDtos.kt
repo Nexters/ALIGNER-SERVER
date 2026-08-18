@@ -57,6 +57,12 @@ data class TodayCourseResponse(
     @field:Schema(description = "목표 자세 이미지 asset 키. URL 이 아니다", nullable = true)
     val targetPoseImageAssetKey: String?,
     @field:Schema(
+        description = "자세 영상의 포스터 프레임 URL. **위 asset 키와 달리 URL 그대로 쓴다** — YMove 자산이라 파일을 프론트가 갖지 않는다",
+        example = "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
+        nullable = true,
+    )
+    val targetPoseThumbnailUrl: String?,
+    @field:Schema(
         description = "목표 자세 레벨. 회원이 고른 난이도와 같다. catalog 에서 자세를 찾지 못하면 null 이다",
         example = "1",
         nullable = true,
@@ -102,6 +108,7 @@ data class TodayCourseResponse(
                 targetPoseId = view.targetPoseId,
                 targetPoseName = view.targetPoseName,
                 targetPoseImageAssetKey = view.targetPoseImageAssetKey,
+                targetPoseThumbnailUrl = view.targetPoseThumbnailUrl,
                 targetPoseLevel = view.targetPoseLevel,
                 name = view.name,
                 recommendationReason = view.recommendationReason,
@@ -138,6 +145,12 @@ data class TomorrowCoursePreviewResponse(
     val targetPoseName: String,
     @field:Schema(description = "목표 자세 이미지 asset 키. URL 이 아니다", nullable = true)
     val targetPoseImageAssetKey: String?,
+    @field:Schema(
+        description = "자세 영상의 포스터 프레임 URL. **위 asset 키와 달리 URL 그대로 쓴다** — YMove 자산이라 파일을 프론트가 갖지 않는다",
+        example = "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
+        nullable = true,
+    )
+    val targetPoseThumbnailUrl: String?,
     @field:Schema(description = "이 자세의 부위. 오늘의 코스와 같은 부위다. **코스 추천 호출에 그대로 쓴다**")
     val bodyPartCode: BodyPartCode,
     @field:Schema(description = "난이도. **코스 추천의 level 로 그대로 쓴다**", example = "2")
@@ -167,6 +180,7 @@ data class TomorrowCoursePreviewResponse(
                 targetPoseId = view.targetPoseId,
                 targetPoseName = view.targetPoseName,
                 targetPoseImageAssetKey = view.targetPoseImageAssetKey,
+                targetPoseThumbnailUrl = view.targetPoseThumbnailUrl,
                 bodyPartCode = BodyPartCode.from(view.bodyPartCode),
                 level = view.level,
                 name = view.name,
@@ -193,6 +207,12 @@ data class CourseDetailResponse(
         nullable = true,
     )
     val targetPoseImageAssetKey: String?,
+    @field:Schema(
+        description = "자세 영상의 포스터 프레임 URL. **위 asset 키와 달리 URL 그대로 쓴다** — YMove 자산이라 파일을 프론트가 갖지 않는다",
+        example = "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
+        nullable = true,
+    )
+    val targetPoseThumbnailUrl: String?,
     @field:Schema(description = "코스 이름", example = "낙타자세 정복하기")
     val name: String,
     @field:Schema(description = "코스 추천 이유", nullable = true)
@@ -223,6 +243,7 @@ data class CourseDetailResponse(
                 targetPoseId = view.targetPoseId,
                 targetPoseName = view.targetPoseName,
                 targetPoseImageAssetKey = view.targetPoseImageAssetKey,
+                targetPoseThumbnailUrl = view.targetPoseThumbnailUrl,
                 name = view.name,
                 recommendationReason = view.recommendationReason,
                 completedStepCount = view.completedStepCount,
@@ -386,6 +407,12 @@ data class TargetPoseProgressItem(
     val targetPoseName: String,
     @field:Schema(description = "목표 자세 이미지 asset 키", nullable = true)
     val targetPoseImageAssetKey: String?,
+    @field:Schema(
+        description = "자세 영상의 포스터 프레임 URL. **위 asset 키와 달리 URL 그대로 쓴다** — YMove 자산이라 파일을 프론트가 갖지 않는다",
+        example = "https://exercise-api.ymove.app/api/v2/thumbnail/1b58affc-...?library=clean",
+        nullable = true,
+    )
+    val targetPoseThumbnailUrl: String?,
     @field:Schema(description = "이 자세가 속한 부위. 화면의 섹션 구분이다")
     val bodyPartCode: BodyPartCode,
     @field:Schema(description = "난이도 단계. 부위 안에서 작을수록 쉽다", example = "1")
@@ -419,6 +446,7 @@ data class TargetPoseProgressItem(
                 targetPoseId = view.targetPoseId,
                 targetPoseName = view.targetPoseName,
                 targetPoseImageAssetKey = view.targetPoseImageAssetKey,
+                targetPoseThumbnailUrl = view.targetPoseThumbnailUrl,
                 bodyPartCode = BodyPartCode.from(view.bodyPartCode),
                 level = view.level,
                 courseId = view.courseId,
