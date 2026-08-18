@@ -89,11 +89,11 @@ class CatalogRepositoryIntegrationTest {
             .single() shouldBe 6
 
         // changeset 을 추가할 때마다 함께 올린다. 0012~0014 는 YMove 연동(썸네일 컬럼,
-        // slug·썸네일 seed, 음성 큐 seed)이다.
+        // slug·썸네일 seed, 음성 큐 seed)이고 0015~0016 은 근육맵 seed 다.
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'catalog-%'")
             .query(Int::class.java)
-            .single() shouldBe 14
+            .single() shouldBe 16
     }
 
     @Test

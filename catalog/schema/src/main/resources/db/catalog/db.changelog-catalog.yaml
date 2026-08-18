@@ -150,3 +150,28 @@ databaseChangeLog:
       rollback:
         - sql:
             sql: DELETE FROM catalog.exercise_voice_cue WHERE exercise_id BETWEEN 101 AND 129
+
+  # 근육 seed 다. muscle 이 exercise_muscle 의 FK 부모라 순서가 고정이다.
+  - changeSet:
+      id: catalog-0015-seed-muscle
+      author: aligner
+      comment: Figma 근육맵 컴포넌트가 관리하는 근육 22 개 적재
+      changes:
+        - sqlFile:
+            path: seed/005-muscle.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM catalog.muscle
+
+  - changeSet:
+      id: catalog-0016-seed-exercise-muscle
+      author: aligner
+      comment: 운동 29 개가 쓰는 근육 매핑 적재
+      changes:
+        - sqlFile:
+            path: seed/006-exercise-muscle.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM catalog.exercise_muscle WHERE exercise_id BETWEEN 101 AND 129
