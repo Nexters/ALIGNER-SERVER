@@ -1,0 +1,67 @@
+# 더미 목 서버. **임시 개발 도구이고 배포 대상이 아니다** (이슈 #29).
+#
+# DB 가 없다. 도메인 서비스·리포지토리를 아예 조립하지 않으므로 DataSource·Liquibase 설정이
+# 필요 없고, 프론트가 bootRun 하나로 띄운다.
+spring:
+  application:
+    name: aligner-mock
+
+  autoconfigure:
+    # 도메인 api 모듈을 의존하는 이유는 **응답 DTO 재사용**뿐이다. 그 모듈의 컨트롤러까지
+    # 올라오면 실제 서비스 Bean 이 없어 기동이 실패하므로 여기서 끈다.
+    #
+    # 운영 코드를 고치지 않고 목을 만드는 장치가 이 목록이다.
+    exclude:
+      # DB 를 쓰지 않는다. aligner.boot-application 이 JDBC·Liquibase starter 를 끌고 오므로
+      # 자동설정을 끄지 않으면 DataSource 를 만들려다 기동이 실패한다.
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.liquibase.autoconfigure.LiquibaseAutoConfiguration
+      - team.aligner.member.api.MemberApiAutoConfiguration
+      - team.aligner.screening.api.ScreeningApiAutoConfiguration
+      - team.aligner.catalog.api.CatalogApiAutoConfiguration
+      - team.aligner.course.api.CourseApiAutoConfiguration
+      - team.aligner.training.api.TrainingApiAutoConfiguration
+      # api 모듈이 service 를 끌고 오므로 그쪽 AutoConfiguration 도 함께 올라온다.
+      # 서비스는 리포지토리 port 를 요구하는데 목에는 그 구현이 없다.
+      - team.aligner.member.service.MemberServiceAutoConfiguration
+      - team.aligner.screening.service.ScreeningServiceAutoConfiguration
+      - team.aligner.catalog.service.CatalogServiceAutoConfiguration
+      - team.aligner.course.service.CourseServiceAutoConfiguration
+      - team.aligner.training.service.TrainingServiceAutoConfiguration
+
+server:
+  port: ${SERVER_PORT:8081}
+
+aligner:
+  web:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+      max-age-seconds: ${CORS_MAX_AGE_SECONDS:3600}
+  auth:
+    # **환경변수를 요구하지 않는다.** 프론트가 bootRun 하나로 띄울 수 있어야 한다.
+    #
+    # 운영은 시크릿에 기본값을 두지 않지만(CONTRIBUTING.md 8), 여기 값들은 시크릿이 아니다 —
+    # 목 서버 밖에서 아무 의미가 없고 이 모듈은 곧 지운다. 그래도 실제 키처럼 보이지 않도록
+    # dummy 임을 이름에 박아 둔다.
+    jwt:
+      # HS256 이라 32 바이트 이상이어야 한다.
+      secret: ${JWT_SECRET:dummy-mock-signing-key-not-a-real-secret-value}
+      expiration-seconds: ${JWT_EXPIRATION_SECONDS:1209600}
+      issuer: aligner
+    kakao:
+      # 카카오를 치지 않으므로 이 값들은 쓰이지 않는다 (MockKakaoUserClient).
+      # AuthProperties 가 non-null 이라 바인딩만 되게 채운다.
+      token-uri: dummy-unused
+      user-info-uri: dummy-unused
+      client-id: dummy-unused
+      client-secret: dummy-unused
+      redirect-uri: dummy-unused
+      connect-timeout-millis: 2000
+      read-timeout-millis: 3000
+
+# 목도 문서를 띄운다. 프론트가 스키마를 여기서 확인한다.
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
