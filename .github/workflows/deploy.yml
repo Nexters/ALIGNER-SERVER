@@ -106,10 +106,10 @@ jobs:
         run: |
           set -euo pipefail
           missing_secrets=()
-          [[ -z "$TS_CLIENT_ID" ]] && missing_secrets+=("TAILSCALE_OAUTH_CLIENT_ID")
-          [[ -z "$TS_SECRET" ]] && missing_secrets+=("TAILSCALE_OAUTH_SECRET")
-          [[ -z "$KUBECONFIG_DATA" ]] && missing_secrets+=("KUBECONFIG")
-          [[ -z "$DEV_ENV_FILE" ]] && missing_secrets+=("DEV_ENV_FILE")
+          if [[ -z "$TS_CLIENT_ID" ]]; then missing_secrets+=("TAILSCALE_OAUTH_CLIENT_ID"); fi
+          if [[ -z "$TS_SECRET" ]]; then missing_secrets+=("TAILSCALE_OAUTH_SECRET"); fi
+          if [[ -z "$KUBECONFIG_DATA" ]]; then missing_secrets+=("KUBECONFIG"); fi
+          if [[ -z "$DEV_ENV_FILE" ]]; then missing_secrets+=("DEV_ENV_FILE"); fi
 
           if [[ ${#missing_secrets[@]} -gt 0 ]]; then
             echo "::error title=Missing Required Secrets::The following required secrets are missing in 'dev' environment: ${missing_secrets[*]}"
@@ -120,7 +120,7 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: 'latest'
+          version: 'v1.31.0'
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v3
@@ -164,7 +164,7 @@ jobs:
       - name: Verify Active HTTP Health Probe
         run: |
           set -euo pipefail
-          HEALTH_URL="https://dev-api.aligneryoga.com/swagger-ui/index.html"
+          HEALTH_URL="https://dev-api.aligneryoga.com/actuator/health"
           MAX_ATTEMPTS=12
           SLEEP_SECONDS=5
 
@@ -209,10 +209,10 @@ jobs:
         run: |
           set -euo pipefail
           missing_secrets=()
-          [[ -z "$TS_CLIENT_ID" ]] && missing_secrets+=("TAILSCALE_OAUTH_CLIENT_ID")
-          [[ -z "$TS_SECRET" ]] && missing_secrets+=("TAILSCALE_OAUTH_SECRET")
-          [[ -z "$KUBECONFIG_DATA" ]] && missing_secrets+=("KUBECONFIG")
-          [[ -z "$PROD_ENV_FILE" ]] && missing_secrets+=("PROD_ENV_FILE")
+          if [[ -z "$TS_CLIENT_ID" ]]; then missing_secrets+=("TAILSCALE_OAUTH_CLIENT_ID"); fi
+          if [[ -z "$TS_SECRET" ]]; then missing_secrets+=("TAILSCALE_OAUTH_SECRET"); fi
+          if [[ -z "$KUBECONFIG_DATA" ]]; then missing_secrets+=("KUBECONFIG"); fi
+          if [[ -z "$PROD_ENV_FILE" ]]; then missing_secrets+=("PROD_ENV_FILE"); fi
 
           if [[ ${#missing_secrets[@]} -gt 0 ]]; then
             echo "::error title=Missing Required Secrets::The following required secrets are missing in 'prod' environment: ${missing_secrets[*]}"
@@ -223,7 +223,7 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: 'latest'
+          version: 'v1.31.0'
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v3
@@ -267,7 +267,7 @@ jobs:
       - name: Verify Active HTTP Health Probe
         run: |
           set -euo pipefail
-          HEALTH_URL="https://api.aligneryoga.com/swagger-ui/index.html"
+          HEALTH_URL="https://api.aligneryoga.com/actuator/health"
           MAX_ATTEMPTS=12
           SLEEP_SECONDS=5
 
