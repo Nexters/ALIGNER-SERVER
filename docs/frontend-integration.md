@@ -524,7 +524,17 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
   "difficulty": "beginner",
   "category": "가동성 웜업",
   "cautionNote": "허리에 불편함이 있으면 범위를 줄입니다.",
-  "muscles": [],
+  "muscles": [
+    {
+      "muscleCode": "ERECTOR_SPINAE",
+      "name": "척추기립근",
+      "bodyPartCode": "BACK",
+      "frontHighlightAssetKey": null,
+      "backHighlightAssetKey": "muscle/erector_spinae_back",
+      "role": "STRENGTHEN",
+      "displayOrder": 1
+    }
+  ],
   "voiceCues": [
     {
       "displayOrder": 1,
@@ -532,9 +542,36 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
       "endOffsetSeconds": null,
       "content": "호흡을 천천히 유지합니다."
     }
+  ],
+  "bodyPartGuides": [
+    {
+      "bodyPartCode": "BACK",
+      "content": "골반에서부터 움직임을 시작해 척추를 한 마디씩 말고 펴세요.",
+      "displayOrder": 1
+    }
   ]
 }
 ```
+
+### 운동 가이드 — 부위 탭과 근육맵
+
+`bodyPartGuides`와 `muscles`가 함께 「운동 가이드」 영역을 구성한다.
+
+**탭 집합의 정본은 `bodyPartGuides`다.** `muscles`의 `bodyPartCode`를 모아 탭을 만들지
+않는다 — 근육은 있는데 문구가 없는 탭이 생기면 빈 카드가 된다. `bodyPartGuides`를
+`displayOrder` 순으로 그려 탭을 만들고, 탭을 누르면 그 `bodyPartCode`와 같은 `muscles`
+항목을 근육맵에 칠한다.
+
+```ts
+const tabs = detail.bodyPartGuides; // 탭 순서 = displayOrder
+const musclesOfTab = detail.muscles.filter((m) => m.bodyPartCode === tab.bodyPartCode);
+```
+
+운동마다 탭 개수가 다르다. 근육이 한 부위에만 걸린 운동은 탭이 하나다(로우 런지 → `PELVIS`
+하나). 세 부위 전부인 운동도 있다. **탭을 3개로 고정하지 않는다.**
+
+`content`는 그 부위에서 무엇에 집중해야 하는지를 담은 한 문장이고, 화면의 「핵심 동작」
+카드에 그대로 쓴다. 감수 전 문구라 값이 바뀔 수 있으므로 프론트에서 문자열을 가공하지 않는다.
 
 주의할 점:
 
@@ -904,6 +941,7 @@ Content-Type: application/json
     {
       "courseStepId": 31,
       "stepOrder": 1,
+      "totalStepCount": 6,
       "completed": true,
       "completedAt": "2026-08-09T00:00:00Z",
       "exercises": [
@@ -912,6 +950,7 @@ Content-Type: application/json
           "exerciseId": 7,
           "name": "캣카우",
           "imageAssetKey": "exercise/cat-cow",
+          "thumbnailUrl": "https://exercise-api.ymove.app/api/v2/thumbnail/df1bcf35-...?library=clean",
           "category": "가동성 웜업",
           "displayOrder": 1,
           "durationSeconds": 120,
@@ -930,6 +969,20 @@ Content-Type: application/json
 `targetPoseImageAssetKey`는 개요 상단 히어로에 쓴다 — 홈 카드와 같은 그림이라 같은 키다.
 스텝의 `imageAssetKey`는 코스 순서 카드의 썸네일이다. 둘 다 URL이 아니라 키이고, seed 전에는
 `null`이다.
+
+**스텝 운동의 `thumbnailUrl`은 반대로 URL 그대로 쓴다.** 실제 영상의 한 프레임이고 소스가
+YMove라 파일을 프론트가 갖지 않는다. 재생 URL(`videoUrl`)과 달리 서명도 만료도 없어 DB에
+저장돼 있고, **YMove 장애와 무관하게 값이 있다.** `imageAssetKey`(일러스트)와 `thumbnailUrl`
+(영상 한 컷) 중 무엇을 그릴지는 화면이 고른다.
+
+**스텝마다 `totalStepCount`가 함께 온다.** 운동 가이드 화면 상단의 `1 / 6`이
+`stepOrder / totalStepCount`다. 코스 전체 값이라 스텝마다 같은 숫자가 반복되지만, 스텝
+하나만 들고 화면을 이동해도 헤더를 그릴 수 있도록 각 스텝에 실어 보낸다.
+
+**이 두 숫자는 `GET /catalog/exercises/{exerciseId}`에는 없다.** 단계는 코스가 소유한
+개념이고 운동은 코스와 무관한 마스터 데이터다 — 같은 운동(캣카우)이 9개 루틴의 서로 다른
+순번에 들어가므로 운동 식별자만으로는 답이 정해지지 않는다. 운동 가이드 화면은 코스 개요에서
+받은 `stepOrder`·`totalStepCount`를 그대로 들고 이동한다.
 
 없는 코스와 남의 코스는 똑같이 404 `COURSE_NOT_FOUND`다.
 
