@@ -77,8 +77,6 @@ class UserFlowE2eIntegrationTest {
 
     @Test
     fun `로그인부터 완료 리포트까지 한 번에 지난다`() {
-        insertCauseRules()
-
         // ── 1. 로그인 ─────────────────────────────────────────────────────────
         val token =
             post("/auth/kakao", mapOf("authorizationCode" to "test-code"))
@@ -104,7 +102,10 @@ class UserFlowE2eIntegrationTest {
                 mapOf("answers" to listOf(mapOf("targetPoseId" to 1, "perceivedDifficulty" to "HARD"))),
                 token,
             ).also { it.statusCode shouldBe HttpStatus.OK }.body!!
-        result["causes"][0]["causeCode"].asText() shouldBe "BACK_EXTENSION_WEAK"
+        // seed 의 분기표를 그대로 검증한다. 예전에는 이 테스트가 규칙을 직접 INSERT 해서
+        // **분기표 seed 가 통째로 없는데도 통과했다**(#82). 업독(1)은 등 라인이므로 BACK_WEAK 다.
+        result["causes"][0]["causeCode"].asText() shouldBe "BACK_WEAK"
+        result["causes"][0]["score"].asInt() shouldBe 1
 
         // ── 6. 부위·난이도 선택 → 코스 추천 ────────────────────────────────────
         get("/screening/body-parts", token).body!!.size() shouldBe 3
@@ -244,28 +245,6 @@ class UserFlowE2eIntegrationTest {
             }
         val signature = encoder.encodeToString(mac.doFinal("$header.$payload".toByteArray()))
         return "$header.$payload.$signature"
-    }
-
-    /**
-     * (자세, 체감) → 원인 분기표. 업독(1)을 어려워하면 등 신전 약화가 나오게 한 최소 규칙이다.
-     */
-    private fun insertCauseRules() {
-        jdbcClient
-            .sql(
-                """
-                INSERT INTO screening.cause (cause_code, name, body_part_code, description)
-                VALUES ('BACK_EXTENSION_WEAK', '등 신전 약화', 'BACK', '흉추를 펴는 힘이 부족합니다')
-                ON CONFLICT DO NOTHING
-                """.trimIndent(),
-            ).update()
-        jdbcClient
-            .sql(
-                """
-                INSERT INTO screening.cause_rule (target_pose_id, perceived_difficulty, cause_code, weight)
-                VALUES (1, 'HARD', 'BACK_EXTENSION_WEAK', 3)
-                ON CONFLICT DO NOTHING
-                """.trimIndent(),
-            ).update()
     }
 
     private fun get(
