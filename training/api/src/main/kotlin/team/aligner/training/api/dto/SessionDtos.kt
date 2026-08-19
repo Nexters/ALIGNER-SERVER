@@ -103,7 +103,9 @@ data class SessionResponse(
     @field:Schema(description = "운동별 수행 기록. displayOrder 오름차순이다")
     val exerciseRecords: List<SessionExerciseRecordResponse>,
     @field:Schema(
-        description = "이 세션이 코스 진행도에 반영된 결과. **완료 응답에만 실린다**",
+        description =
+            "이 세션 완료가 코스 진행도에 반영된 결과. " +
+                "완료 요청 응답과 완료된 세션 조회에서 동일한 스냅샷 값이 반환된다. 진행 중인 세션에서는 null 이다.",
         nullable = true,
     )
     val courseProgress: CourseProgressResponse?,
@@ -185,7 +187,12 @@ data class CourseProgressResponse(
         example = "false",
     )
     val courseCompleted: Boolean,
-    @field:Schema(description = "이 호출로 이번 회차의 도장이 새로 붙었는지. 재시도에서는 false 다", example = "false")
+    @field:Schema(
+        description =
+            "이 세션의 완료로 이번 회차의 도장을 획득했는지. " +
+                "완료 리포트에 저장되는 스냅샷 값이므로 재조회에서도 동일하다.",
+        example = "false",
+    )
     val stampAcquired: Boolean,
     @field:Schema(description = "이 코스의 목표 자세 식별자", example = "3")
     val targetPoseId: Long,

@@ -48,3 +48,12 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/004-add-session-version.sql
             relativeToChangelogFile: true
+
+  - changeSet:
+      id: training-0006-add-session-course-progress-snapshot
+      author: aligner
+      comment: 세션 완료 시점의 코스 진행도 스냅샷 컬럼 추가
+      changes:
+        - sqlFile:
+            path: ddl/005-add-session-course-progress-snapshot.sql
+            relativeToChangelogFile: true
