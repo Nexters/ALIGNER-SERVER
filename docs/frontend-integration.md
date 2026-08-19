@@ -1116,7 +1116,7 @@ courseProgress 로 진행도·도장 확인
 ### 응답 형태가 셋 다 같다
 
 시작·조회·완료가 모두 `SessionResponse`를 돌려준다. 화면이 세 경로에서 같은 것을 그리므로
-형태를 하나로 뒀다. **`courseProgress`만 완료 응답에서 채워지고 나머지에서는 `null`이다.**
+형태를 하나로 뒀다. **`courseProgress`는 완료 응답(`POST .../complete`)과 완료된 세션 조회(`GET .../{sessionId}` where status == `COMPLETED`)에서 채워지고, 진행 중인 세션 시작/조회에서는 `null`이다.**
 
 ### `POST /sessions`
 
@@ -1166,7 +1166,10 @@ Content-Type: application/json
 
 ### `GET /sessions/{sessionId}`
 
-세션 복구용이다. 응답은 위와 같다. 없는 세션과 남의 세션은 똑같이 404 `SESSION_NOT_FOUND`다.
+세션 복구 및 완료 리포트 재조회용이다. 
+* 진행 중인 세션(`IN_PROGRESS`)이면 `courseProgress: null`로 플레이어 화면 복구에 쓰입니다.
+* 완료된 세션(`COMPLETED`)이면 `courseProgress`가 함께 채워져 완료 리포트 화면 복구(새로고침 등)에 쓰입니다.
+없는 세션과 남의 세션은 똑같이 404 `SESSION_NOT_FOUND`다.
 
 ### `POST /sessions/{sessionId}/complete`
 
@@ -1217,8 +1220,8 @@ Content-Type: application/json
 2. **요청에 없는 운동은 수행하지 않은 것으로 남는다.** 부분 완료가 정상이므로 중간에 그만둔
    세션도 그대로 보내면 된다
 3. **멱등하다.** 같은 요청을 재시도해도 진행도가 두 번 오르지 않고 도장도 한 번만 붙는다.
-   재시도로 들어온 호출에서는 `stampAcquired`가 `false`다 — 네트워크 오류 후 재시도를
-   안전하게 해도 된다
+   `stampAcquired`는 이 세션의 완료 사건으로 도장을 획득했는지를 나타내는 완료 스냅샷이며,
+   네트워크 오류 후의 재시도나 앱 재실행 후 세션 조회(`GET /sessions/{id}`)에서도 동일한 값을 돌려준다.
 
 `courseCompleted`가 `true`면 **이번 회차**를 끝낸 것이고, 그때 파이어로그가 하나 오른다
 (`stampAcquired`). **자세를 완성한 것은 아니다** — 완성은 4 회 완주이고 `targetPoseCompleted`가
@@ -1227,8 +1230,8 @@ Content-Type: application/json
 | 신호 | 뜻 | 화면 |
 | --- | --- | --- |
 | `courseCompleted && stampAcquired` | 이번 회차를 마쳐 파이어로그가 하나 올랐다 | 리포트의 세그먼트가 한 칸 찬다 |
-| `targetPoseCompleted && stampAcquired` | 방금 4 번째를 채웠다 | **자세 완성 축하 화면** |
-| `targetPoseCompleted && !stampAcquired` | 이미 완성한 자세를 또 수행했거나, **4 회째 완료 요청을 재시도했다** | 축하 화면을 다시 띄우지 않는다 |
+| `targetPoseCompleted && stampAcquired` | 이번 회차 완료로 4 번째를 채워 자세를 완성했다 | **자세 완성 축하 화면** |
+| `targetPoseCompleted && !stampAcquired` | 이미 완성된 목표 자세의 스텝을 수행했다 | 일반 완료 화면 (축하 화면 없음) |
 
 완성한 뒤 `GET /courses/progress/target-poses`에서 그 자세가 `completed:true`로 바뀐다.
 

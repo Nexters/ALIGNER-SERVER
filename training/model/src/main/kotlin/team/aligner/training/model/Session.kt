@@ -9,8 +9,8 @@ import java.time.Instant
  * 세션 1 회. 애그리거트 루트다.
  *
  * **완수 판정이 여기 없다.** training 은 "무슨 일이 있었나" 만 기록하고 진행도·도장 판단은
- * 전부 course 가 한다 (docs/domains.md §2). 이 클래스에 도장이나 진행도가 생기면 잘못
- * 나눈 것이다.
+ * 전부 course 가 한다 (docs/domains.md §2). 진행도·도장 **판단 로직**이 이 클래스에 생기면
+ * 잘못 나눈 것이다. Course 가 판단한 완료 결과 snapshot 을 기록하는 것은 training 의 책임이다.
  *
  * Spring Data JDBC 에는 더티체킹이 없다. [complete] 는 새 인스턴스를 반환하고 호출부가
  * save 를 명시한다 (docs/architecture.md §4).
@@ -33,6 +33,13 @@ data class Session(
      * 몸무게로 다시 계산하면 지난 기록이 흔들린다.
      */
     val estimatedKcal: Int? = null,
+    /**
+     * 완료 시점의 코스 진행도 스냅샷.
+     *
+     * **과거 리포트 불변성.** 이후 다른 스텝을 완료하거나 코스가 재시작되어도 완료 당시의 값이 보존된다.
+     * 진행 중인 세션(IN_PROGRESS)에서는 null 이다.
+     */
+    val courseProgress: SessionCourseProgressSnapshot? = null,
     /** 핀포즈 직후 체감. 아직 답하지 않았으면 null 이다. */
     val perceivedResult: PerceivedResult? = null,
     /**
@@ -59,6 +66,25 @@ data class Session(
      * 값이 이미 있으면 덮지 않는다. 호출 규칙이 깨져도 저장된 기록은 지키는 두 번째 방어선이다.
      */
     fun withEstimatedKcal(kcal: Int?): Session = if (estimatedKcal != null) this else copy(estimatedKcal = kcal)
+
+    /**
+     * course 가 계산해 준 완료 리포트(칼로리 및 코스 진행도 스냅샷)를 담는다.
+     *
+     * **최초 완료에서 한 번만 확정한다.** 회원이 이후 다른 스텝을 진행하거나, 코스를 재도전(restart)하거나,
+     * 추가 도장을 받더라도 "이 세션 완료 당시의 리포트" 는 영구히 보존되어야 한다.
+     */
+    fun withCompletionReport(
+        estimatedKcal: Int?,
+        progress: SessionCourseProgressSnapshot,
+    ): Session {
+        if (this.courseProgress != null) {
+            return this
+        }
+        return copy(
+            estimatedKcal = this.estimatedKcal ?: estimatedKcal,
+            courseProgress = progress,
+        )
+    }
 
     /**
      * 핀포즈 직후 체감을 기록한다.
@@ -189,4 +215,24 @@ data class ExerciseResult(
     val courseStepExerciseId: Long,
     val completed: Boolean,
     val performedDurationSeconds: Int?,
+)
+
+/**
+ * 세션 완료 시점에 course 에서 전달받은 코스 진행도 스냅샷.
+ *
+ * **과거 리포트 불변성.** 이후 다른 스텝이 수행되거나 코스가 재시작되더라도
+ * 완료 당시의 스냅샷이 영구히 보존된다.
+ */
+data class SessionCourseProgressSnapshot(
+    val completedStepCount: Int,
+    val totalStepCount: Int,
+    val courseCompleted: Boolean,
+    val stampAcquired: Boolean,
+    val targetPoseId: Long,
+    val targetPoseName: String,
+    val bodyPartCode: String?,
+    val level: Int?,
+    val acquiredStampCount: Int,
+    val requiredStampCount: Int,
+    val targetPoseCompleted: Boolean,
 )

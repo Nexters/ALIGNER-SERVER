@@ -1,6 +1,7 @@
 package team.aligner.training.model.view
 
 import team.aligner.training.model.PerceivedResult
+import team.aligner.training.model.SessionCourseProgressSnapshot
 import team.aligner.training.model.SessionStatus
 import java.time.Instant
 
@@ -12,8 +13,7 @@ import java.time.Instant
  *
  * 운동 이름·기본값은 catalog 소유라 조회 시점에 port 로 붙인다 (docs/domains.md §6).
  *
- * `courseProgress` 는 **완료 응답에만 실린다.** 세션이 코스 진행도를 얼마나 올렸는지는
- * 완료 직후에만 화면이 쓴다.
+ * `courseProgress` 는 **완료 응답 및 완료된 세션 조회에 실린다.** 진행 중인 세션 조회에서는 `null` 이다.
  */
 data class SessionView(
     val sessionId: Long,
@@ -59,7 +59,7 @@ data class CourseProgressView(
     val totalStepCount: Int,
     /** 이번 회차의 모든 스텝을 끝냈는지. **자세 완성과 다르다** — 완성은 4 회 완주다. */
     val courseCompleted: Boolean,
-    /** 이 호출로 이번 회차의 도장이 새로 붙었는지. 재시도에서는 false 다. */
+    /** 이 세션의 완료로 이번 회차의 도장을 획득했는지. */
     val stampAcquired: Boolean,
     val targetPoseId: Long,
     val targetPoseName: String,
@@ -71,3 +71,18 @@ data class CourseProgressView(
     /** 도장을 다 채웠는지. 자세 완성 축하 화면의 신호다. */
     val targetPoseCompleted: Boolean,
 )
+
+fun SessionCourseProgressSnapshot.toView(): CourseProgressView =
+    CourseProgressView(
+        completedStepCount = completedStepCount,
+        totalStepCount = totalStepCount,
+        courseCompleted = courseCompleted,
+        stampAcquired = stampAcquired,
+        targetPoseId = targetPoseId,
+        targetPoseName = targetPoseName,
+        bodyPartCode = bodyPartCode,
+        level = level,
+        acquiredStampCount = acquiredStampCount,
+        requiredStampCount = requiredStampCount,
+        targetPoseCompleted = targetPoseCompleted,
+    )

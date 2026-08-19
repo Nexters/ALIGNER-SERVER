@@ -13,6 +13,7 @@ import team.aligner.training.infrastructure.SessionRepository
 import team.aligner.training.model.ExerciseResult
 import team.aligner.training.model.PerceivedResult
 import team.aligner.training.model.Session
+import team.aligner.training.model.SessionCourseProgressSnapshot
 import team.aligner.training.model.SessionIdentity
 import team.aligner.training.model.StepExercise
 import team.aligner.training.model.exception.CourseStepNotFoundException
@@ -22,6 +23,7 @@ import team.aligner.training.model.view.AchievementView
 import team.aligner.training.model.view.CourseProgressView
 import team.aligner.training.model.view.SessionExerciseRecordView
 import team.aligner.training.model.view.SessionView
+import team.aligner.training.model.view.toView
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -110,7 +112,7 @@ internal class SessionServiceImpl(
         sessionId: Long,
     ): SessionView {
         val session = findOwned(memberId, sessionId)
-        return session.toView(lookupStepExercises(session), courseProgress = null)
+        return session.toView(lookupStepExercises(session), courseProgress = session.courseProgress?.toView())
     }
 
     /**
@@ -119,12 +121,11 @@ internal class SessionServiceImpl(
      * 진행도·도장 판단을 여기서 하지 않는다. course 가 판단해 돌려준 값을 그대로 실어 보낼
      * 뿐이다 — 그 로직이 training 에 생기면 잘못 나눈 것이다 (docs/domains.md §2, §4-5).
      *
-     * **멱등하다.** 이미 완료된 세션이면 기록을 덮어쓰지 않고, push 는 다시 하되 course 가
-     * 흡수해 진행도가 두 번 오르지 않는다. 재시도로 들어온 호출에서는 `stampAcquired` 가
-     * false 로 돌아온다.
+     * **완료 시점의 리포트 스냅샷을 저장한다.** 이후 다른 스텝이 진행되거나 코스가 재시작되어도
+     * 이 세션 완료 당시의 진행도와 도장 결과가 그대로 보존된다.
      *
-     * **push 는 재시도에서도 한다.** course 계약이 재호출을 멱등하게 흡수하고, 그것이 진행도
-     * 반영의 유일한 경로다 — 여기서 건너뛰면 첫 요청이 실패한 경우 진행도가 영구히 안 오른다.
+     * **멱등하다.** 이미 완료된 세션(재시도)이면 코스에 push 하지 않고 기존 세션 상태를
+     * 그대로 반환한다 (스냅샷이 있으면 스냅샷 반환, legacy 세션이면 null 반환).
      */
     override fun complete(
         memberId: Long,
@@ -132,6 +133,13 @@ internal class SessionServiceImpl(
         command: CompleteSessionCommand,
     ): SessionView {
         val (saved, retry) = saveCompleted(memberId, sessionId, command)
+
+        if (retry) {
+            return saved.toView(
+                lookupStepExercises(saved),
+                courseProgress = saved.courseProgress?.toView(),
+            )
+        }
 
         val progress =
             courseProgressPort.completeSession(
@@ -151,32 +159,32 @@ internal class SessionServiceImpl(
                         },
             )
 
-        // **칼로리는 course 가 계산해 준 값을 받아 저장한다** (docs/domains.md §2, §4-3).
-        // 리포트를 새로고침해도 같은 값이 나와야 하는데, 조회할 때마다 다시 계산하면 그 사이
-        // 몸무게가 바뀐 회원의 지난 기록이 흔들린다.
-        //
-        // **최초 완료에서만 담는다.** 재시도에도 push 는 그대로 하지만(course 가 멱등하게
-        // 흡수한다) 그 결과는 버린다 — 최초 계산이 null 이었던 세션에 나중 값이 얹히면,
-        // 그 사이 몸무게를 입력한 회원의 지난 리포트가 "그날 태운 값" 이 아니게 된다.
+        val snapshot =
+            SessionCourseProgressSnapshot(
+                completedStepCount = progress.completedStepCount,
+                totalStepCount = progress.totalStepCount,
+                courseCompleted = progress.courseCompleted,
+                stampAcquired = progress.stampAcquired,
+                targetPoseId = progress.targetPoseId,
+                targetPoseName = progress.targetPoseName,
+                bodyPartCode = progress.bodyPartCode,
+                level = progress.level,
+                acquiredStampCount = progress.acquiredStampCount,
+                requiredStampCount = progress.requiredStampCount,
+                targetPoseCompleted = progress.targetPoseCompleted,
+            )
+
         val reported =
-            if (retry) saved else sessionRepository.save(saved.withEstimatedKcal(progress.estimatedKcal))
+            sessionRepository.save(
+                saved.withCompletionReport(
+                    estimatedKcal = progress.estimatedKcal,
+                    progress = snapshot,
+                ),
+            )
 
         return reported.toView(
             lookupStepExercises(reported),
-            courseProgress =
-                CourseProgressView(
-                    completedStepCount = progress.completedStepCount,
-                    totalStepCount = progress.totalStepCount,
-                    courseCompleted = progress.courseCompleted,
-                    stampAcquired = progress.stampAcquired,
-                    targetPoseId = progress.targetPoseId,
-                    targetPoseName = progress.targetPoseName,
-                    bodyPartCode = progress.bodyPartCode,
-                    level = progress.level,
-                    acquiredStampCount = progress.acquiredStampCount,
-                    requiredStampCount = progress.requiredStampCount,
-                    targetPoseCompleted = progress.targetPoseCompleted,
-                ),
+            courseProgress = reported.courseProgress?.toView(),
         )
     }
 
@@ -191,8 +199,7 @@ internal class SessionServiceImpl(
      *
      * 두 번째도 충돌하면 그대로 올린다 — 계속 미루기보다 클라이언트가 재시도하는 편이 낫다.
      *
-     * 두 번째 값이 "재시도인가" 다. **`complete` 전에 봐야 한다** — 완료된 세션은 `complete`
-     * 가 같은 인스턴스를 돌려주므로 그 뒤로는 최초 완료와 재시도를 구분할 수 없다.
+     * 두 번째 값이 "재시도인가" 다. 이미 완료된 세션은 DB 에 다시 쓰지 않고 즉시 반환한다.
      */
     private fun saveCompleted(
         memberId: Long,
@@ -211,7 +218,9 @@ internal class SessionServiceImpl(
         command: CompleteSessionCommand,
     ): Pair<Session, Boolean> {
         val session = findOwned(memberId, sessionId)
-        val retry = session.completed
+        if (session.completed) {
+            return session to true
+        }
 
         val completed =
             session.complete(
@@ -225,9 +234,7 @@ internal class SessionServiceImpl(
                     },
                 at = Instant.now(),
             )
-        // 이미 완료된 세션이면 complete 가 같은 인스턴스를 돌려준다. 그래도 저장하는 것은
-        // 분기를 하나 줄이기 위해서이고, 값이 같으므로 덮어써도 달라지는 것이 없다.
-        return sessionRepository.save(completed) to retry
+        return sessionRepository.save(completed) to false
     }
 
     /**
@@ -242,7 +249,7 @@ internal class SessionServiceImpl(
         perceivedResult: PerceivedResult,
     ): SessionView {
         val saved = sessionRepository.save(findOwned(memberId, sessionId).recordPerceivedResult(perceivedResult))
-        return saved.toView(lookupStepExercises(saved), courseProgress = null)
+        return saved.toView(lookupStepExercises(saved), courseProgress = saved.courseProgress?.toView())
     }
 
     /**
