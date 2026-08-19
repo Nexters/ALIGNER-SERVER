@@ -92,7 +92,10 @@ class ScreeningRepositoryIntegrationTest {
             // **Liquibase 는 런타임 컨텍스트를 주지 않으면 context 가 붙은 changeset 도 전부 돌린다.**
             // 그 잠금은 application.yml 의 spring.liquibase.contexts 가 하는데, 이 부트스트랩은
             // 그 설정을 읽지 않는다. 픽스처를 TRUNCATE 후에 넣으므로 다른 단언에는 영향이 없다.
-            .single() shouldBe 10
+            //
+            // changeset 을 새로 쌓을 때마다 이 숫자를 올린다. 개수를 세는 단언이라 changelog
+            // 자체가 돌았는지만 보고, 어떤 changeset 인지는 보지 않는다.
+            .single() shouldBe 11
     }
 
     @Test
