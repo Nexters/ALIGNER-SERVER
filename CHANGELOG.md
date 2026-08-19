@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.2](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.4.1...v0.4.2) (2026-08-19)
+
+
+### 🐛 버그 수정 (Bug Fixes)
+
+* dev 프로필 카카오 redirect-uri 기본값을 배포 도메인으로 변경 ([#88](https://github.com/Nexters/ALIGNER-SERVER/issues/88)) ([3d4b09f](https://github.com/Nexters/ALIGNER-SERVER/commit/3d4b09f928642e03a60d36180ded637734da2652))
+
+
+### 🔧 빌드 및 설정 (Maintenance)
+
+* develop -&gt; main 반영 ([5aa4629](https://github.com/Nexters/ALIGNER-SERVER/commit/5aa4629f1126fcc8123fca49636eb60ddd17131b))
+
 ## [0.4.1](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.4.0...v0.4.1) (2026-08-19)
 
 
