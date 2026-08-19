@@ -242,6 +242,7 @@ internal class CourseQueryServiceImpl(
                             step.exercises.map { exercise ->
                                 val catalog = exercises[exercise.exerciseId]
                                 val duration = exercise.durationSeconds ?: catalog?.defaultDurationSeconds
+                                val sets = exercise.setCount ?: catalog?.defaultSetCount
                                 CourseStepExerciseView(
                                     courseStepExerciseId = exercise.courseStepExerciseId,
                                     exerciseId = exercise.exerciseId,
@@ -251,9 +252,15 @@ internal class CourseQueryServiceImpl(
                                     category = catalog?.category,
                                     displayOrder = exercise.displayOrder,
                                     durationSeconds = duration,
-                                    setCount = exercise.setCount ?: catalog?.defaultSetCount,
+                                    setCount = sets,
+                                    // durationSeconds 는 화면이 세트와 나란히 그리는 값이라
+                                    // 한 세트 시간 그대로 두고, 칼로리만 총 시간으로 계산한다.
                                     estimatedKcal =
-                                        CalorieCalculator.calculate(catalog?.metValue, weightKg, duration),
+                                        CalorieCalculator.calculate(
+                                            catalog?.metValue,
+                                            weightKg,
+                                            if (duration == null || sets == null) null else duration * sets,
+                                        ),
                                 )
                             },
                     )
@@ -429,10 +436,15 @@ internal class CourseQueryServiceImpl(
 
         rows.forEach { row ->
             val catalog = exercises[row.exerciseId]
+            // **한 세트 시간이 아니라 총 시간을 더한다.** duration_seconds 는 한 세트의 유지
+            // 시간이고 세트가 반복 횟수다 (course seed/002). 곱하지 않으면 30 초 × 4 세트인
+            // 스텝이 30 초로 잡혀 코스 시간·칼로리가 실제의 4 분의 1 로 나간다.
             val seconds = row.durationSeconds ?: catalog?.defaultDurationSeconds
-            durations += seconds
-            setCount += row.setCount ?: catalog?.defaultSetCount ?: 0
-            kcals += CalorieCalculator.calculate(catalog?.metValue, weightKg, seconds)
+            val sets = row.setCount ?: catalog?.defaultSetCount
+            val total = if (seconds == null || sets == null) null else seconds * sets
+            durations += total
+            setCount += sets ?: 0
+            kcals += CalorieCalculator.calculate(catalog?.metValue, weightKg, total)
         }
 
         return CourseTotals(

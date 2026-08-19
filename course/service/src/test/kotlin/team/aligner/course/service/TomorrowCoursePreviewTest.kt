@@ -158,8 +158,9 @@ class TomorrowCoursePreviewTest :
                 preview.exerciseCount shouldBe 2
                 // 세트는 override 1 + catalog 기본값 2 다.
                 preview.totalSetCount shouldBe 3
-                // 시간은 override 120 + catalog 기본값 90 이다.
-                preview.estimatedDurationSeconds shouldBe 210
+                // 시간은 **세트를 곱한 총합**이다 — override 120×1 + catalog 기본값 90×2.
+                // 곱하기 전에는 210 이었고, 그만큼 코스 시간이 실제보다 짧게 나가고 있었다.
+                preview.estimatedDurationSeconds shouldBe 300
             }
 
             it("같은 부위에서만 고르고 4 번 완수한 자세는 빼며 방금 완주한 자세는 남긴다") {
