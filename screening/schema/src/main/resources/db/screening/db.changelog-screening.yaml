@@ -109,3 +109,20 @@ databaseChangeLog:
             sql: DELETE FROM screening.screening_result WHERE result_id = 900001
         - sql:
             sql: DELETE FROM screening.cause WHERE cause_code = 'DEV_PLACEHOLDER_CAUSE'
+
+  # 분기표가 비어 있으면 회원이 무엇을 고르든 판별이 422 다. 위 dev seed 와 달리 컨텍스트로
+  # 가두지 않는다 — 원인을 부위 단위로 뒀으므로 지어낸 감수 데이터가 아니라 핀포즈가 속한
+  # 라인 그대로이고, 운영에도 이 값이 들어가야 온보딩이 돈다.
+  - changeSet:
+      id: screening-0011-seed-cause-and-cause-rule
+      author: aligner
+      comment: 원인 3 개와 (자세, 체감) → 원인 분기표 9 행 적재
+      changes:
+        - sqlFile:
+            path: seed/003-cause-and-cause-rule.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: DELETE FROM screening.cause_rule WHERE cause_code IN ('BACK_WEAK', 'ABDOMEN_WEAK', 'PELVIS_WEAK')
+        - sql:
+            sql: DELETE FROM screening.cause WHERE cause_code IN ('BACK_WEAK', 'ABDOMEN_WEAK', 'PELVIS_WEAK')

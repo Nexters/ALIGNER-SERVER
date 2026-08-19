@@ -19,6 +19,7 @@ import team.aligner.training.infrastructure.SessionRepository
 import team.aligner.training.model.ExerciseResult
 import team.aligner.training.model.PerceivedResult
 import team.aligner.training.model.Session
+import team.aligner.training.model.SessionCourseProgressSnapshot
 import team.aligner.training.model.SessionStatus
 import team.aligner.training.model.StepExercise
 import team.aligner.training.repository.jdbc.bootstrap.TrainingRepositoryTestApplication
@@ -62,7 +63,7 @@ class TrainingRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'training-%'")
             .query(Int::class.java)
-            .single() shouldBe 5
+            .single() shouldBe 6
     }
 
     @Test
@@ -113,6 +114,49 @@ class TrainingRepositoryIntegrationTest {
         found.records.first { it.courseStepExerciseId == 51L }.performedDurationSeconds shouldBe 120
         // 요청에 없던 운동은 미수행으로 남는다.
         found.records.first { it.courseStepExerciseId == 52L }.completed shouldBe false
+    }
+
+    @Test
+    fun `완료 시점의 courseProgress 스냅샷이 정상 저장되고 복원된다`() {
+        val saved = sessionRepository.save(started())
+        val identity = saved.identity.shouldNotBeNull()
+
+        val snapshot =
+            SessionCourseProgressSnapshot(
+                completedStepCount = 1,
+                totalStepCount = 6,
+                courseCompleted = false,
+                stampAcquired = true,
+                targetPoseId = 3L,
+                targetPoseName = "낙타자세",
+                bodyPartCode = "PELVIS",
+                level = 3,
+                acquiredStampCount = 1,
+                requiredStampCount = 4,
+                targetPoseCompleted = false,
+            )
+
+        val completed =
+            saved
+                .complete(results = emptyList(), at = AT)
+                .withCompletionReport(estimatedKcal = 63, progress = snapshot)
+
+        sessionRepository.save(completed)
+
+        val found = sessionRepository.findByIdentity(identity).shouldNotBeNull()
+        found.estimatedKcal shouldBe 63
+        val foundProgress = found.courseProgress.shouldNotBeNull()
+        foundProgress.completedStepCount shouldBe 1
+        foundProgress.totalStepCount shouldBe 6
+        foundProgress.courseCompleted shouldBe false
+        foundProgress.stampAcquired shouldBe true
+        foundProgress.targetPoseId shouldBe 3L
+        foundProgress.targetPoseName shouldBe "낙타자세"
+        foundProgress.bodyPartCode shouldBe "PELVIS"
+        foundProgress.level shouldBe 3
+        foundProgress.acquiredStampCount shouldBe 1
+        foundProgress.requiredStampCount shouldBe 4
+        foundProgress.targetPoseCompleted shouldBe false
     }
 
     /**

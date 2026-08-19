@@ -3,6 +3,7 @@ package team.aligner.training.repository.jdbc
 import team.aligner.training.infrastructure.SessionRepository
 import team.aligner.training.model.PerceivedResult
 import team.aligner.training.model.Session
+import team.aligner.training.model.SessionCourseProgressSnapshot
 import team.aligner.training.model.SessionExerciseRecord
 import team.aligner.training.model.SessionIdentity
 import team.aligner.training.model.SessionStatus
@@ -22,6 +23,7 @@ internal class SessionRepositoryImpl(
         // PostgreSQL TIMESTAMPTZ 는 마이크로초까지만 담는다. 나노초를 그대로 넣으면 save() 가
         // 돌려준 모델이 DB 값과 달라진다. macOS 에서는 드러나지 않고 Linux CI 에서만 깨진다.
         val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
+        val progress = session.courseProgress
         val saved =
             sessionJdbcRepository.save(
                 SessionEntity(
@@ -33,6 +35,17 @@ internal class SessionRepositoryImpl(
                     startedAt = session.startedAt ?: now,
                     completedAt = session.completedAt?.truncatedTo(ChronoUnit.MICROS),
                     estimatedKcal = session.estimatedKcal,
+                    courseProgressCompletedStepCount = progress?.completedStepCount,
+                    courseProgressTotalStepCount = progress?.totalStepCount,
+                    courseProgressCourseCompleted = progress?.courseCompleted,
+                    courseProgressStampAcquired = progress?.stampAcquired,
+                    courseProgressTargetPoseId = progress?.targetPoseId,
+                    courseProgressTargetPoseName = progress?.targetPoseName,
+                    courseProgressBodyPartCode = progress?.bodyPartCode,
+                    courseProgressLevel = progress?.level,
+                    courseProgressAcquiredStampCount = progress?.acquiredStampCount,
+                    courseProgressRequiredStampCount = progress?.requiredStampCount,
+                    courseProgressTargetPoseCompleted = progress?.targetPoseCompleted,
                     perceivedResult = session.perceivedResult?.name,
                     version = session.version,
                     records =
@@ -80,6 +93,22 @@ private fun SessionEntity.toModel(): Session =
         startedAt = startedAt,
         completedAt = completedAt,
         estimatedKcal = estimatedKcal,
+        courseProgress =
+            courseProgressCompletedStepCount?.let {
+                SessionCourseProgressSnapshot(
+                    completedStepCount = it,
+                    totalStepCount = requireNotNull(courseProgressTotalStepCount),
+                    courseCompleted = requireNotNull(courseProgressCourseCompleted),
+                    stampAcquired = requireNotNull(courseProgressStampAcquired),
+                    targetPoseId = requireNotNull(courseProgressTargetPoseId),
+                    targetPoseName = requireNotNull(courseProgressTargetPoseName),
+                    bodyPartCode = courseProgressBodyPartCode,
+                    level = courseProgressLevel,
+                    acquiredStampCount = requireNotNull(courseProgressAcquiredStampCount),
+                    requiredStampCount = requireNotNull(courseProgressRequiredStampCount),
+                    targetPoseCompleted = requireNotNull(courseProgressTargetPoseCompleted),
+                )
+            },
         // DDL 의 CHECK 이 값 집합을 강제하므로 valueOf 가 실패하면 스키마가 어긋난 것이다.
         perceivedResult = perceivedResult?.let(PerceivedResult::valueOf),
         version = version,

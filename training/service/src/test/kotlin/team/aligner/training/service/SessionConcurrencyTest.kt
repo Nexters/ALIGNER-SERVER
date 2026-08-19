@@ -183,21 +183,20 @@ class SessionConcurrencyTest :
             }
 
             /**
-             * **재시도에서도 push 는 한다.** course 계약이 재호출을 멱등하게 흡수하고, 그것이
-             * 진행도 반영의 유일한 경로다 — 건너뛰면 첫 요청이 실패한 경우 진행도가 영구히
-             * 안 오른다.
+             * 이미 완료된 세션의 재시도는 코스에 push 하지 않는다.
+             * 이후 다른 스텝이 진행되거나 코스가 재시작되어도 과거 세션 재시도가 미래의 진행도를
+             * 오염시키지 않기 위함이다.
              */
-            it("재시도로 판정돼도 코스에 push 한다") {
+            it("재시도로 판정되면 코스에 push 하지 않는다") {
                 val alreadyCompleted =
                     session()
                         .complete(results = emptyList(), at = Instant.parse("2026-08-10T00:15:00Z"))
                         .copy(version = 4L)
                 every { sessionRepository.findByIdentity(SessionIdentity.of(100L)) } returns alreadyCompleted
-                every { sessionRepository.save(any()) } answers { firstArg() }
 
                 service().complete(memberId = owner, sessionId = 100L, command = CompleteSessionCommand(emptyList()))
 
-                verify(exactly = 1) { courseProgressPort.completeSession(owner, 20L, 1, any()) }
+                verify(exactly = 0) { courseProgressPort.completeSession(any(), any(), any(), any()) }
             }
 
             it("두 번째도 충돌하면 그대로 올린다") {

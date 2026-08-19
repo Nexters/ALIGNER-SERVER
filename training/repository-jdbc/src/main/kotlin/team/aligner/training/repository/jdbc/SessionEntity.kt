@@ -26,6 +26,17 @@ internal data class SessionEntity(
     val startedAt: Instant,
     val completedAt: Instant?,
     val estimatedKcal: Int?,
+    val courseProgressCompletedStepCount: Int?,
+    val courseProgressTotalStepCount: Int?,
+    val courseProgressCourseCompleted: Boolean?,
+    val courseProgressStampAcquired: Boolean?,
+    val courseProgressTargetPoseId: Long?,
+    val courseProgressTargetPoseName: String?,
+    val courseProgressBodyPartCode: String?,
+    val courseProgressLevel: Int?,
+    val courseProgressAcquiredStampCount: Int?,
+    val courseProgressRequiredStampCount: Int?,
+    val courseProgressTargetPoseCompleted: Boolean?,
     val perceivedResult: String?,
     /**
      * 낙관적 락. **@Version 이 붙으면 Spring Data JDBC 가 "새 행인가" 를 식별자가 아니라 이

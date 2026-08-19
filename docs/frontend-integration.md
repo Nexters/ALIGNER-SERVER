@@ -22,17 +22,12 @@ seed는 아직 없으므로 새 DB에서는 catalog 목록과 부위 목록이 �
 상세 조회는 404가 정상일 수 있다. 개발용 화면에서 임의 ID를 고정하지 말고 목록 응답의 ID를
 사용한다.
 
-**seed가 없는 동안 스크리닝 제출은 성공할 수 없다.** 서버가 정상이어도 그렇다. seed가 어디까지
-들어왔는지에 따라 실패 지점이 다르다.
+**스크리닝 제출은 이제 성공한다.** 자세 seed와 원인 분기표 seed가 모두 들어왔다. 예전에는
+분기표가 비어 있어 무엇을 고르든 422 `CAUSE_NOT_DETERMINED`가 났는데, 그 구간은 끝났다.
 
-| 서버 상태 | `GET /catalog/target-poses` | `POST /screening/results` |
-| --- | --- | --- |
-| seed 없음 (지금) | `[]` | 400 `EMPTY_SCREENING_ANSWER` — 고를 자세가 없다 |
-| 자세 seed만 있음 | 자세 그리드 | 422 `CAUSE_NOT_DETERMINED` — 분기 규칙이 없다 |
-| 분기 규칙까지 있음 | 자세 그리드 | 200 |
-
-지금 화면을 만든다면 세 경우를 모두 처리해 두는 편이 낫다. 어느 것도 프론트 요청이 틀려서 나는
-오류가 아니다.
+다만 **어려웠던 자세(`HARD`)를 최소 1개는 넣어야 한다.** 판별은 "부족한 자세"만 집계하고
+`EASY`는 저장만 되고 점수에 관여하지 않으므로, 쉬웠던 자세만 골라 제출하면 규칙이 하나도 걸리지
+않아 여전히 422다. 온보딩에서 어려웠던 자세를 최소 1개 고르게 막는 편이 낫다.
 
 `bodyPartCode`의 값 집합은 `screening`이 소유하고 **`BACK`(등) · `ABDOMEN`(복부) ·
 `PELVIS`(골반) 셋으로 확정**됐다. 요청·응답 양쪽 모두 OpenAPI enum이라 생성 타입이 세 값의
@@ -328,22 +323,38 @@ Content-Type: application/json
 
 응답:
 
+응답 (업독·낙타자세를 `HARD`로, 반 보트를 `HARD`로 골랐을 때):
+
 ```json
 {
   "resultId": 3,
   "causes": [
     {
-      "causeCode": "THORACIC_STIFFNESS",
-      "name": "굳은 흉추",
+      "causeCode": "BACK_WEAK",
+      "name": "등 라인 부족",
       "bodyPartCode": "BACK",
-      "description": "결과 화면에 보여줄 설명",
+      "description": "등을 펴고 버티는 힘이 부족합니다",
       "rank": 1,
-      "score": 7
+      "score": 2
+    },
+    {
+      "causeCode": "ABDOMEN_WEAK",
+      "name": "복부 라인 부족",
+      "bodyPartCode": "ABDOMEN",
+      "description": "몸통을 지탱하는 힘이 부족합니다",
+      "rank": 2,
+      "score": 1
     }
   ],
   "createdAt": "2026-08-07T10:00:00Z"
 }
 ```
+
+**`causeCode`는 현재 `BACK_WEAK` · `ABDOMEN_WEAK` · `PELVIS_WEAK` 셋이고 부위와 1:1이다.**
+`score`는 그 부위의 핀포즈 중 어려웠던 자세로 고른 개수이므로 0~3이다. 원인이 부위 단위인 것은
+자세별 제한 요인의 정규화가 요가 지도자 감수 대상이라 서버가 지어내지 않기 때문이다 — 감수
+목록이 들어오면 원인이 더 잘게 쪼개진다. **`causeCode` 값 집합을 화면에 하드코딩하지 말고
+`name`·`description`을 그대로 그린다.**
 
 제출 규칙은 다음과 같다. 어기면 400이므로 프론트에서 먼저 막는 편이 낫다.
 
@@ -357,9 +368,10 @@ Content-Type: application/json
 나왔는지 확인할 때 쓴다. `description`은 `null`일 수 있다.
 
 **422 `CAUSE_NOT_DETERMINED`를 화면에서 처리해야 한다.** 고른 자세 조합이 어떤 분기 규칙에도
-걸리지 않으면 원인 0개인 진단을 저장하지 않고 422로 돌려준다. 회원이 뭘 잘못한 것이 아니라
-서버 seed가 그 조합을 덮지 못한 것이므로, "다시 입력하세요"가 아니라 "결과를 낼 수 없다"에
-가까운 안내가 맞다.
+걸리지 않으면 원인 0개인 진단을 저장하지 않고 422로 돌려준다. 현재 seed에서 이게 나는 경우는
+**어려웠던 자세를 하나도 고르지 않았을 때** 하나다 — `HARD`를 최소 1개 받으면 도달하지 않는다.
+회원이 뭘 잘못한 것이 아니므로 "다시 입력하세요"가 아니라 "결과를 낼 수 없다"에 가까운 안내가
+맞지만, 애초에 온보딩에서 막는 편이 낫다.
 
 검증 순서는 **제출 규칙 → 판별**이다. 부위를 받지 않으므로 `BODY_PART_NOT_FOUND`는 이 API에서
 더 이상 나오지 않는다. 위 「먼저 알아둘 현재 상태」의 표가 seed 상태별로 어디서 끊기는지
@@ -752,6 +764,24 @@ export KAKAO_CLIENT_SECRET=<kakao_client_secret>
 다른 포트를 쓰면 이 값을 바꾸고, **같은 값을 카카오 개발자 콘솔에도 등록해야 한다.**
 `authorize()`에 넘기는 값과 한 글자라도 다르면 토큰 교환이 거부된다.
 
+### 환경별 redirect URI
+
+서버는 **한 번에 하나의 redirect URI만 쓴다.** 토큰 교환 요청에 실을 값이 하나이기 때문이다.
+그래서 값은 실행 환경(프로필)이 결정하고, `KAKAO_REDIRECT_URI`를 주면 언제나 그 값이 이긴다.
+
+| 프로필 | 기본값 |
+| --- | --- |
+| 없음(로컬) · `test` · `dev` | `http://localhost:5173/oauth/kakao` |
+| `prod` | `https://www.aligneryoga.com/oauth/kakao` |
+
+개발 서버(`dev-api.aligneryoga.com`)의 기본값이 localhost인 것은, 프론트가 배포본이 아니라
+로컬 개발 서버에서 개발 API를 부르기 때문이다. 배포된 dev 프론트로 로그인을 붙이려면 배포
+환경변수에 `KAKAO_REDIRECT_URI`를 주고 **그 값을 카카오 콘솔에도 함께 등록한다.**
+
+콘솔에는 redirect URI를 여러 개 등록할 수 있으므로 localhost와 운영 도메인이 함께 있어도 된다.
+다만 **하나의 카카오 앱에 둘을 같이 등록하면 운영 앱 키로 발급된 인가 코드가 localhost로도
+착지할 수 있다.** 개발용과 운영용 앱을 나누는 편이 안전하다(서버팀 판단 사항).
+
 `CORS_ALLOWED_ORIGINS`의 기본값은 `http://localhost:5173`이다. **개발 서버 포트를 바꾸면
 `KAKAO_REDIRECT_URI`와 이 값을 함께 바꿔야 한다** — 앞의 것은 인가 코드가 착지하는 곳이고
 뒤의 것은 API를 부르는 곳인데, 프론트에서는 같은 오리진이다. 하나만 바꾸면 로그인은 되는데
@@ -1086,7 +1116,7 @@ courseProgress 로 진행도·도장 확인
 ### 응답 형태가 셋 다 같다
 
 시작·조회·완료가 모두 `SessionResponse`를 돌려준다. 화면이 세 경로에서 같은 것을 그리므로
-형태를 하나로 뒀다. **`courseProgress`만 완료 응답에서 채워지고 나머지에서는 `null`이다.**
+형태를 하나로 뒀다. **`courseProgress`는 완료 응답(`POST .../complete`)과 완료된 세션 조회(`GET .../{sessionId}` where status == `COMPLETED`)에서 채워지고, 진행 중인 세션 시작/조회에서는 `null`이다.**
 
 ### `POST /sessions`
 
@@ -1136,7 +1166,10 @@ Content-Type: application/json
 
 ### `GET /sessions/{sessionId}`
 
-세션 복구용이다. 응답은 위와 같다. 없는 세션과 남의 세션은 똑같이 404 `SESSION_NOT_FOUND`다.
+세션 복구 및 완료 리포트 재조회용이다. 
+* 진행 중인 세션(`IN_PROGRESS`)이면 `courseProgress: null`로 플레이어 화면 복구에 쓰입니다.
+* 완료된 세션(`COMPLETED`)이면 `courseProgress`가 함께 채워져 완료 리포트 화면 복구(새로고침 등)에 쓰입니다.
+없는 세션과 남의 세션은 똑같이 404 `SESSION_NOT_FOUND`다.
 
 ### `POST /sessions/{sessionId}/complete`
 
@@ -1187,8 +1220,8 @@ Content-Type: application/json
 2. **요청에 없는 운동은 수행하지 않은 것으로 남는다.** 부분 완료가 정상이므로 중간에 그만둔
    세션도 그대로 보내면 된다
 3. **멱등하다.** 같은 요청을 재시도해도 진행도가 두 번 오르지 않고 도장도 한 번만 붙는다.
-   재시도로 들어온 호출에서는 `stampAcquired`가 `false`다 — 네트워크 오류 후 재시도를
-   안전하게 해도 된다
+   `stampAcquired`는 이 세션의 완료 사건으로 도장을 획득했는지를 나타내는 완료 스냅샷이며,
+   네트워크 오류 후의 재시도나 앱 재실행 후 세션 조회(`GET /sessions/{id}`)에서도 동일한 값을 돌려준다.
 
 `courseCompleted`가 `true`면 **이번 회차**를 끝낸 것이고, 그때 파이어로그가 하나 오른다
 (`stampAcquired`). **자세를 완성한 것은 아니다** — 완성은 4 회 완주이고 `targetPoseCompleted`가
@@ -1197,8 +1230,8 @@ Content-Type: application/json
 | 신호 | 뜻 | 화면 |
 | --- | --- | --- |
 | `courseCompleted && stampAcquired` | 이번 회차를 마쳐 파이어로그가 하나 올랐다 | 리포트의 세그먼트가 한 칸 찬다 |
-| `targetPoseCompleted && stampAcquired` | 방금 4 번째를 채웠다 | **자세 완성 축하 화면** |
-| `targetPoseCompleted && !stampAcquired` | 이미 완성한 자세를 또 수행했거나, **4 회째 완료 요청을 재시도했다** | 축하 화면을 다시 띄우지 않는다 |
+| `targetPoseCompleted && stampAcquired` | 이번 회차 완료로 4 번째를 채워 자세를 완성했다 | **자세 완성 축하 화면** |
+| `targetPoseCompleted && !stampAcquired` | 이미 완성된 목표 자세의 스텝을 수행했다 | 일반 완료 화면 (축하 화면 없음) |
 
 완성한 뒤 `GET /courses/progress/target-poses`에서 그 자세가 `completed:true`로 바뀐다.
 
