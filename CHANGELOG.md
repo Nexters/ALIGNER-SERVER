@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.1](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.4.0...v0.4.1) (2026-08-19)
+
+
+### 🐛 버그 수정 (Bug Fixes)
+
+* 스크리닝 원인·분기표 seed 추가 ([#83](https://github.com/Nexters/ALIGNER-SERVER/issues/83)) ([6fddfba](https://github.com/Nexters/ALIGNER-SERVER/commit/6fddfba2d2f9bea516d5065b8de4ce5cf806b7e5))
+* 완료된 세션의 CourseProgress 스냅샷 저장 및 불변 조회 지원 ([4caf6d8](https://github.com/Nexters/ALIGNER-SERVER/commit/4caf6d8dff2fec36d0a7382b3513127cc3f83e1e))
+* 카카오 redirect URI 를 환경변수로 덮을 수 있게 수정 ([#81](https://github.com/Nexters/ALIGNER-SERVER/issues/81)) ([d0c84f9](https://github.com/Nexters/ALIGNER-SERVER/commit/d0c84f9689e0374088c91cb71a21d0d1c25cfc51))
+
+
+### 🔧 빌드 및 설정 (Maintenance)
+
+* develop -&gt; main 반영 ([5e82128](https://github.com/Nexters/ALIGNER-SERVER/commit/5e8212899279fee0d00e13ca116f3fed8be3f538))
+
 ## [0.4.0](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.3.1...v0.4.0) (2026-08-18)
 
 
