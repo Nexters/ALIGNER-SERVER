@@ -752,6 +752,24 @@ export KAKAO_CLIENT_SECRET=<kakao_client_secret>
 다른 포트를 쓰면 이 값을 바꾸고, **같은 값을 카카오 개발자 콘솔에도 등록해야 한다.**
 `authorize()`에 넘기는 값과 한 글자라도 다르면 토큰 교환이 거부된다.
 
+### 환경별 redirect URI
+
+서버는 **한 번에 하나의 redirect URI만 쓴다.** 토큰 교환 요청에 실을 값이 하나이기 때문이다.
+그래서 값은 실행 환경(프로필)이 결정하고, `KAKAO_REDIRECT_URI`를 주면 언제나 그 값이 이긴다.
+
+| 프로필 | 기본값 |
+| --- | --- |
+| 없음(로컬) · `test` · `dev` | `http://localhost:5173/oauth/kakao` |
+| `prod` | `https://www.aligneryoga.com/oauth/kakao` |
+
+개발 서버(`dev-api.aligneryoga.com`)의 기본값이 localhost인 것은, 프론트가 배포본이 아니라
+로컬 개발 서버에서 개발 API를 부르기 때문이다. 배포된 dev 프론트로 로그인을 붙이려면 배포
+환경변수에 `KAKAO_REDIRECT_URI`를 주고 **그 값을 카카오 콘솔에도 함께 등록한다.**
+
+콘솔에는 redirect URI를 여러 개 등록할 수 있으므로 localhost와 운영 도메인이 함께 있어도 된다.
+다만 **하나의 카카오 앱에 둘을 같이 등록하면 운영 앱 키로 발급된 인가 코드가 localhost로도
+착지할 수 있다.** 개발용과 운영용 앱을 나누는 편이 안전하다(서버팀 판단 사항).
+
 `CORS_ALLOWED_ORIGINS`의 기본값은 `http://localhost:5173`이다. **개발 서버 포트를 바꾸면
 `KAKAO_REDIRECT_URI`와 이 값을 함께 바꿔야 한다** — 앞의 것은 인가 코드가 착지하는 곳이고
 뒤의 것은 API를 부르는 곳인데, 프론트에서는 같은 오리진이다. 하나만 바꾸면 로그인은 되는데
