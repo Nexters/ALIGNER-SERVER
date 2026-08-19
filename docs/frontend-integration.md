@@ -771,12 +771,11 @@ export KAKAO_CLIENT_SECRET=<kakao_client_secret>
 
 | 프로필 | 기본값 |
 | --- | --- |
-| 없음(로컬) · `test` · `dev` | `http://localhost:5173/oauth/kakao` |
+| 없음(로컬) · `test` | `http://localhost:5173/oauth/kakao` |
+| `dev` | `https://dev.aligneryoga.com/oauth/kakao` |
 | `prod` | `https://www.aligneryoga.com/oauth/kakao` |
 
-개발 서버(`dev-api.aligneryoga.com`)의 기본값이 localhost인 것은, 프론트가 배포본이 아니라
-로컬 개발 서버에서 개발 API를 부르기 때문이다. 배포된 dev 프론트로 로그인을 붙이려면 배포
-환경변수에 `KAKAO_REDIRECT_URI`를 주고 **그 값을 카카오 콘솔에도 함께 등록한다.**
+개발 서버(`dev-api.aligneryoga.com`)의 기본값은 배포된 개발 프론트(`https://dev.aligneryoga.com/oauth/kakao`)다. 프론트 로컬 개발 서버(localhost:5173)에서 개발 API를 붙이려면 환경변수로 `KAKAO_REDIRECT_URI=http://localhost:5173/oauth/kakao`를 준다.
 
 콘솔에는 redirect URI를 여러 개 등록할 수 있으므로 localhost와 운영 도메인이 함께 있어도 된다.
 다만 **하나의 카카오 앱에 둘을 같이 등록하면 운영 앱 키로 발급된 인가 코드가 localhost로도

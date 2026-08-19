@@ -123,9 +123,7 @@ aligner:
       allowed-origins: http://localhost:5173,https://dev.aligneryoga.com
   auth:
     kakao:
-      # 개발 서버는 프론트 로컬 개발 서버가 붙는 곳이라 기본값이 localhost 다.
-      # 배포된 dev 프론트로 붙이려면 KAKAO_REDIRECT_URI 로 덮는다 (콘솔 등록도 함께).
-      redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:5173/oauth/kakao}
+      redirect-uri: ${KAKAO_REDIRECT_URI:https://dev.aligneryoga.com/oauth/kakao}
 
 springdoc:
   api-docs:

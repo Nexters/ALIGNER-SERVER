@@ -20,11 +20,11 @@ class KakaoRedirectUriTest {
             .withInitializer(ConfigDataApplicationContextInitializer())
 
     @Test
-    fun `dev 프로필의 기본값은 프론트 로컬 개발 서버다`() {
+    fun `dev 프로필의 기본값은 개발 도메인이다`() {
         runner
             .withPropertyValues("spring.profiles.active=dev")
             .run { context ->
-                context.environment.getProperty(REDIRECT_URI_KEY) shouldBe "http://localhost:5173/oauth/kakao"
+                context.environment.getProperty(REDIRECT_URI_KEY) shouldBe "https://dev.aligneryoga.com/oauth/kakao"
             }
     }
 
