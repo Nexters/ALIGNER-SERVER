@@ -220,3 +220,53 @@ databaseChangeLog:
       rollback:
         - sql:
             sql: UPDATE catalog.target_pose SET thumbnail_url = NULL WHERE target_pose_id BETWEEN 1 AND 9
+
+  # 002-exercise.sql 이 감수 대기로 비워둔 exercise 컬럼 3 개를 채운다. 값이 전부 감수 전
+  # 임시값이라 컬럼별로 changeset 을 나눈다 — 감수가 하나만 뒤집을 때 그것만 되돌린다.
+  - changeSet:
+      id: catalog-0021-seed-exercise-category
+      author: aligner
+      comment: 분류가 비어 있던 운동 18 개에 유연성·근력 강화 부여
+      changes:
+        - sqlFile:
+            path: seed/009-exercise-category.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: UPDATE catalog.exercise SET category = NULL WHERE exercise_id NOT IN (101, 113, 106, 109, 110, 112, 116, 117, 120, 128, 129)
+
+  - changeSet:
+      id: catalog-0022-seed-exercise-met-value
+      author: aligner
+      comment: 운동 29 개에 MET 적재 — 이 값이 없으면 칼로리가 전부 null 이다
+      changes:
+        - sqlFile:
+            path: seed/010-exercise-met-value.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: UPDATE catalog.exercise SET met_value = NULL WHERE exercise_id BETWEEN 101 AND 129
+
+  - changeSet:
+      id: catalog-0023-seed-exercise-default-set-count
+      author: aligner
+      comment: 운동 29 개의 기본 세트 수를 1 로 적재
+      changes:
+        - sqlFile:
+            path: seed/011-exercise-default-set-count.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: UPDATE catalog.exercise SET default_set_count = NULL WHERE exercise_id BETWEEN 101 AND 129
+
+  - changeSet:
+      id: catalog-0024-seed-exercise-video-duration
+      author: aligner
+      comment: 기본 수행 시간을 YMove 영상 길이인 30 초로 적재
+      changes:
+        - sqlFile:
+            path: seed/012-exercise-video-duration.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: UPDATE catalog.exercise SET default_duration_seconds = NULL WHERE exercise_id BETWEEN 101 AND 129

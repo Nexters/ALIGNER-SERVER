@@ -91,11 +91,12 @@ class CatalogRepositoryIntegrationTest {
 
         // changeset 을 추가할 때마다 함께 올린다. 0012~0014 는 YMove 연동(썸네일 컬럼,
         // slug·썸네일 seed, 음성 큐 seed), 0015~0016 은 근육맵 seed,
-        // 0017~0018 은 핵심 동작 문구, 0019~0020 은 자세 썸네일이다.
+        // 0017~0018 은 핵심 동작 문구, 0019~0020 은 자세 썸네일,
+        // 0021~0024 는 002-exercise.sql 이 비워뒀던 분류·MET·기본 세트 수·기본 시간 seed 다.
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'catalog-%'")
             .query(Int::class.java)
-            .single() shouldBe 20
+            .single() shouldBe 24
     }
 
     @Test
