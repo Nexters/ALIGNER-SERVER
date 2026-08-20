@@ -164,6 +164,11 @@ class UserFlowE2eIntegrationTest {
                 .body!!
 
         completed["status"].asText() shouldBe "COMPLETED"
+        // 칼로리가 seed 의 met_value 까지 이어진다. 이 값이 없던 동안에는 몸무게를 넣어도
+        // CalorieCalculator.sum 이 null 을 내려 **모든 회원의 칼로리가 비어 있었다**.
+        // 첫 스텝은 고양이-소 자세(MET 2.5)이고 위에서 60kg · 60 초로 수행했다.
+        // 2.5 × 3.5 × 60 ÷ 200 × 1분 = 2.625 → 3.
+        completed["estimatedKcal"].asInt() shouldBe 3
         // 완료 리포트가 한 응답으로 끝난다 — 헤더 자세를 얻으려고 코스를 다시 부르지 않는다.
         val progress = completed["courseProgress"]
         progress.shouldNotBeNull()
@@ -228,6 +233,22 @@ class UserFlowE2eIntegrationTest {
         templates[0]["targetPoseName"].asText().isEmpty() shouldBe false
         templates[0]["stepCount"].asInt() shouldBeGreaterThan 0
         templates[0]["steps"][0]["exercises"][0]["name"].asText().isEmpty() shouldBe false
+
+        // 모든 스텝이 30 초다. 30 초는 YMove 영상 길이이고 세트가 곧 영상 반복 횟수다
+        // (course seed/002-align-to-video-length.sql). 이 값이 흔들리면 재생이 자세 시연과
+        // 어긋난다.
+        val steps = templates[0]["steps"]
+        val exercisesOfSteps =
+            (0 until steps.size()).flatMap { s ->
+                val rows = steps[s]["exercises"]
+                (0 until rows.size()).map { rows[it] }
+            }
+        exercisesOfSteps.map { it["durationSeconds"].asInt() }.toSet() shouldBe setOf(30)
+
+        // 30 초로 쪼개면서 총 시간을 보존했다. 업독 루틴(templates[0])은 운동 시간 720 초다.
+        // 세트를 곱하지 않으면 180 초가 나온다 — CourseQueryService.totalsOf 가 실제로 그랬다.
+        templates[0]["targetPoseName"].asText() shouldBe "업독"
+        exercisesOfSteps.sumOf { it["durationSeconds"].asInt() * it["setCount"].asInt() } shouldBe 720
     }
 
     /** scripts/dev-token.sh 와 같은 헤더·클레임·서명이다. */
