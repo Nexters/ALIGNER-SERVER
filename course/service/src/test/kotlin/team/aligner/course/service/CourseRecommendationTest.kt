@@ -61,7 +61,7 @@ class CourseRecommendationTest :
 
         beforeTest {
             every { targetPoseCatalogPort.findByBodyPartCodeAndLevel("BACK", 1) } returns
-                TargetPoseCatalogEntry(3L, "낙타자세", "pose/camel", null, "BACK", 1)
+                TargetPoseCatalogEntry(3L, "낙타자세", "pose/camel", null, null, "BACK", 1)
             every { courseTemplateRepository.findByTargetPoseId(3L) } returns template()
             every { courseRepository.findByMemberIdAndTargetPoseId(1L, 3L) } returns null
         }

@@ -79,6 +79,7 @@ internal class CourseProgressAdapter(
             stampAcquired = response.stampAcquired,
             estimatedKcal = response.estimatedKcal,
             targetPoseId = response.targetPoseId,
+            targetPoseExerciseId = response.targetPoseExerciseId,
             targetPoseName = response.targetPoseName,
             bodyPartCode = response.bodyPartCode,
             level = response.level,

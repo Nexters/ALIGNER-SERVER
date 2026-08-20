@@ -19,6 +19,15 @@ data class TargetPoseSummaryView(
      * 이쪽은 YMove 자산의 URL 이다. 재생 URL 과 달리 만료가 없어 저장돼 있다.
      */
     val thumbnailUrl: String?,
+    /**
+     * 같은 자세의 catalog.exercise 행 식별자. **targetPoseId 와 다른 값이다** — 핀포즈는
+     * 코스 스텝으로 재생되면서 동시에 코스의 목표라 두 테이블에 각각 행을 갖는다
+     * (ddl/002-create-target-pose.sql). 영상·음성 큐·MET 은 exercise 쪽에만 있으므로
+     * 재생이 필요한 화면은 이 값을 쓴다.
+     *
+     * 두 행은 ymove_slug 로 잇는다. slug 가 없거나 짝이 없으면 null 이다.
+     */
+    val exerciseId: Long?,
     val bodyPartCode: String,
     val level: Int,
 )

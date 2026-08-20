@@ -32,6 +32,11 @@ data class TargetPoseCatalogEntry(
     val imageAssetKey: String?,
     /** 영상 포스터 프레임. imageAssetKey 는 프론트 정적 자산의 키이고 이쪽은 URL 이다. */
     val thumbnailUrl: String?,
+    /**
+     * 같은 자세의 catalog.exercise 식별자. **targetPoseId 와 다른 값이다.** 영상은 exercise
+     * 쪽에만 있어 재생이 필요한 화면이 이 값을 쓴다. 짝이 없으면 null 이다.
+     */
+    val exerciseId: Long?,
     val bodyPartCode: String,
     val level: Int,
 )

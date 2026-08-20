@@ -14,3 +14,6 @@ import java.sql.ResultSet
  * SQL NULL 은 0 으로 오므로 wasNull 로 걸러야 한다.
  */
 internal fun ResultSet.getIntOrNull(column: String): Int? = getInt(column).takeIf { !wasNull() }
+
+/** nullable BIGINT 컬럼. 이유는 [getIntOrNull] 과 같다 — 식별자는 LEFT JOIN 에서 NULL 이 된다. */
+internal fun ResultSet.getLongOrNull(column: String): Long? = getLong(column).takeIf { !wasNull() }

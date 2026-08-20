@@ -40,6 +40,7 @@ internal class SessionRepositoryImpl(
                     courseProgressCourseCompleted = progress?.courseCompleted,
                     courseProgressStampAcquired = progress?.stampAcquired,
                     courseProgressTargetPoseId = progress?.targetPoseId,
+                    courseProgressTargetPoseExerciseId = progress?.targetPoseExerciseId,
                     courseProgressTargetPoseName = progress?.targetPoseName,
                     courseProgressBodyPartCode = progress?.bodyPartCode,
                     courseProgressLevel = progress?.level,
@@ -101,6 +102,8 @@ private fun SessionEntity.toModel(): Session =
                     courseCompleted = requireNotNull(courseProgressCourseCompleted),
                     stampAcquired = requireNotNull(courseProgressStampAcquired),
                     targetPoseId = requireNotNull(courseProgressTargetPoseId),
+                    // 005 로 이미 저장된 세션과 slug 가 안 이어진 자세는 NULL 이다.
+                    targetPoseExerciseId = courseProgressTargetPoseExerciseId,
                     targetPoseName = requireNotNull(courseProgressTargetPoseName),
                     bodyPartCode = courseProgressBodyPartCode,
                     level = courseProgressLevel,

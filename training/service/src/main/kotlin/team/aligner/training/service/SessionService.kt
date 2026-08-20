@@ -166,6 +166,7 @@ internal class SessionServiceImpl(
                 courseCompleted = progress.courseCompleted,
                 stampAcquired = progress.stampAcquired,
                 targetPoseId = progress.targetPoseId,
+                targetPoseExerciseId = progress.targetPoseExerciseId,
                 targetPoseName = progress.targetPoseName,
                 bodyPartCode = progress.bodyPartCode,
                 level = progress.level,

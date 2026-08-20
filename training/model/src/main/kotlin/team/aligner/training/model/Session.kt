@@ -229,6 +229,7 @@ data class SessionCourseProgressSnapshot(
     val courseCompleted: Boolean,
     val stampAcquired: Boolean,
     val targetPoseId: Long,
+    val targetPoseExerciseId: Long?,
     val targetPoseName: String,
     val bodyPartCode: String?,
     val level: Int?,

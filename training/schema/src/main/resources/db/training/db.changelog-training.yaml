@@ -57,3 +57,12 @@ databaseChangeLog:
         - sqlFile:
             path: ddl/005-add-session-course-progress-snapshot.sql
             relativeToChangelogFile: true
+
+  - changeSet:
+      id: training-0007-add-session-target-pose-exercise-id
+      author: aligner
+      comment: 완료 리포트가 핀포즈 영상을 받을 수 있게 exercise 식별자 스냅샷 추가
+      changes:
+        - sqlFile:
+            path: ddl/006-add-session-target-pose-exercise-id.sql
+            relativeToChangelogFile: true

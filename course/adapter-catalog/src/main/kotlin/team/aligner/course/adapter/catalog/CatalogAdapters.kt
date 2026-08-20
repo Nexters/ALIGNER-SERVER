@@ -35,6 +35,7 @@ internal class TargetPoseCatalogAdapter(
             name = response.name,
             imageAssetKey = response.imageAssetKey,
             thumbnailUrl = response.thumbnailUrl,
+            exerciseId = response.exerciseId,
             bodyPartCode = response.bodyPartCode,
             level = response.level,
         )

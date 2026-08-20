@@ -35,6 +35,7 @@ internal class CourseProgressContractImpl(
             stampAcquired = result.stampAcquired,
             estimatedKcal = result.estimatedKcal,
             targetPoseId = result.targetPoseId,
+            targetPoseExerciseId = result.targetPoseExerciseId,
             targetPoseName = result.targetPoseName,
             bodyPartCode = result.bodyPartCode,
             level = result.level,

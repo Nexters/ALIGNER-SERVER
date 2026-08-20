@@ -65,7 +65,7 @@ class CatalogContractImplTest :
         describe("TargetPoseContractImpl.findById") {
             it("모든 필드를 빠짐없이 옮긴다") {
                 every { targetPoseQueryService.findDetail(TargetPoseIdentity.of(1L)) } returns
-                    TargetPoseDetailView(1L, "낙타자세", "camel-pose", null, "BACK", 2, emptyList())
+                    TargetPoseDetailView(1L, "낙타자세", "camel-pose", null, 110L, "BACK", 2, emptyList())
 
                 val response = targetPoseContract.findById(1L)!!
 

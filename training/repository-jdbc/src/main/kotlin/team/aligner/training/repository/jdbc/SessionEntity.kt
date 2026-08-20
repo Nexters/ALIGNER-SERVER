@@ -31,6 +31,7 @@ internal data class SessionEntity(
     val courseProgressCourseCompleted: Boolean?,
     val courseProgressStampAcquired: Boolean?,
     val courseProgressTargetPoseId: Long?,
+    val courseProgressTargetPoseExerciseId: Long?,
     val courseProgressTargetPoseName: String?,
     val courseProgressBodyPartCode: String?,
     val courseProgressLevel: Int?,

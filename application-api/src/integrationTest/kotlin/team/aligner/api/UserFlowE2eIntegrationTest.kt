@@ -174,6 +174,13 @@ class UserFlowE2eIntegrationTest {
         progress.shouldNotBeNull()
         progress["completedStepCount"].asInt() shouldBe 1
         progress["targetPoseName"].asText() shouldBe "업독"
+        // 핀포즈 직후 체감 화면이 이 값으로 영상을 받는다. targetPoseId(1)와 **다른 값**이어야
+        // 한다 — 업독은 target_pose 1 이면서 exercise 106 이다. 둘을 헷갈리면 404 가 된다.
+        progress["targetPoseId"].asLong() shouldBe 1L
+        val targetPoseExerciseId = progress["targetPoseExerciseId"].asLong()
+        targetPoseExerciseId shouldBe 106L
+        // 그 식별자로 실제 운동이 조회돼야 한다. 값만 맞고 조회가 안 되면 화면은 그대로 깨진다.
+        get("/catalog/exercises/$targetPoseExerciseId", token).body!!["name"].asText() shouldBe "업독"
 
         // ── 10. 도전 현황 — 핀포즈 전체가 펼쳐진다 ─────────────────────────────
         val challenge = get("/courses/progress/target-poses", token).body!!
