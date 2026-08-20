@@ -136,8 +136,10 @@ databaseChangeLog:
             relativeToChangelogFile: true
       rollback:
         # 정본 값으로 복원한다. 30 초로 쪼갠 뒤에는 원래 표기를 역산할 수 없다 —
-        # 보트자세는 105 초를 120 초로 반올림해 총 시간까지 달라졌다. 회원 코스
-        # (course_step_exercise)는 복원하지 않는다. 어느 행이 어떤 값이었는지 남지 않았다.
+        # 보트자세는 105 초를 120 초로 반올림해 총 시간까지 달라졌다.
+        #
+        # 템플릿을 먼저 되돌리고, 마지막 문이 그 값을 회원 코스로 다시 복사한다. 템플릿만
+        # 되돌리면 회원 코스가 30 초 단위로 남아 절반만 마이그레이션된 상태가 된다.
         - sql:
             sql: UPDATE course.template_step_exercise SET duration_seconds = 90, set_count = NULL WHERE template_step_id IN (7, 14, 20, 28, 35, 49, 56)
         - sql:
@@ -152,3 +154,18 @@ databaseChangeLog:
             sql: UPDATE course.template_step_exercise SET duration_seconds = 35, set_count = 3 WHERE template_step_id = 34
         - sql:
             sql: UPDATE course.template_step_exercise SET duration_seconds = 30, set_count = 4 WHERE template_step_id IN (21, 42, 63)
+        # 회원 코스는 생성 시점에 템플릿을 그대로 복사한 것이고 이후 편성을 바꾸는 기능이
+        # 없다 (ddl/005-create-course-step.sql). course_step 에 template_step_id 는 없지만
+        # course.template_id 와 step_order 로 되짚을 수 있어 원래 값이 복원된다.
+        - sql:
+            sql: |
+              UPDATE course.course_step_exercise cse
+                 SET duration_seconds = tse.duration_seconds,
+                     set_count = tse.set_count
+                FROM course.course_step cs
+                     JOIN course.course c ON c.course_id = cs.course_id
+                     JOIN course.template_step ts ON ts.template_id = c.template_id
+                      AND ts.step_order = cs.step_order
+                     JOIN course.template_step_exercise tse ON tse.template_step_id = ts.template_step_id
+               WHERE cs.course_step_id = cse.course_step_id
+                 AND tse.display_order = cse.display_order

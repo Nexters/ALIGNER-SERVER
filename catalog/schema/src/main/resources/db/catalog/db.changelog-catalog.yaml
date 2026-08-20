@@ -233,7 +233,9 @@ databaseChangeLog:
             relativeToChangelogFile: true
       rollback:
         - sql:
-            sql: UPDATE catalog.exercise SET category = NULL WHERE exercise_id NOT IN (101, 113, 106, 109, 110, 112, 116, 117, 120, 128, 129)
+            # 이 changeset 이 채운 18 개만 지운다. NOT IN 으로 "원래 값이 있던 11 개를 제외한
+            # 전부" 를 쓰면 훗날 추가된 운동의 분류까지 함께 날아간다.
+            sql: UPDATE catalog.exercise SET category = NULL WHERE exercise_id IN (102, 103, 104, 105, 107, 108, 111, 114, 115, 118, 119, 121, 122, 123, 124, 125, 126, 127)
 
   - changeSet:
       id: catalog-0022-seed-exercise-met-value
