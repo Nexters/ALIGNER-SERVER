@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.4.2...v0.5.0) (2026-08-21)
+
+
+### ✨ 신규 기능 (Features)
+
+* 세션 완료 응답에 핀포즈 exerciseId 추가 ([#94](https://github.com/Nexters/ALIGNER-SERVER/issues/94)) ([fc71da8](https://github.com/Nexters/ALIGNER-SERVER/commit/fc71da8ac2a266b51848d5cec0e6bd7ce249b686))
+
+
+### 🐛 버그 수정 (Bug Fixes)
+
+* 운동 분류·MET·기본값 seed 와 영상 길이 기준 스텝 시간 ([#92](https://github.com/Nexters/ALIGNER-SERVER/issues/92)) ([a5723c2](https://github.com/Nexters/ALIGNER-SERVER/commit/a5723c2f5f54b72502fd4730f120b3a0fefb8820))
+
+
+### 🔧 빌드 및 설정 (Maintenance)
+
+* develop -&gt; main 반영 ([321a302](https://github.com/Nexters/ALIGNER-SERVER/commit/321a302aa04136c6a0a4442b9a4659e9c17e55f5))
+
 ## [0.4.2](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.4.1...v0.4.2) (2026-08-19)
 
 
