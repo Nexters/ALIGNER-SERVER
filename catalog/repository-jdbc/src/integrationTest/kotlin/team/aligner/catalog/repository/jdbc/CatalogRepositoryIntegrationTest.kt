@@ -91,11 +91,12 @@ class CatalogRepositoryIntegrationTest {
 
         // changeset 을 추가할 때마다 함께 올린다. 0012~0014 는 YMove 연동(썸네일 컬럼,
         // slug·썸네일 seed, 음성 큐 seed), 0015~0016 은 근육맵 seed,
-        // 0017~0018 은 핵심 동작 문구, 0019~0020 은 자세 썸네일이다.
+        // 0017~0018 은 핵심 동작 문구, 0019~0020 은 자세 썸네일,
+        // 0021~0024 는 002-exercise.sql 이 비워뒀던 분류·MET·기본 세트 수·기본 시간 seed 다.
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'catalog-%'")
             .query(Int::class.java)
-            .single() shouldBe 20
+            .single() shouldBe 24
     }
 
     @Test
@@ -265,6 +266,25 @@ class CatalogRepositoryIntegrationTest {
                 .single()
 
         exerciseSlug shouldBe poseSlug
+    }
+
+    /**
+     * 핀포즈 직후 체감 화면이 영상을 재생하려면 `exerciseId` 가 필요하다. `targetPoseId` 로는
+     * 못 받는다 — 같은 자세가 두 테이블에 각각 행을 갖고 영상은 `exercise` 쪽에만 있다.
+     *
+     * 조인이 slug 로 이어지므로 **짝이 없으면 null 이어야 하고 행이 사라지면 안 된다.**
+     * INNER JOIN 으로 잘못 쓰면 자세 그리드에서 자세가 통째로 빠진다.
+     */
+    @Test
+    fun `자세 조회가 같은 slug 의 운동 식별자를 함께 싣는다`() {
+        // 픽스처의 낙타자세(1)는 exercise 1 과 slug 가 같고, 업독(2)·브릿지(3)는 짝이 없다.
+        targetPoseQueryRepository.findDetail(TargetPoseIdentity.of(1L))!!.exerciseId shouldBe 1L
+        targetPoseQueryRepository.findDetail(TargetPoseIdentity.of(2L))!!.exerciseId.shouldBeNull()
+
+        // 그리드 순서는 (부위, 레벨, 식별자) 라 업독(2) → 낙타자세(1) → 브릿지(3) 다.
+        val grid = targetPoseQueryRepository.findAll(null)
+        grid.map { it.name } shouldBe listOf("업독", "낙타자세", "브릿지")
+        grid.map { it.exerciseId } shouldBe listOf(null, 1L, null)
     }
 
     @Test

@@ -85,7 +85,7 @@ class TargetPoseStampTest :
             clearMocks(courseRepository, stampRepository, causeLookupPort, targetPoseCatalogPort)
             every { courseRepository.save(any()) } answers { firstArg() }
             every { targetPoseCatalogPort.findAllByIds(listOf(3L)) } returns
-                listOf(TargetPoseCatalogEntry(3L, "낙타자세", "pose/camel", null, "PELVIS", 3))
+                listOf(TargetPoseCatalogEntry(3L, "낙타자세", "pose/camel", null, null, "PELVIS", 3))
         }
 
         describe("completeStep 의 도장") {
@@ -165,7 +165,7 @@ class TargetPoseStampTest :
                 every { causeLookupPort.findLatestCauses(1L) } returns
                     listOf(CauseLookup(causeCode = "PELVIC_TILT", bodyPartCode = "PELVIS", rank = 1))
                 every { targetPoseCatalogPort.findByBodyPartCodeAndLevel("PELVIS", 3) } returns
-                    TargetPoseCatalogEntry(3L, "낙타자세", "pose/camel", null, "PELVIS", 3)
+                    TargetPoseCatalogEntry(3L, "낙타자세", "pose/camel", null, null, "PELVIS", 3)
             }
 
             it("완주한 코스를 다시 누르면 스텝이 초기화되고 회차가 오른다") {

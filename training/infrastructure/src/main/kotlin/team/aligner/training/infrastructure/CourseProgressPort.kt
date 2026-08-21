@@ -44,6 +44,8 @@ data class CourseProgressLookup(
     /** 이번 세션의 소모 칼로리. course 가 계산한다. 계산이 성립하지 않으면 null 이다. */
     val estimatedKcal: Int?,
     val targetPoseId: Long,
+    /** 핀포즈의 catalog.exercise 식별자. 영상 조회에 쓴다. targetPoseId 와 다른 값이다. */
+    val targetPoseExerciseId: Long?,
     /** catalog 에 자세가 없으면 빈 문자열이다. */
     val targetPoseName: String,
     /** 리포트 헤더의 `골반 난이도 상`. catalog 에 자세가 없으면 null 이다. */

@@ -29,6 +29,7 @@ class TargetPoseQueryServiceTest :
                         name = "낙타자세",
                         imageAssetKey = "camel-pose",
                         null,
+                        exerciseId = 110L,
                         bodyPartCode = "BACK",
                         level = 2,
                         muscles = emptyList(),
@@ -58,8 +59,8 @@ class TargetPoseQueryServiceTest :
             it("부위를 주면 그 부위의 자세를 돌려준다") {
                 every { targetPoseQueryRepository.findAll("BACK") } returns
                     listOf(
-                        TargetPoseSummaryView(1L, "업독", "upward-facing-dog-pose", null, "BACK", 1),
-                        TargetPoseSummaryView(2L, "낙타자세", "camel-pose", null, "BACK", 2),
+                        TargetPoseSummaryView(1L, "업독", "upward-facing-dog-pose", null, null, "BACK", 1),
+                        TargetPoseSummaryView(2L, "낙타자세", "camel-pose", null, null, "BACK", 2),
                     )
 
                 targetPoseQueryService.getAll("BACK").map { it.level } shouldBe listOf(1, 2)
@@ -72,8 +73,8 @@ class TargetPoseQueryServiceTest :
             it("부위를 생략하면 null 을 그대로 넘겨 전체를 돌려준다") {
                 every { targetPoseQueryRepository.findAll(null) } returns
                     listOf(
-                        TargetPoseSummaryView(1L, "낙타자세", "camel-pose", null, "BACK", 2),
-                        TargetPoseSummaryView(2L, "보트자세", "boat-pose", null, "ABDOMEN", 1),
+                        TargetPoseSummaryView(1L, "낙타자세", "camel-pose", null, null, "BACK", 2),
+                        TargetPoseSummaryView(2L, "보트자세", "boat-pose", null, null, "ABDOMEN", 1),
                     )
 
                 targetPoseQueryService.getAll(null).map { it.bodyPartCode } shouldBe listOf("BACK", "ABDOMEN")

@@ -196,6 +196,17 @@ data class CourseProgressResponse(
     val stampAcquired: Boolean,
     @field:Schema(description = "이 코스의 목표 자세 식별자", example = "3")
     val targetPoseId: Long,
+    @field:Schema(
+        description =
+            "목표 자세의 **운동 식별자**. `targetPoseId` 와 다른 값이다 — 같은 자세가 " +
+                "`catalog.target_pose` 와 `catalog.exercise` 양쪽에 행을 갖고, 영상·음성 큐는 " +
+                "운동 쪽에만 있다. 핀포즈 영상을 재생하려면 이 값으로 " +
+                "`GET /catalog/exercises/{exerciseId}` 를 부른다. " +
+                "연결이 없으면 null 이고, 그때 화면은 영상 없이 그린다.",
+        example = "110",
+        nullable = true,
+    )
+    val targetPoseExerciseId: Long?,
     @field:Schema(description = "목표 자세 이름. 리포트 헤더와 파이어로그 카드에 쓴다", example = "낙타자세")
     val targetPoseName: String,
     @field:Schema(description = "목표 자세의 부위. catalog 에 자세가 없으면 null 이다", nullable = true)
@@ -225,6 +236,7 @@ data class CourseProgressResponse(
                 courseCompleted = view.courseCompleted,
                 stampAcquired = view.stampAcquired,
                 targetPoseId = view.targetPoseId,
+                targetPoseExerciseId = view.targetPoseExerciseId,
                 targetPoseName = view.targetPoseName,
                 bodyPartCode = view.bodyPartCode?.let(BodyPartCode::from),
                 level = view.level,

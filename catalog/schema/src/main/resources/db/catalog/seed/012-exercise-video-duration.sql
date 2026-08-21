@@ -1,0 +1,22 @@
+-- 002-exercise.sql 이 비워둔 default_duration_seconds 를 29 개 전부 30 으로 채운다.
+-- 30 초는 YMove 영상 길이다.
+--
+-- 2026-08-19 에 29 개 slug 를 전부 실측했고 **예외 없이 30.0 초**였다. 요가 영상이 자세를
+-- 한 번 보여주는 시연 루프이기 때문이다.
+--
+-- **`videoDurationSecs` 를 쓰지 못했다.** 응답에 필드는 있지만 29 개 모두 값이 null 이다.
+-- 대신 `videoHlsUrl` 이 가리키는 HLS 플레이리스트의 `#EXTINF` 를 합쳐 쟀다.
+--
+-- docs/domains.md §4-3-1 표는 `videoDurationSecs` 를 YMove 소유로 두고 "중복 저장하지
+-- 않는다" 고 적었다. **그 결정을 뒤집는다.** 근거는 둘이다 — API 가 값을 주지 않아 애초에
+-- 읽을 수 없고, 만료되는 `videoUrl` 과 달리 영상 길이는 안정값이라 저장이 안전하다.
+-- 무엇보다 이 값이 코스 구성의 입력이 되는데(course 가 스텝 시간을 이걸로 잡는다) course 는
+-- YMove 에 닿지 못하고, 런타임 조회로 두면 YMove 장애 때 CalorieCalculator.sum 이 코스
+-- 시간·칼로리를 통째로 null 로 만든다.
+--
+-- 이 컬럼은 course 의 override 가 없을 때 쓰는 폴백이다. 지금은 course seed/002 가 모든
+-- 스텝에 30 을 넣어 폴백이 실제로 쓰이는 자리는 없지만, 값이 어긋나면 안 되는 것은 같다.
+--
+-- 영상이 교체되면 길이가 달라진다. 그때 UPDATE changeset 을 새로 쌓는다.
+
+UPDATE catalog.exercise SET default_duration_seconds = 30 WHERE exercise_id BETWEEN 101 AND 129;

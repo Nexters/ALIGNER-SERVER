@@ -67,10 +67,10 @@ class TomorrowCoursePreviewTest :
         /** 등 3 개, 복부 1 개. */
         fun poses() =
             listOf(
-                TargetPoseCatalogEntry(1L, "낙타자세", "pose/camel", null, "BACK", 1),
-                TargetPoseCatalogEntry(2L, "휠", "pose/wheel", null, "BACK", 2),
-                TargetPoseCatalogEntry(3L, "비둘기자세", "pose/pigeon", null, "BACK", 3),
-                TargetPoseCatalogEntry(4L, "보트자세", "pose/boat", null, "ABDOMEN", 1),
+                TargetPoseCatalogEntry(1L, "낙타자세", "pose/camel", null, null, "BACK", 1),
+                TargetPoseCatalogEntry(2L, "휠", "pose/wheel", null, null, "BACK", 2),
+                TargetPoseCatalogEntry(3L, "비둘기자세", "pose/pigeon", null, null, "BACK", 3),
+                TargetPoseCatalogEntry(4L, "보트자세", "pose/boat", null, null, "ABDOMEN", 1),
             )
 
         fun exercise(
@@ -158,8 +158,9 @@ class TomorrowCoursePreviewTest :
                 preview.exerciseCount shouldBe 2
                 // 세트는 override 1 + catalog 기본값 2 다.
                 preview.totalSetCount shouldBe 3
-                // 시간은 override 120 + catalog 기본값 90 이다.
-                preview.estimatedDurationSeconds shouldBe 210
+                // 시간은 **세트를 곱한 총합**이다 — override 120×1 + catalog 기본값 90×2.
+                // 곱하기 전에는 210 이었고, 그만큼 코스 시간이 실제보다 짧게 나가고 있었다.
+                preview.estimatedDurationSeconds shouldBe 300
             }
 
             it("같은 부위에서만 고르고 4 번 완수한 자세는 빼며 방금 완주한 자세는 남긴다") {

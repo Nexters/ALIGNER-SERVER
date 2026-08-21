@@ -39,9 +39,9 @@ class TargetPoseProgressTest :
         /** 등 2 개, 복부 1 개. catalog 가 (부위, 레벨) 순으로 정렬해 준 상태다. */
         fun poses() =
             listOf(
-                TargetPoseCatalogEntry(1L, "낙타자세", "pose/camel", null, "BACK", 1),
-                TargetPoseCatalogEntry(2L, "휠", "pose/wheel", null, "BACK", 2),
-                TargetPoseCatalogEntry(3L, "보트자세", "pose/boat", null, "ABDOMEN", 1),
+                TargetPoseCatalogEntry(1L, "낙타자세", "pose/camel", null, null, "BACK", 1),
+                TargetPoseCatalogEntry(2L, "휠", "pose/wheel", null, null, "BACK", 2),
+                TargetPoseCatalogEntry(3L, "보트자세", "pose/boat", null, null, "ABDOMEN", 1),
             )
 
         fun skeleton(

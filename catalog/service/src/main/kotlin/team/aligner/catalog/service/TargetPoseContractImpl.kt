@@ -24,6 +24,7 @@ internal class TargetPoseContractImpl(
                     name = it.name,
                     imageAssetKey = it.imageAssetKey,
                     thumbnailUrl = it.thumbnailUrl,
+                    exerciseId = it.exerciseId,
                     bodyPartCode = it.bodyPartCode,
                     level = it.level,
                 )
@@ -41,6 +42,7 @@ internal class TargetPoseContractImpl(
                     name = it.name,
                     imageAssetKey = it.imageAssetKey,
                     thumbnailUrl = it.thumbnailUrl,
+                    exerciseId = it.exerciseId,
                     bodyPartCode = it.bodyPartCode,
                     level = it.level,
                 )
@@ -67,6 +69,7 @@ internal class TargetPoseContractImpl(
                     name = it.name,
                     imageAssetKey = it.imageAssetKey,
                     thumbnailUrl = it.thumbnailUrl,
+                    exerciseId = it.exerciseId,
                     bodyPartCode = it.bodyPartCode,
                     level = it.level,
                 )
