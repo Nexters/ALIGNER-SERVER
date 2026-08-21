@@ -63,7 +63,7 @@ class TrainingRepositoryIntegrationTest {
         jdbcClient
             .sql("SELECT count(*) FROM public.databasechangelog WHERE id LIKE 'training-%'")
             .query(Int::class.java)
-            .single() shouldBe 6
+            .single() shouldBe 7
     }
 
     @Test
@@ -128,6 +128,7 @@ class TrainingRepositoryIntegrationTest {
                 courseCompleted = false,
                 stampAcquired = true,
                 targetPoseId = 3L,
+                targetPoseExerciseId = 110L,
                 targetPoseName = "낙타자세",
                 bodyPartCode = "PELVIS",
                 level = 3,
@@ -147,6 +148,9 @@ class TrainingRepositoryIntegrationTest {
         found.estimatedKcal shouldBe 63
         val foundProgress = found.courseProgress.shouldNotBeNull()
         foundProgress.completedStepCount shouldBe 1
+        // 새 스냅샷 컬럼이 저장·조회 양쪽으로 왕복하는지 본다. 매핑을 한쪽만 빠뜨리면
+        // 완료 직후 응답에는 실리고 재조회에서 사라진다.
+        foundProgress.targetPoseExerciseId shouldBe 110L
         foundProgress.totalStepCount shouldBe 6
         foundProgress.courseCompleted shouldBe false
         foundProgress.stampAcquired shouldBe true

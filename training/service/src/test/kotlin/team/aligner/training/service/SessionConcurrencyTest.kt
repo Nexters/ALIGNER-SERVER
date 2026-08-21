@@ -106,6 +106,7 @@ class SessionConcurrencyTest :
                     stampAcquired = true,
                     estimatedKcal = 63,
                     targetPoseId = 3L,
+                    targetPoseExerciseId = 110L,
                     targetPoseName = "낙타자세",
                     bodyPartCode = "PELVIS",
                     level = 3,

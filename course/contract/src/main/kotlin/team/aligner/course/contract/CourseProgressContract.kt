@@ -76,6 +76,14 @@ data class CourseProgressResponse(
     val estimatedKcal: Int?,
     /** 이 코스의 목표 자세. 리포트 헤더가 그린다. */
     val targetPoseId: Long,
+    /**
+     * 핀포즈의 catalog.exercise 식별자. **targetPoseId 로는 영상을 못 받는다** — 같은 자세가
+     * 두 테이블에 각각 행을 갖고 영상·음성 큐는 exercise 쪽에만 있다. 핀포즈 직후 체감
+     * 화면이 이 값으로 GET /catalog/exercises/{id} 를 부른다.
+     *
+     * slug 가 이어지지 않으면 null 이다. 화면은 그때 영상 없이 그린다.
+     */
+    val targetPoseExerciseId: Long?,
     /** catalog 에 자세가 없으면 빈 문자열이다. 리포트를 실패시키지 않는다. */
     val targetPoseName: String,
     /** 리포트 헤더의 `골반 난이도 상`. catalog 에 자세가 없으면 null 이다. */

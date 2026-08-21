@@ -62,6 +62,7 @@ data class CourseProgressView(
     /** 이 세션의 완료로 이번 회차의 도장을 획득했는지. */
     val stampAcquired: Boolean,
     val targetPoseId: Long,
+    val targetPoseExerciseId: Long?,
     val targetPoseName: String,
     val bodyPartCode: String?,
     val level: Int?,
@@ -79,6 +80,7 @@ fun SessionCourseProgressSnapshot.toView(): CourseProgressView =
         courseCompleted = courseCompleted,
         stampAcquired = stampAcquired,
         targetPoseId = targetPoseId,
+        targetPoseExerciseId = targetPoseExerciseId,
         targetPoseName = targetPoseName,
         bodyPartCode = bodyPartCode,
         level = level,

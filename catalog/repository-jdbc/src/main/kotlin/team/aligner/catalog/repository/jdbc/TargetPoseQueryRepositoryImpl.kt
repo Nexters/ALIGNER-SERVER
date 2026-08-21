@@ -21,9 +21,15 @@ internal class TargetPoseQueryRepositoryImpl(
             jdbcClient
                 .sql(
                     """
-                    SELECT target_pose_id, name, image_asset_key, thumbnail_url, body_part_code, level
-                    FROM catalog.target_pose
-                    WHERE target_pose_id = :targetPoseId
+                    SELECT tp.target_pose_id, tp.name, tp.image_asset_key, tp.thumbnail_url,
+                           tp.body_part_code, tp.level,
+                           -- 같은 자세의 exercise 행. 두 테이블이 ymove_slug 를 공유한다
+                           -- (seed/008 이 썸네일에 쓴 대응과 같다). LEFT JOIN 인 것은 slug 가
+                           -- 없거나 짝이 아직 없는 자세가 정상 경로이기 때문이다.
+                           e.exercise_id
+                    FROM catalog.target_pose tp
+                    LEFT JOIN catalog.exercise e ON e.ymove_slug = tp.ymove_slug
+                    WHERE tp.target_pose_id = :targetPoseId
                     """.trimIndent(),
                 ).param("targetPoseId", targetPoseId)
                 .query { rs, _ ->
@@ -32,6 +38,7 @@ internal class TargetPoseQueryRepositoryImpl(
                         name = rs.getString("name"),
                         imageAssetKey = rs.getString("image_asset_key"),
                         thumbnailUrl = rs.getString("thumbnail_url"),
+                        exerciseId = rs.getLongOrNull("exercise_id"),
                         bodyPartCode = rs.getString("body_part_code"),
                         level = rs.getInt("level"),
                         muscles = emptyList(),
@@ -56,10 +63,16 @@ internal class TargetPoseQueryRepositoryImpl(
         jdbcClient
             .sql(
                 """
-                SELECT target_pose_id, name, image_asset_key, thumbnail_url, body_part_code, level
-                FROM catalog.target_pose
-                WHERE (CAST(:bodyPartCode AS VARCHAR) IS NULL OR body_part_code = CAST(:bodyPartCode AS VARCHAR))
-                ORDER BY body_part_code, level, target_pose_id
+                SELECT tp.target_pose_id, tp.name, tp.image_asset_key, tp.thumbnail_url,
+                       tp.body_part_code, tp.level,
+                       -- 같은 자세의 exercise 행. 두 테이블이 ymove_slug 를 공유한다
+                       -- (seed/008 이 썸네일에 쓴 대응과 같다). LEFT JOIN 인 것은 slug 가
+                       -- 없거나 짝이 아직 없는 자세가 정상 경로이기 때문이다.
+                       e.exercise_id
+                FROM catalog.target_pose tp
+                LEFT JOIN catalog.exercise e ON e.ymove_slug = tp.ymove_slug
+                WHERE (CAST(:bodyPartCode AS VARCHAR) IS NULL OR tp.body_part_code = CAST(:bodyPartCode AS VARCHAR))
+                ORDER BY tp.body_part_code, tp.level, tp.target_pose_id
                 """.trimIndent(),
             ).param("bodyPartCode", bodyPartCode)
             .query { rs, _ ->
@@ -68,6 +81,7 @@ internal class TargetPoseQueryRepositoryImpl(
                     name = rs.getString("name"),
                     imageAssetKey = rs.getString("image_asset_key"),
                     thumbnailUrl = rs.getString("thumbnail_url"),
+                    exerciseId = rs.getLongOrNull("exercise_id"),
                     bodyPartCode = rs.getString("body_part_code"),
                     level = rs.getInt("level"),
                 )

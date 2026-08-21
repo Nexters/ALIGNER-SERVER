@@ -204,6 +204,7 @@ internal class CourseCommandServiceImpl(
             targetPoseId = completed.targetPoseId,
             // catalog 에 자세가 없어도 리포트를 실패시키지 않는다. 도메인 간 FK 가 없어
             // course seed 가 catalog 보다 앞서갈 수 있다 (CourseQueryServiceImpl 과 같은 판단).
+            targetPoseExerciseId = targetPose?.exerciseId,
             targetPoseName = targetPose?.name ?: "",
             bodyPartCode = targetPose?.bodyPartCode,
             level = targetPose?.level,
@@ -345,6 +346,7 @@ data class CourseProgressResult(
     /** 이번 세션의 소모 칼로리. 계산이 성립하지 않으면 null 이다. */
     val estimatedKcal: Int?,
     val targetPoseId: Long,
+    val targetPoseExerciseId: Long?,
     /** catalog 에 자세가 없으면 빈 문자열이다. 리포트를 실패시키지 않는다. */
     val targetPoseName: String,
     /** 리포트 헤더의 `골반 난이도 상`. catalog 에 자세가 없으면 null 이다. */
