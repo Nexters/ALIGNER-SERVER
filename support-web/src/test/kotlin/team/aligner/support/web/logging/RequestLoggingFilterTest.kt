@@ -1,13 +1,17 @@
 package team.aligner.support.web.logging
 
+import io.kotest.matchers.string.shouldContain
 import jakarta.servlet.Filter
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.slf4j.MDC
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.http.HttpHeaders
 import org.springframework.test.web.servlet.MockMvc
@@ -25,6 +29,7 @@ import team.aligner.support.web.bootstrap.SupportWebTestApplication
 
 private const val ALLOWED_ORIGIN = "http://localhost:5173"
 
+@ExtendWith(OutputCaptureExtension::class)
 @SpringBootTest(
     classes = [SupportWebTestApplication::class],
     properties = [
@@ -80,6 +85,25 @@ class RequestLoggingFilterTest {
             .andExpect(jsonPath("$.memberId").value("99"))
 
         // 후속 익명 요청 시 401 반환 및 이전 memberId 누수 없음 검증
+        mockMvc
+            .perform(get(PROTECTED_PATH))
+            .andExpect(status().isUnauthorized)
+
+        assertNull(MDC.get("memberId"))
+    }
+
+    @Test
+    fun `인증된 actuator 요청 후 동일 스레드 익명 요청 시 memberId MDC 누수가 발생하지 않는다`() {
+        val token = jwtTokenProvider.issue(memberId = 77L).accessToken
+
+        // 1. 토큰을 싣고 /actuator/health 요청 (로그 suppress 여부와 무관하게 MDC cleanup 이 완주되어야 함)
+        mockMvc
+            .perform(
+                get("/actuator/health")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer $token"),
+            ).andExpect(status().isNotFound)
+
+        // 2. 후속 익명 요청 시 이전 memberId 가 스레드 풀에 잔류하지 않음을 검증
         mockMvc
             .perform(get(PROTECTED_PATH))
             .andExpect(status().isUnauthorized)
@@ -145,7 +169,7 @@ class RequestLoggingFilterTest {
     }
 
     @Test
-    fun `경로 변수가 포함된 API 호출 시 route 패턴 매칭과 함께 응답 헤더가 정상 전파된다`() {
+    fun `경로 변수가 포함된 API 호출 시 route 패턴이 실제 Access Log 에 정확히 기록된다`(output: CapturedOutput) {
         val token = jwtTokenProvider.issue(memberId = 1L).accessToken
         MDC.put(RequestLoggingFilter.TRACE_ID, "trace-item-456")
 
@@ -157,6 +181,23 @@ class RequestLoggingFilterTest {
             .andExpect(jsonPath("$.id").value("456"))
             .andExpect(header().string(RequestLoggingFilter.X_REQUEST_ID, "trace-item-456"))
 
+        output.all.shouldContain("HTTP GET /test/items/{id} status=200")
+        assertNull(MDC.get("memberId"))
+    }
+
+    @Test
+    fun `서버 내부 예외(5xx) 발생 시에도 X-Request-ID 가 응답에 남고 MDC 가 안전하게 복원된다`(output: CapturedOutput) {
+        val token = jwtTokenProvider.issue(memberId = 1L).accessToken
+        MDC.put(RequestLoggingFilter.TRACE_ID, "trace-error-500")
+
+        mockMvc
+            .perform(
+                get("/test/error-500")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer $token"),
+            ).andExpect(status().isInternalServerError)
+            .andExpect(header().string(RequestLoggingFilter.X_REQUEST_ID, "trace-error-500"))
+
+        output.all.shouldContain("HTTP GET /test/error-500 status=500")
         assertNull(MDC.get("memberId"))
     }
 }

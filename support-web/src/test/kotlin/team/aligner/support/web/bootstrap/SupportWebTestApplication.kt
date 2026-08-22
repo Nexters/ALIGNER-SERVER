@@ -50,6 +50,9 @@ class ProtectedTestController {
     fun parameterizedEndpoint(
         @org.springframework.web.bind.annotation.PathVariable id: Long,
     ): Map<String, String> = mapOf("id" to id.toString())
+
+    @GetMapping("/test/error-500")
+    fun errorEndpoint(): Map<String, String> = throw IllegalStateException("Forced Test 500 Error")
 }
 
 const val PROTECTED_PATH = "/test/protected"
