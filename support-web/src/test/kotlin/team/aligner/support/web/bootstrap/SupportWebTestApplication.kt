@@ -1,5 +1,6 @@
 package team.aligner.support.web.bootstrap
 
+import org.slf4j.MDC
 import org.springframework.boot.SpringBootConfiguration
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.context.annotation.Bean
@@ -41,6 +42,18 @@ class SupportWebTestApplication {
 class ProtectedTestController {
     @GetMapping(PROTECTED_PATH)
     fun protectedEndpoint(): Map<String, String> = mapOf("ok" to "true")
+
+    @GetMapping(MDC_INSPECT_PATH)
+    fun inspectMdc(): Map<String, String> = MDC.getCopyOfContextMap() ?: emptyMap()
+
+    @GetMapping("/test/items/{id}")
+    fun parameterizedEndpoint(
+        @org.springframework.web.bind.annotation.PathVariable id: Long,
+    ): Map<String, String> = mapOf("id" to id.toString())
+
+    @GetMapping("/test/error-500")
+    fun errorEndpoint(): Map<String, String> = throw IllegalStateException("Forced Test 500 Error")
 }
 
 const val PROTECTED_PATH = "/test/protected"
+const val MDC_INSPECT_PATH = "/test/mdc"
