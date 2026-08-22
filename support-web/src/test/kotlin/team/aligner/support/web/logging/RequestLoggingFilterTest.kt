@@ -143,4 +143,20 @@ class RequestLoggingFilterTest {
             ).andExpect(status().isOk)
             .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "X-Request-ID"))
     }
+
+    @Test
+    fun `경로 변수가 포함된 API 호출 시 route 패턴 매칭과 함께 응답 헤더가 정상 전파된다`() {
+        val token = jwtTokenProvider.issue(memberId = 1L).accessToken
+        MDC.put(RequestLoggingFilter.TRACE_ID, "trace-item-456")
+
+        mockMvc
+            .perform(
+                get("/test/items/456")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer $token"),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value("456"))
+            .andExpect(header().string(RequestLoggingFilter.X_REQUEST_ID, "trace-item-456"))
+
+        assertNull(MDC.get("memberId"))
+    }
 }

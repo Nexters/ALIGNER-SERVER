@@ -168,6 +168,9 @@ spring:
 logging:
   level:
     team.aligner: INFO
+  structured:
+    format:
+      console: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:ecs}
 
 aligner:
   web:

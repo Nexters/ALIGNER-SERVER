@@ -6,16 +6,19 @@ import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.web.filter.OncePerRequestFilter
+import org.springframework.web.servlet.HandlerMapping
 import java.util.concurrent.TimeUnit
 
 /**
- * HTTP 요청/응답 생명주기를 감싸고 분산 추적 ID(X-Request-ID) 전파 및 Access Log 를 기록한다.
+ * HTTP 요청/응답 생명주기 및 관측 컨텍스트를 소유하는 서블릿 필터.
  *
  * Spring Boot 의 ServerHttpObservationFilter (HIGHEST_PRECEDENCE + 1) 뒤에서 실행되어
- * 이미 활성화된 Micrometer traceId / spanId context 를 활용한다.
+ * 이미 활성화된 Micrometer / OpenTelemetry traceId / spanId context 를 활용한다.
  *
- * 요청 완료 후 MDC.clear() 로 톰캣 스레드 풀 오염을 방지하되,
- * 필터 진입 전 snapshot 을 복원하여 Micrometer 의 outer scope 를 보존한다.
+ * 주요 역할:
+ * 1. X-Request-ID 응답 헤더 전파 (MDC traceId 바인딩)
+ * 2. 톰캣 스레드 풀 오염 방지를 위한 MDC cleanup 및 Outer context snapshot 복원
+ * 3. /actuator 등 운영성 노이즈 경로를 제외한 단일 HTTP Access Log 기록 (route 기반 표준화)
  */
 class RequestLoggingFilter : OncePerRequestFilter() {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -32,12 +35,13 @@ class RequestLoggingFilter : OncePerRequestFilter() {
             MDC.get(TRACE_ID)?.let { response.setHeader(X_REQUEST_ID, it) }
             filterChain.doFilter(request, response)
         } finally {
-            if (!isNoisePath(request)) {
+            if (!isNoiseEndpoint(request)) {
                 val durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+                val route = resolveRoute(request)
                 log.info(
                     "HTTP {} {} status={} durationMs={}",
                     request.method,
-                    request.requestURI,
+                    route,
                     response.status,
                     durationMs,
                 )
@@ -47,7 +51,11 @@ class RequestLoggingFilter : OncePerRequestFilter() {
         }
     }
 
-    private fun isNoisePath(request: HttpServletRequest): Boolean {
+    private fun resolveRoute(request: HttpServletRequest): String =
+        (request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE) as? String)
+            ?: request.requestURI
+
+    private fun isNoiseEndpoint(request: HttpServletRequest): Boolean {
         val path = request.requestURI.removePrefix(request.contextPath)
         return path == "/actuator" || path.startsWith("/actuator/")
     }

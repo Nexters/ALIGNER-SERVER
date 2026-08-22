@@ -45,6 +45,11 @@ class ProtectedTestController {
 
     @GetMapping(MDC_INSPECT_PATH)
     fun inspectMdc(): Map<String, String> = MDC.getCopyOfContextMap() ?: emptyMap()
+
+    @GetMapping("/test/items/{id}")
+    fun parameterizedEndpoint(
+        @org.springframework.web.bind.annotation.PathVariable id: Long,
+    ): Map<String, String> = mapOf("id" to id.toString())
 }
 
 const val PROTECTED_PATH = "/test/protected"
