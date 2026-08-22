@@ -20,8 +20,6 @@ import java.util.concurrent.TimeUnit
 class RequestLoggingFilter : OncePerRequestFilter() {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    public override fun shouldNotFilter(request: HttpServletRequest): Boolean = request.requestURI.startsWith("/actuator")
-
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -34,17 +32,24 @@ class RequestLoggingFilter : OncePerRequestFilter() {
             MDC.get(TRACE_ID)?.let { response.setHeader(X_REQUEST_ID, it) }
             filterChain.doFilter(request, response)
         } finally {
-            val durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
-            log.info(
-                "HTTP {} {} status={} durationMs={}",
-                request.method,
-                request.requestURI,
-                response.status,
-                durationMs,
-            )
+            if (!isNoisePath(request)) {
+                val durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
+                log.info(
+                    "HTTP {} {} status={} durationMs={}",
+                    request.method,
+                    request.requestURI,
+                    response.status,
+                    durationMs,
+                )
+            }
             MDC.clear()
             previousMdc?.let(MDC::setContextMap)
         }
+    }
+
+    private fun isNoisePath(request: HttpServletRequest): Boolean {
+        val path = request.requestURI.removePrefix(request.contextPath)
+        return path == "/actuator" || path.startsWith("/actuator/")
     }
 
     companion object {

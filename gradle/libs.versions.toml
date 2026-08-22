@@ -44,7 +44,7 @@ spring-boot-starter-liquibase = { module = "org.springframework.boot:spring-boot
 # RestClient.Builder 자동설정을 끌고 오지 않아서, 없으면 기동이 그 Bean 을 못 찾고 실패한다.
 spring-boot-starter-restclient = { module = "org.springframework.boot:spring-boot-starter-restclient" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
-micrometer-tracing-bridge-otel = { module = "io.micrometer:micrometer-tracing-bridge-otel" }
+spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
 
 postgresql = { module = "org.postgresql:postgresql" }
 springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }

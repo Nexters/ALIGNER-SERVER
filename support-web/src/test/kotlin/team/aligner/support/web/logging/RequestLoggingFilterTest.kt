@@ -1,9 +1,7 @@
 package team.aligner.support.web.logging
 
 import jakarta.servlet.Filter
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.slf4j.MDC
@@ -12,7 +10,6 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.http.HttpHeaders
-import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
@@ -72,14 +69,22 @@ class RequestLoggingFilterTest {
     }
 
     @Test
-    fun `shouldNotFilter 는 actuator 경로를 건너뛰고 일반 경로는 필터링한다`() {
-        val filter = RequestLoggingFilter()
+    fun `인증된 요청 후 익명 요청 시 memberId MDC leak 이 발생하지 않는다`() {
+        val token = jwtTokenProvider.issue(memberId = 99L).accessToken
 
-        val actuatorRequest = MockHttpServletRequest("GET", "/actuator/health")
-        val generalRequest = MockHttpServletRequest("GET", "/members/me")
+        mockMvc
+            .perform(
+                get(MDC_INSPECT_PATH)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer $token"),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.memberId").value("99"))
 
-        assertTrue(filter.shouldNotFilter(actuatorRequest))
-        assertFalse(filter.shouldNotFilter(generalRequest))
+        // 후속 익명 요청 시 401 반환 및 이전 memberId 누수 없음 검증
+        mockMvc
+            .perform(get(PROTECTED_PATH))
+            .andExpect(status().isUnauthorized)
+
+        assertNull(MDC.get("memberId"))
     }
 
     @Test
