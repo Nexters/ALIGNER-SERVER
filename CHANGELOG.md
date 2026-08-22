@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.0](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.5.0...v0.6.0) (2026-08-22)
+
+
+### ✨ 신규 기능 (Features)
+
+* 로컬 개발 원클릭 자동 셋업 스크립트 추가 ([#97](https://github.com/Nexters/ALIGNER-SERVER/issues/97)) ([2470fe8](https://github.com/Nexters/ALIGNER-SERVER/commit/2470fe8e1e56b56f5eb134e6194a72f80391c698))
+* 운동 난이도 seed 적재 ([532623c](https://github.com/Nexters/ALIGNER-SERVER/commit/532623c91b936e57915f1f78dc13347b88535909))
+* 운동 난이도 seed 적재 ([34889fd](https://github.com/Nexters/ALIGNER-SERVER/commit/34889fd6e7e5a9203699ed157057881961b3927a))
+
+
+### 🔧 빌드 및 설정 (Maintenance)
+
+* develop -&gt; main 반영 ([5a040fd](https://github.com/Nexters/ALIGNER-SERVER/commit/5a040fde3c565c814273c0295e955c85b4e01689))
+* develop -&gt; main 반영 ([5a040fd](https://github.com/Nexters/ALIGNER-SERVER/commit/5a040fde3c565c814273c0295e955c85b4e01689))
+
 ## [0.5.0](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.4.2...v0.5.0) (2026-08-21)
 
 
