@@ -1,0 +1,141 @@
+package team.aligner.support.web.logging
+
+import jakarta.servlet.Filter
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.slf4j.MDC
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.web.servlet.FilterRegistrationBean
+import org.springframework.http.HttpHeaders
+import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.test.web.servlet.setup.DefaultMockMvcBuilder
+import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.web.context.WebApplicationContext
+import team.aligner.support.web.auth.JwtTokenProvider
+import team.aligner.support.web.bootstrap.MDC_INSPECT_PATH
+import team.aligner.support.web.bootstrap.PROTECTED_PATH
+import team.aligner.support.web.bootstrap.SupportWebTestApplication
+
+private const val ALLOWED_ORIGIN = "http://localhost:5173"
+
+@SpringBootTest(
+    classes = [SupportWebTestApplication::class],
+    properties = [
+        "aligner.web.cors.allowed-origins=$ALLOWED_ORIGIN",
+        "aligner.web.cors.max-age-seconds=3600",
+        "aligner.auth.jwt.secret=logging-test-signing-key-1234567890-abcdef",
+        "aligner.auth.jwt.expiration-seconds=3600",
+        "aligner.auth.jwt.issuer=aligner",
+        "aligner.auth.kakao.token-uri=https://kauth.kakao.com/oauth/token",
+        "aligner.auth.kakao.user-info-uri=https://kapi.kakao.com/v2/user/me",
+        "aligner.auth.kakao.client-id=dummy-rest-api-key",
+        "aligner.auth.kakao.client-secret=dummy-client-secret",
+        "aligner.auth.kakao.redirect-uri=$ALLOWED_ORIGIN/oauth/kakao",
+        "aligner.auth.kakao.connect-timeout-millis=2000",
+        "aligner.auth.kakao.read-timeout-millis=3000",
+    ],
+)
+class RequestLoggingFilterTest {
+    @Autowired
+    private lateinit var context: WebApplicationContext
+
+    @Autowired
+    @Qualifier("springSecurityFilterChain")
+    private lateinit var springSecurityFilterChain: Filter
+
+    @Autowired
+    private lateinit var jwtTokenProvider: JwtTokenProvider
+
+    private lateinit var mockMvc: MockMvc
+
+    @BeforeEach
+    fun setUp() {
+        @Suppress("UNCHECKED_CAST")
+        val registration = context.getBean("requestLoggingFilter") as FilterRegistrationBean<RequestLoggingFilter>
+        val requestLoggingFilter = registration.filter!!
+        mockMvc =
+            MockMvcBuilders
+                .webAppContextSetup(context)
+                .addFilters<DefaultMockMvcBuilder>(requestLoggingFilter, springSecurityFilterChain)
+                .build()
+        MDC.clear()
+    }
+
+    @Test
+    fun `shouldNotFilter 는 actuator 경로를 건너뛰고 일반 경로는 필터링한다`() {
+        val filter = RequestLoggingFilter()
+
+        val actuatorRequest = MockHttpServletRequest("GET", "/actuator/health")
+        val generalRequest = MockHttpServletRequest("GET", "/members/me")
+
+        assertTrue(filter.shouldNotFilter(actuatorRequest))
+        assertFalse(filter.shouldNotFilter(generalRequest))
+    }
+
+    @Test
+    fun `인증된 요청 시 JWT 필터가 memberId 를 MDC 에 넣고 컨트롤러 종료 후 MDC 가 정리된다`() {
+        val token = jwtTokenProvider.issue(memberId = 42L).accessToken
+
+        mockMvc
+            .perform(
+                get(MDC_INSPECT_PATH)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer $token"),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.memberId").value("42"))
+
+        // 요청 처리 완료 후 MDC.clear() 가 수행되어 스레드에 잔여 데이터가 남지 않아야 함
+        assertNull(MDC.get("memberId"))
+    }
+
+    @Test
+    fun `MDC 에 traceId 가 존재할 때 200 OK 응답 헤더에 X-Request-ID 가 설정된다`() {
+        val token = jwtTokenProvider.issue(memberId = 1L).accessToken
+
+        // Micrometer 가 MDC 에 traceId 를 바인딩한 상황을 모사
+        MDC.put(RequestLoggingFilter.TRACE_ID, "trace-abc-123")
+
+        mockMvc
+            .perform(
+                get(PROTECTED_PATH)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer $token"),
+            ).andExpect(status().isOk)
+            .andExpect(header().string(RequestLoggingFilter.X_REQUEST_ID, "trace-abc-123"))
+
+        assertNull(MDC.get("memberId"))
+    }
+
+    @Test
+    fun `인증 실패(401) 시에도 traceId 가 있으면 X-Request-ID 가 응답에 남는다`() {
+        MDC.put(RequestLoggingFilter.TRACE_ID, "trace-unauthorized-401")
+
+        mockMvc
+            .perform(get(PROTECTED_PATH))
+            .andExpect(status().isUnauthorized)
+            .andExpect(header().string(RequestLoggingFilter.X_REQUEST_ID, "trace-unauthorized-401"))
+
+        assertNull(MDC.get("memberId"))
+    }
+
+    @Test
+    fun `CORS 응답에 X-Request-ID 가 Access-Control-Expose-Headers 로 노출된다`() {
+        val token = jwtTokenProvider.issue(memberId = 1L).accessToken
+
+        mockMvc
+            .perform(
+                get(PROTECTED_PATH)
+                    .header(HttpHeaders.ORIGIN, ALLOWED_ORIGIN)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer $token"),
+            ).andExpect(status().isOk)
+            .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "X-Request-ID"))
+    }
+}

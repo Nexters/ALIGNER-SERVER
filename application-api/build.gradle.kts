@@ -12,6 +12,7 @@ dependencies {
     implementation(project(":support-web"))
     implementation(project(":support-core"))
     implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.micrometer.tracing.bridge.otel)
 
     // member — 카카오 로그인·회원·프로필 (docs/architecture.md §10 8 단계).
     implementation(project(":member:api"))

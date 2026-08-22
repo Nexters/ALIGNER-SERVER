@@ -134,6 +134,8 @@ class SecurityConfig {
                 // Content-Type 때문에 preflight 를 탄다. 여기 빠진 헤더를 프론트가 붙이면
                 // 그 요청은 preflight 단계에서 403 으로 끊긴다.
                 allowedHeaders = listOf(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE)
+                // 서버가 생성한 traceId 기반 X-Request-ID 응답 헤더를 브라우저 JS 가 읽을 수 있도록 노출한다.
+                exposedHeaders = listOf("X-Request-ID")
                 maxAge = corsProperties.maxAgeSeconds
             }
 

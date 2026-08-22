@@ -53,6 +53,10 @@ springdoc:
     tags-sorter: alpha
     operations-sorter: method
 
+logging:
+  pattern:
+    correlation: "[traceId=%X{traceId:-} spanId=%X{spanId:-} memberId=%X{memberId:-}] "
+
 management:
   endpoints:
     web:
@@ -63,6 +67,12 @@ management:
       probes:
         enabled: true
       show-details: never
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      otlp:
+        enabled: ${OTEL_TRACING_EXPORT_ENABLED:false}
 
 ---
 # ==============================================================================
