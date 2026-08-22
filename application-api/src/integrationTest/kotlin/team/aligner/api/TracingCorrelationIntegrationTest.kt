@@ -81,6 +81,23 @@ class TracingCorrelationIntegrationTest {
         traceId shouldMatch "^[0-9a-f]{32}$".toRegex()
     }
 
+    @Test
+    fun `인증된 사용자의 존재하지 않는 경로(404) 요청 시에도 X-Request-ID 헤더가 정상적으로 반환된다`() {
+        val token = jwtTokenProvider.issue(memberId = 1L).accessToken
+
+        val (statusCode, traceId) =
+            rest
+                .get()
+                .uri("/non-existent-api-path")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+                .exchange { _, clientResponse ->
+                    clientResponse.statusCode.value() to clientResponse.headers.getFirst("X-Request-ID")
+                }
+
+        statusCode shouldBe 404
+        traceId shouldMatch "^[0-9a-f]{32}$".toRegex()
+    }
+
     companion object {
         @Container
         @ServiceConnection
