@@ -537,7 +537,7 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
   "defaultRepCount": null,
   "defaultDurationSeconds": 40,
   "metValue": 3.5,
-  "difficulty": "beginner",
+  "difficulty": "EASY",
   "category": "가동성 웜업",
   "cautionNote": "허리에 불편함이 있으면 범위를 줄입니다.",
   "muscles": [
@@ -579,7 +579,10 @@ catalog는 회원별 데이터가 아닌 조회 전용 마스터 데이터다. �
   `difficulty`, `category`, `cautionNote`는 null일 수 있다. null을 0이나 빈 문자열로 바꾸지 않는다.
 - `category`는 코스 스텝 행에 운동 이름 아래로 그리는 분류다(`가동성 웜업` · `핀포즈`).
   **값 집합이 아직 고정되지 않았다** — seed가 들어올 때 확정되므로 프론트에서 값을 열거해
-  분기하지 말고 문자열을 그대로 표시한다. `difficulty`도 같다.
+  분기하지 말고 문자열을 그대로 표시한다.
+- `difficulty`는 `EASY` · `MEDIUM` · `HARD` 세 값이다. **감수 전 임시값이라 값이 바뀔 수
+  있다** — 세 값 외에는 배지를 그리지 않는 식으로 방어한다. 표시 문구(`쉬움`…)는 프론트가
+  만든다. 서버는 한글을 내리지 않는다.
 - **`metValue`는 kcal이 아니다.** catalog는 회원 몸무게를 모르므로 계산하지 않는다.
   kcal이 필요하면 계산해서 내려주는 쪽을 쓴다 — 코스·홈은 `estimatedKcal`(현재 몸무게로
   매번 계산한 **예상치**), 완료 리포트는 세션의 `estimatedKcal`(완료 시점에 계산해 **저장한
