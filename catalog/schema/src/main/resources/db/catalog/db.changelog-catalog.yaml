@@ -272,3 +272,15 @@ databaseChangeLog:
       rollback:
         - sql:
             sql: UPDATE catalog.exercise SET default_duration_seconds = NULL WHERE exercise_id BETWEEN 101 AND 129
+
+  - changeSet:
+      id: catalog-0025-seed-exercise-difficulty
+      author: aligner
+      comment: 운동 29 개에 난이도 EASY·MEDIUM·HARD 적재 — 감수 전 임시값이다
+      changes:
+        - sqlFile:
+            path: seed/013-exercise-difficulty.sql
+            relativeToChangelogFile: true
+      rollback:
+        - sql:
+            sql: UPDATE catalog.exercise SET difficulty = NULL WHERE exercise_id BETWEEN 101 AND 129
