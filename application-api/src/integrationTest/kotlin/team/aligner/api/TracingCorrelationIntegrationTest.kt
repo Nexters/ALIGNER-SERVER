@@ -55,7 +55,7 @@ class TracingCorrelationIntegrationTest {
     fun `인증된 API 요청 시에도 유효한 32자리 traceId 가 X-Request-ID 로 반환된다`() {
         val token = jwtTokenProvider.issue(memberId = 1L).accessToken
 
-        val (_, traceId) =
+        val (statusCode, traceId) =
             rest
                 .get()
                 .uri("/members/me")
@@ -64,6 +64,8 @@ class TracingCorrelationIntegrationTest {
                     clientResponse.statusCode.value() to clientResponse.headers.getFirst("X-Request-ID")
                 }
 
+        // DB 에 회원이 존재하지 않으므로 404 가 반환되나, 인증 통과 후 정상적인 TraceId 가 생성되어 반환됨
+        statusCode shouldBe 404
         traceId shouldMatch "^[0-9a-f]{32}$".toRegex()
     }
 
