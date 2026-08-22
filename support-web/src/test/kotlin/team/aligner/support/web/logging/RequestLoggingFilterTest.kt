@@ -144,7 +144,7 @@ class RequestLoggingFilterTest {
     }
 
     @Test
-    fun `인증 실패(401) 시에도 traceId 가 있으면 X-Request-ID 가 응답에 남는다`() {
+    fun `인증 실패(401) 시에도 traceId 가 있으면 X-Request-ID 가 응답에 남고 401 로그가 기록된다`(output: CapturedOutput) {
         MDC.put(RequestLoggingFilter.TRACE_ID, "trace-unauthorized-401")
 
         mockMvc
@@ -152,6 +152,23 @@ class RequestLoggingFilterTest {
             .andExpect(status().isUnauthorized)
             .andExpect(header().string(RequestLoggingFilter.X_REQUEST_ID, "trace-unauthorized-401"))
 
+        output.all.shouldContain("HTTP GET $PROTECTED_PATH status=401")
+        assertNull(MDC.get("memberId"))
+    }
+
+    @Test
+    fun `존재하지 않는 경로(404) 요청 시에도 X-Request-ID 가 반환되고 404 로그가 기록된다`(output: CapturedOutput) {
+        val token = jwtTokenProvider.issue(memberId = 1L).accessToken
+        MDC.put(RequestLoggingFilter.TRACE_ID, "trace-not-found-404")
+
+        mockMvc
+            .perform(
+                get("/non-existent-slice-endpoint")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer $token"),
+            ).andExpect(status().isNotFound)
+            .andExpect(header().string(RequestLoggingFilter.X_REQUEST_ID, "trace-not-found-404"))
+
+        output.all.shouldContain("HTTP GET /** status=404")
         assertNull(MDC.get("memberId"))
     }
 
