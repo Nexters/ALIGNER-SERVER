@@ -282,7 +282,11 @@ jobs:
       - name: Verify Active HTTP Health Probe
         run: |
           set -euo pipefail
-          HEALTH_URL="https://api.aligneryoga.com/actuator/health"
+          # prod 프로필은 Actuator를 관리 포트 9090으로 분리하므로 공개 라우트
+          # (8080)에는 /actuator/* 가 존재하지 않는다. 대신 인증 없이 열려 있는
+          # /v3/api-docs(SPRINGDOC_ENABLED 기본 true)로 게이트웨이→앱 경로를 검증한다.
+          # 앱 자체의 상태는 위 rollout status 단계가 9090 readiness 프로브로 보증한다.
+          HEALTH_URL="https://api.aligneryoga.com/v3/api-docs"
           MAX_ATTEMPTS=12
           SLEEP_SECONDS=5
 
