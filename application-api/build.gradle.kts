@@ -12,6 +12,11 @@ dependencies {
     implementation(project(":support-web"))
     implementation(project(":support-core"))
     implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.opentelemetry)
+    // Prometheus 가 스크레이프할 /actuator/prometheus 엔드포인트를 연다.
+    implementation(libs.micrometer.registry.prometheus)
+    // Logback 이벤트를 OTLP logs 로 export 하는 애펜더 (Loki OTLP 수신용).
+    implementation(libs.opentelemetry.logback.appender)
 
     // member — 카카오 로그인·회원·프로필 (docs/architecture.md §10 8 단계).
     implementation(project(":member:api"))

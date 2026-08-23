@@ -2,7 +2,9 @@ package team.aligner.support.web
 
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
+import org.springframework.core.Ordered
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.web.client.RestClient
 import team.aligner.support.web.auth.AuthProperties
@@ -11,6 +13,7 @@ import team.aligner.support.web.auth.KakaoAuthController
 import team.aligner.support.web.auth.KakaoUserClient
 import team.aligner.support.web.auth.NimbusJwtTokenProvider
 import team.aligner.support.web.auth.RestClientKakaoUserClient
+import team.aligner.support.web.logging.RequestLoggingFilter
 import java.time.Duration
 
 /**
@@ -57,6 +60,12 @@ class SupportWebAutoConfiguration {
 
     @Bean
     fun jwtTokenProvider(authProperties: AuthProperties): JwtTokenProvider = NimbusJwtTokenProvider(authProperties)
+
+    @Bean
+    fun requestLoggingFilter(): FilterRegistrationBean<RequestLoggingFilter> =
+        FilterRegistrationBean(RequestLoggingFilter()).apply {
+            order = Ordered.HIGHEST_PRECEDENCE + 10
+        }
 
     /**
      * AuthMemberPort 를 요구하는 유일한 Bean 이다. member:adapter-auth 가 조립에서 빠지면

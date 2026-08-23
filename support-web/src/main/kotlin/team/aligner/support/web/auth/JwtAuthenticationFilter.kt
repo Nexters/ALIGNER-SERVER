@@ -3,6 +3,7 @@ package team.aligner.support.web.auth
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.slf4j.MDC
 import org.springframework.http.HttpHeaders
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
@@ -29,6 +30,7 @@ internal class JwtAuthenticationFilter(
         resolveToken(request)
             ?.let { jwtTokenProvider.parseMemberId(it) }
             ?.let { memberId ->
+                MDC.put(MEMBER_ID_KEY, memberId.toString())
                 val principal = AlignerPrincipal(memberId = memberId)
                 SecurityContextHolder.getContext().authentication =
                     UsernamePasswordAuthenticationToken(principal, null, emptyList())
@@ -46,5 +48,6 @@ internal class JwtAuthenticationFilter(
 
     private companion object {
         const val BEARER_PREFIX = "Bearer "
+        const val MEMBER_ID_KEY = "memberId"
     }
 }

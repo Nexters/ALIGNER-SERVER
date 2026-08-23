@@ -15,6 +15,9 @@ javaToolchain = "25"
 # mockk 는 Spring Boot BOM 관리 대상이 아니라 여기에 핀을 박는다.
 # coroutines · springdoc 과 같은 방식으로 Maven Central 최신 안정판을 확정했다.
 mockk = "1.14.11"
+# OTel Logback 애펜더 — instrumentation 계열은 BOM 관리 대상이 아니어서 핀을 박는다.
+# -alpha 는 이 아티팩트의 정식 릴리스 채널이다(스테이블이 존재하지 않는다).
+opentelemetryLogbackAppender = "2.31.0-alpha"
 # testcontainers · postgresql · liquibase 는 Spring Boot BOM 이 관리한다
 # (4.1.0 기준 각각 2.0.5 / 42.7.11 / 5.0.3). 여기에 핀을 박으면 BOM 과 어긋난다.
 
@@ -44,6 +47,13 @@ spring-boot-starter-liquibase = { module = "org.springframework.boot:spring-boot
 # RestClient.Builder 자동설정을 끌고 오지 않아서, 없으면 기동이 그 Bean 을 못 찾고 실패한다.
 spring-boot-starter-restclient = { module = "org.springframework.boot:spring-boot-starter-restclient" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
+
+# 버전은 Spring Boot BOM 이 관리한다. JVM/HikariCP 메트릭을 Prometheus 로 노출.
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus" }
+
+# Logback 이벤트를 OTel SDK(→ OTLP logs)로 전달하는 애펜더.
+opentelemetry-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version.ref = "opentelemetryLogbackAppender" }
 
 postgresql = { module = "org.postgresql:postgresql" }
 springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }

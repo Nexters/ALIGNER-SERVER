@@ -1,1 +1,2 @@
 team.aligner.api.datasource.RoutingDataSourceAutoConfiguration
+team.aligner.api.observability.OtelLoggingConfiguration
