@@ -46,6 +46,9 @@ spring-boot-starter-restclient = { module = "org.springframework.boot:spring-boo
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
 
+# 버전은 Spring Boot BOM 이 관리한다. JVM/HikariCP 메트릭을 Prometheus 로 노출.
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus" }
+
 postgresql = { module = "org.postgresql:postgresql" }
 springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 

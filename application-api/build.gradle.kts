@@ -13,6 +13,8 @@ dependencies {
     implementation(project(":support-core"))
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.opentelemetry)
+    // Prometheus 가 스크레이프할 /actuator/prometheus 엔드포인트를 연다.
+    implementation(libs.micrometer.registry.prometheus)
 
     // member — 카카오 로그인·회원·프로필 (docs/architecture.md §10 8 단계).
     implementation(project(":member:api"))
