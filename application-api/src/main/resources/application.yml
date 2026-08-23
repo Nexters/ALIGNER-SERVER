@@ -69,6 +69,9 @@ management:
       show-details: never
   tracing:
     sampling:
+      # 헤드 샘플링은 항상 1.0 이다. 실제 볼륨 결정은 클러스터의 OTel Collector
+      # tail_sampling 이 한다(에러/5xx/1초초과/핵심 라우트 100%, 나머지 10%).
+      # 앱 단에서 줄이면 Collector 가 에러 트레이스를 놓친다.
       probability: 1.0
     export:
       otlp:
@@ -171,6 +174,41 @@ logging:
   structured:
     format:
       console: ecs
+
+# Spring Boot 4.x 부터 OTLP 트레이싱 엔드포인트 프로퍼티가
+# management.opentelemetry.tracing.export.otlp.* 로 이동했다(구 management.otlp.tracing.* 제거).
+#
+# Actuator 를 별도 관리 포트(9090)로 분리한다. 공개 HTTPRoute 가 8080 의 모든
+# 경로(PathPrefix /)를 게이트웨이로 전달하므로, /actuator/prometheus 가 8080 에
+# 있으면 인터넷에 그대로 노출된다. 9090 은 NetworkPolicy 로 observability 의
+# Prometheus 파드에서만 접근 가능하다.
+#
+# 값들은 보안과 무관하므로 하드코딩한다. 긴급 차단(예: collector 장애로 export
+# 끊고 싶을 때)이 필요하면 env 가 yml 을 이기는 relaxed binding 으로 충분하다 —
+#   MANAGEMENT_TRACING_EXPORT_OTLP_ENABLED=false
+management:
+  server:
+    port: 9090
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  tracing:
+    export:
+      otlp:
+        enabled: true
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://otel-collector.observability.svc.cluster.local:4318/v1/traces
+    # OTLP logs — Logback 애펜더(OtelLoggingConfiguration)가 설치되어야 실제로
+    # 흐른다. 수신처 otel-collector 는 Loki 의 네이티브 OTLP 엔드포인트로
+    # 전달하며, SDK 가 trace_id/span_id 를 자동 부착한다.
+    logging:
+      export:
+        otlp:
+          endpoint: http://otel-collector.observability.svc.cluster.local:4318/v1/logs
 
 aligner:
   web:

@@ -13,8 +13,10 @@ package team.aligner.support.web
  *   핸들러 자체가 없어지고, 열려 있는 경로는 404 만 돌려준다 (application.yml).
  * - 프로파일을 새로 만들지 않는다. MVP 는 단일 배포 서버라 분기할 대상이 없고, 끄고 켜는 판단은
  *   환경변수 하나로 충분하다. 운영에서 닫아야 하면 K8s 가 그 값만 준다.
- * - 헬스체크(/actuator/health)는 Kubelet의 생존/준비 판정(Liveness/Readiness) 및
- *   GitHub Actions CI/CD의 외부 배포 검증(HTTP Probe)을 위해 개방된다.
+ * - 헬스체크(/actuator)는 Kubelet의 생존/준비 판정(Liveness/Readiness)을 위해 개방된다.
+ *   prod 프로필은 Actuator를 관리 포트 9090으로 분리해 공개 라우트에 노출하지 않지만,
+ *   permitAll 규칙은 경로 단위라 유지한다. GitHub Actions 배포 검증(HTTP Probe)은
+ *   prod 에서 /actuator 대신 /v3/api-docs 를 사용한다.
  *   (단, application.yml에 show-details: never 설정이 되어 있어 민감한 내부 지표는 노출되지 않음)
  */
 internal object PublicPaths {
