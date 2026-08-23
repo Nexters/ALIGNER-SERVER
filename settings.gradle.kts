@@ -29,6 +29,12 @@ include(
     "application-api",
 )
 
+// 프론트 연동용 더미 목 서버. **임시 개발 도구이고 배포 대상이 아니다** (이슈 #29).
+// seed 와 catalog/adapter-ymove 가 들어오면 통째로 지운다.
+include(
+    "application-mock",
+)
+
 // member — 카카오 로그인·회원·프로필. 기본 6 개 + contract + adapter-auth
 // (docs/domains.md §4-1, §5).
 include(
