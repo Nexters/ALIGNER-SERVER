@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.1](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.7.0...v0.7.1) (2026-08-23)
+
+
+### 🐛 버그 수정 (Bug Fixes)
+
+* OTel appender 2.28.0-alpha 로 하향 — BOM OTel 1.62 페어링 정합 ([#107](https://github.com/Nexters/ALIGNER-SERVER/issues/107)) ([bb93376](https://github.com/Nexters/ALIGNER-SERVER/commit/bb933763248cc828bbec1a7806165b0bc2817476))
+
+
+### 🔧 빌드 및 설정 (Maintenance)
+
+* develop -&gt; main 반영 ([a34a670](https://github.com/Nexters/ALIGNER-SERVER/commit/a34a670eb8fca4aaf0a03ecf1b7189a25af5d6ee))
+* develop -&gt; main 반영 ([a34a670](https://github.com/Nexters/ALIGNER-SERVER/commit/a34a670eb8fca4aaf0a03ecf1b7189a25af5d6ee))
+
 ## [0.7.0](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.6.0...v0.7.0) (2026-08-23)
 
 
