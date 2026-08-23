@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.InitializingBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Profile
 
 /**
  * Logback 이벤트를 OpenTelemetry SDK 로 전달하는 애펜더 부착.
@@ -22,8 +23,14 @@ import org.springframework.context.annotation.Bean
  *
  * 수신처는 application.yml 의 management.opentelemetry.logging.export.otlp.endpoint
  * (클러스터 otel-collector → Loki /otlp)다.
+ *
+ * dev·prod 에서만 활성화한다. 프로필 없는 컨텍스트(로컬 순수 유닛 테스트,
+ * CI 통합 테스트)에서는 endpoint 가 도달 불가능한 클러스터 DNS 여서 export
+ * 재시도 로그가 다시 애펜더로 들어오는 루프가 생기고, 이는 테스트 워커가
+ * 끝나지 않는 형태로 나타났다(런 32635013590 참조).
  */
 @AutoConfiguration
+@Profile("dev", "prod")
 class OtelLoggingConfiguration {
     @Bean
     fun openTelemetryAppenderInstaller(openTelemetry: OpenTelemetry): InitializingBean =

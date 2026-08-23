@@ -18,6 +18,10 @@ jobs:
   verify:
     name: 빌드·린트·통합 테스트
     runs-on: ubuntu-latest
+    # 정상 런은 3분 내외다. 이보다 오래 걸린다는 건 테스트 워커가 멈춘
+    # 것(예: 도달 불가능한 OTLP endpoint 로의 export 재시도 루프)이므로
+    # 무한 대신 빠르게 실패시킨다.
+    timeout-minutes: 20
     steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v4
