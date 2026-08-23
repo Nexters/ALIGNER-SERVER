@@ -19,7 +19,6 @@ import org.springframework.context.annotation.Configuration
  */
 @Configuration(proxyBeanMethods = false)
 class OtelLoggingConfiguration {
-
     @Bean
     fun openTelemetryAppenderInstaller(openTelemetry: OpenTelemetry): InitializingBean =
         InitializingBean { OpenTelemetryAppender.install(openTelemetry) }
