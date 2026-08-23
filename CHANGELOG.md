@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.6.0...v0.7.0) (2026-08-23)
+
+
+### ✨ 신규 기능 (Features)
+
+* Micrometer Tracing 기반 MDC 추적 및 RequestLoggingFilter 구현 ([#102](https://github.com/Nexters/ALIGNER-SERVER/issues/102)) ([731667a](https://github.com/Nexters/ALIGNER-SERVER/commit/731667a0f54e86de76239147d1e062c4960e51be))
+* 관리 포트 9090 분리 및 Prometheus 메트릭·인클러스터 OTLP 트레이스 export ([a4edfcd](https://github.com/Nexters/ALIGNER-SERVER/commit/a4edfcdf6a476f3403ab54840fc46fdf47aca143))
+
+
+### 🔧 빌드 및 설정 (Maintenance)
+
+* develop -&gt; main 반영 ([b8b689a](https://github.com/Nexters/ALIGNER-SERVER/commit/b8b689a3992d87cf41978b5fc1366b5540f94932))
+
 ## [0.6.0](https://github.com/Nexters/ALIGNER-SERVER/compare/v0.5.0...v0.6.0) (2026-08-22)
 
 
