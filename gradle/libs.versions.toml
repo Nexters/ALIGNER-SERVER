@@ -17,7 +17,12 @@ javaToolchain = "25"
 mockk = "1.14.11"
 # OTel Logback 애펜더 — instrumentation 계열은 BOM 관리 대상이 아니어서 핀을 박는다.
 # -alpha 는 이 아티팩트의 정식 릴리스 채널이다(스테이블이 존재하지 않는다).
-opentelemetryLogbackAppender = "2.31.0-alpha"
+# 버전 페어링 필수: appender N.NN 은 opentelemetry-api 1.(NN-3) 을 요구한다
+# (2.31→1.65, 2.30→1.64, 2.29→1.63, 2.28→1.62). BOM 이 관리하는 OTel SDK
+# 버전(4.1.0 기준 1.62.0)보다 높은 appender 를 쓰면 BOM 이 되내려 받아서
+# ClassNotFoundException(io.opentelemetry.api.internal.InstrumentationUtil)로
+# 런타임 export 가 전부 실패한다.
+opentelemetryLogbackAppender = "2.28.0-alpha"
 # testcontainers · postgresql · liquibase 는 Spring Boot BOM 이 관리한다
 # (4.1.0 기준 각각 2.0.5 / 42.7.11 / 5.0.3). 여기에 핀을 박으면 BOM 과 어긋난다.
 
