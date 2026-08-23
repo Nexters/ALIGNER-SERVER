@@ -202,6 +202,13 @@ management:
       export:
         otlp:
           endpoint: http://otel-collector.observability.svc.cluster.local:4318/v1/traces
+    # OTLP logs — Logback 애펜더(OtelLoggingConfiguration)가 설치되어야 실제로
+    # 흐른다. 수신처 otel-collector 는 Loki 의 네이티브 OTLP 엔드포인트로
+    # 전달하며, SDK 가 trace_id/span_id 를 자동 부착한다.
+    logging:
+      export:
+        otlp:
+          endpoint: http://otel-collector.observability.svc.cluster.local:4318/v1/logs
 
 aligner:
   web:
